@@ -63,7 +63,11 @@ class GumloopClient:
             json=request_body
         )
         response.raise_for_status()
-        run_id = response.json()["run_id"]
+        response_data = response.json()
+        run_id = response_data["run_id"]
+        
+        # Log the automation start with URL
+        print(f"Started automation run: {response_data['url']}")
         
         # Poll until completion
         start_time = time.time()
