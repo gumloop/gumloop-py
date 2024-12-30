@@ -9,7 +9,7 @@ class GumloopClient:
         Args:
             api_key: Your Gumloop API key
             user_id: Your Gumloop user ID
-            project_id: Optional project ID for scoping operations
+            project_id: Optional project ID for running automations under a workspace
         """
         self.api_key = api_key
         self.user_id = user_id
@@ -30,7 +30,7 @@ class GumloopClient:
         """Run a Gumloop flow and wait for results.
         
         Args:
-            flow_id: The saved_item_id of your flow
+            flow_id: The id of your flow
             inputs: Dictionary of input names to values
             poll_interval: How often to check for completion (seconds)
             timeout: Maximum time to wait for completion (seconds)
