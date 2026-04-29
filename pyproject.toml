@@ -5,21 +5,83 @@ build-backend = "hatchling.build"
 [project]
 name = "gumloop"
 version = "0.1.0"
-authors = [
-  { name = "Rahul Behal", email = "rahul@gumloop.com" },
-]
 description = "Python client for the Gumloop API"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.10"
+authors = [
+    { name = "Rahul Behal", email = "rahul@gumloop.com" },
+]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: Apache Software License",
-    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "requests>=2.25.0",
+    "httpx>=0.24.1",
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/gumloop/gumloop-py"
+Homepage = "https://github.com/gumloop/gumloop-py"
 "Bug Tracker" = "https://github.com/gumloop/gumloop-py/issues"
+
+[dependency-groups]
+dev = [
+    "pre-commit>=2.21.0",
+    "pyright>=1.1.409",
+    "pytest>=7.4.4",
+    "python-dotenv>=0.21.1",
+    "respx>=0.21.1",
+    "ruff>=0.15.12",
+]
+build = [
+    "build>=1.0.0",
+    "hatchling>=1.18.0",
+    "twine>=6.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "TID",  # flake8-tidy-imports (bans relative imports above parent, etc.)
+    "ICN",  # flake8-import-conventions (canonical aliases like `import numpy as np`)
+    "PTH",  # flake8-use-pathlib (prefer pathlib over os.path)
+]
+
+[tool.ruff.lint.isort]
+# Force absolute imports and one import per line — keeps diffs clean and
+# makes refactors trivial. Matches the convention every serious Python
+# SDK ships (openai, stripe, anthropic).
+force-single-line = true
+known-first-party = ["gumloop"]
+required-imports = ["from __future__ import annotations"]
+split-on-trailing-comma = true
+
+[tool.ruff.lint.flake8-tidy-imports]
+# Disallow `from ..foo import bar` — only same-package relative imports
+# are allowed. Beyond that, use absolute imports.
+ban-relative-imports = "parents"
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+# `from __future__ import annotations` is meaningless in __init__ shims.
+"src/gumloop/__init__.py" = ["F401", "I002"]
+
+[tool.pyright]
+typeCheckingMode = "standard"
+include = ["src", "tests"]
+venvPath = "."
+venv = ".venv"

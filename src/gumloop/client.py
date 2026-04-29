@@ -1,112 +1,86 @@
-import requests
+from __future__ import annotations
+
+import logging
 import time
-from typing import Dict, List, Optional, Union
+from typing import Any
+
+import httpx
+
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
+
 
 class GumloopClient:
-    def __init__(self, api_key: str, user_id: str, project_id: Optional[str] = None):
-        """Initialize Gumloop client.
-        
-        Args:
-            api_key: Your Gumloop API key
-            user_id: Your Gumloop user ID
-            project_id: Optional project ID for running automations under a workspace
-        """
+    def __init__(self, api_key: str, user_id: str, project_id: str | None = None):
         self.api_key = api_key
         self.user_id = user_id
         self.project_id = project_id
         self.base_url = "https://api.gumloop.com/api/v1"
         self.headers = {
             "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
 
     def run_flow(
-        self, 
-        flow_id: str, 
-        inputs: Dict[str, any],
+        self,
+        flow_id: str,
+        inputs: dict[str, Any],
         poll_interval: float = 1.0,
-        timeout: Optional[float] = None
-    ) -> Dict:
-        """Run a Gumloop flow and wait for results.
-        
-        Args:
-            flow_id: The id of your flow
-            inputs: Dictionary of input names to values
-            poll_interval: How often to check for completion (seconds)
-            timeout: Maximum time to wait for completion (seconds)
-            
-        Returns:
-            Dict containing the flow outputs
-            
+        timeout: float | None = None,
+    ) -> dict:
+        """Run a Gumloop flow and block until it reaches a terminal state.
+
         Raises:
-            TimeoutError: If the flow doesn't complete within timeout
-            RuntimeError: If the flow fails
+            TimeoutError: ``timeout`` elapsed before completion.
+            RuntimeError: flow finished in FAILED, TERMINATING, or TERMINATED state.
         """
-        # Convert inputs to pipeline_inputs format
-        pipeline_inputs = [
-            {"input_name": k, "value": v} 
-            for k, v in inputs.items()
-        ]
-        
-        # Start the flow
+        pipeline_inputs = [{"input_name": k, "value": v} for k, v in inputs.items()]
+
         request_body = {
             "user_id": self.user_id,
             "saved_item_id": flow_id,
-            "pipeline_inputs": pipeline_inputs
+            "pipeline_inputs": pipeline_inputs,
         }
         if self.project_id:
             request_body["project_id"] = self.project_id
-            
-        response = requests.post(
+
+        response = httpx.post(
             f"{self.base_url}/start_pipeline",
             headers=self.headers,
-            json=request_body
+            json=request_body,
         )
         response.raise_for_status()
         response_data = response.json()
         run_id = response_data["run_id"]
-        
-        # Log the automation start with URL
-        print(f"Started automation run: {response_data['url']}")
-        
-        # Poll until completion
+
+        logger.info("Started automation run: %s", response_data["url"])
+
         start_time = time.time()
         while True:
             if timeout and (time.time() - start_time) > timeout:
                 raise TimeoutError("Flow execution timed out")
-                
+
             status = self.get_run_status(run_id)
-            
+
             if status["state"] == "DONE":
                 return status["outputs"]
             elif status["state"] == "FAILED":
-                raise RuntimeError(
-                    f"Flow execution failed: {status.get('log', [])}"
-                )
+                raise RuntimeError(f"Flow execution failed: {status.get('log', [])}")
             elif status["state"] in ["TERMINATING", "TERMINATED"]:
-                raise RuntimeError(
-                    f"Flow execution was terminated: {status.get('log', [])}"
-                )
-            
+                raise RuntimeError(f"Flow execution was terminated: {status.get('log', [])}")
+
             time.sleep(poll_interval)
 
-    def get_run_status(self, run_id: str) -> Dict:
-        """Get the status of a flow run.
-        
-        Args:
-            run_id: The ID of the flow run
-            
-        Returns:
-            Dict containing run status information
-        """
+    def get_run_status(self, run_id: str) -> dict:
+        """Fetch the status payload for a run."""
         params = {"run_id": run_id, "user_id": self.user_id}
         if self.project_id:
             params["project_id"] = self.project_id
-            
-        response = requests.get(
+
+        response = httpx.get(
             f"{self.base_url}/get_pl_run",
             headers=self.headers,
-            params=params
+            params=params,
         )
         response.raise_for_status()
         return response.json()
