@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+import warnings
 from typing import Any
 
 import httpx
@@ -15,6 +16,11 @@ class GumloopClient:
             user_id: Your Gumloop user ID
             project_id: Optional project ID for running automations under a workspace
         """
+        warnings.warn(
+            "GumloopClient is the legacy flows client. Use gumloop.Gumloop for new agents and sessions APIs.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.api_key = api_key
         self.user_id = user_id
         self.project_id = project_id
