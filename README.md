@@ -31,3 +31,26 @@ output = client.run_flow(
 
 print(output)
 ```
+
+## Chat with an agent (streaming)
+
+```python
+import asyncio
+
+from gumloop import AsyncGumloop
+
+
+async def main() -> None:
+    async with AsyncGumloop(access_token="your_access_token") as client:
+        agents = await client.list_agents()
+        agent = agents["agents"][0]
+
+        async for event in client.stream_session(
+            agent_id=agent["id"],
+            input="Hello, what can you do?",
+        ):
+            print(event)
+
+
+asyncio.run(main())
+```
