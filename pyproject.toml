@@ -21,8 +21,15 @@ classifiers = [
 dependencies = [
     "httpx>=0.24.1",
     "httpx-sse>=0.4.0",
+    "keyring>=24",
     "pydantic>=2.0.0",
+    "questionary>=2.0",
+    "rich",
+    "typer>=0.25.1",
 ]
+
+[project.scripts]
+gumloop = "gumloop.cli.main:main"
 
 [project.urls]
 Homepage = "https://github.com/gumloop/gumloop-py"
