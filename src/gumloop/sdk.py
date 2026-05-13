@@ -6,8 +6,6 @@ from collections.abc import AsyncIterator
 from collections.abc import Iterator
 from typing import Any
 from typing import cast
-from urllib.parse import urlsplit
-from urllib.parse import urlunsplit
 
 import httpx
 
@@ -54,19 +52,9 @@ DEFAULT_STREAM_TIMEOUT = 3600.0
 
 
 def _derive_stream_base_url(base_url: str) -> str:
-    normalized = base_url.rstrip("/")
-    parts = urlsplit(normalized)
-    host = parts.netloc
-    stream_host = host
-
-    if host == "api.gumloop.com":
-        stream_host = "ws.gumloop.com"
-    elif host.endswith(".api.gumloop.com"):
-        stream_host = host.replace(".api.gumloop.com", ".ws.gumloop.com")
-    elif host == "localhost:8080":
-        stream_host = "localhost:9093"
-
-    return urlunsplit((parts.scheme, stream_host, parts.path, "", ""))
+    # api.gumloop.com -> ws.gumloop.com (also covers staging.api.gumloop.com)
+    # localhost:8080 -> localhost:9093 (local backend)
+    return base_url.replace("api.gumloop.com", "ws.gumloop.com").replace("localhost:8080", "localhost:9093")
 
 
 def _decode_sse_event(event_name: str | None, data: str) -> StreamEvent:
