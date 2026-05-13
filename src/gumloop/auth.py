@@ -104,6 +104,22 @@ class Auth:
             },
         )
 
+    def revoke(self, client_id: str, token: str) -> None:
+        """Revoke an access or refresh token server-side (RFC 7009).
+
+        The Gumloop ``POST /oauth/revoke`` endpoint accepts either token
+        type and returns ``200`` on success. Callers typically want to
+        invoke this on logout so a leaked refresh token can't be reused
+        after the local credential file is wiped.
+        """
+        self._post_json(
+            "oauth/revoke",
+            data={
+                "client_id": client_id,
+                "token": token,
+            },
+        )
+
     def _post_json(self, path: str, **kwargs: Any) -> dict[str, Any]:
         response = httpx.post(f"{self.base_url}/{path}", timeout=self.timeout, **kwargs)
         if response.status_code < 200 or response.status_code >= 300:

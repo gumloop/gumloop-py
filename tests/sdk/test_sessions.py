@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-# pyright: reportGeneralTypeIssues=false, reportTypedDictNotRequiredAccess=false, reportArgumentType=false
+# pyright: reportGeneralTypeIssues=false, reportTypedDictNotRequiredAccess=false, reportArgumentType=false, reportIndexIssue=false
 import asyncio
 
 import httpx
@@ -12,11 +12,13 @@ from gumloop import Gumloop
 from tests.sdk.helpers import API_BASE
 from tests.sdk.helpers import request_json
 
+STREAM_BASE = "https://ws.gumloop.com/api/v1"
+
 
 @respx.mock
 def test_sessions_create_without_input_returns_session(client: Gumloop) -> None:
     route = respx.post(f"{API_BASE}/agents/agent_123/sessions").mock(
-        return_value=httpx.Response(201, json={"session": {"id": "session_123", "object": "session"}})
+        return_value=httpx.Response(201, json={"session": {"id": "session_123", "agent_id": "agent_123"}})
     )
 
     result = client.sessions.create("agent_123", session_id="session_123", metadata={"source": "test"})
@@ -29,21 +31,24 @@ def test_sessions_create_without_input_returns_session(client: Gumloop) -> None:
 
 
 @respx.mock
-def test_sessions_create_with_input_can_return_response(client: Gumloop) -> None:
+def test_sessions_create_with_input(client: Gumloop) -> None:
     route = respx.post(f"{API_BASE}/agents/agent_123/sessions").mock(
-        return_value=httpx.Response(200, json={"response": {"id": "session_123", "object": "response"}})
+        return_value=httpx.Response(
+            200, json={"session": {"id": "session_123", "agent_id": "agent_123"}, "queue_position": 1}
+        )
     )
 
     result = client.sessions.create("agent_123", input="Hello")
 
-    assert result["response"]["id"] == "session_123"
+    assert result["session"]["id"] == "session_123"
+    assert result["queue_position"] == 1
     assert request_json(route.calls[0].request) == {"input": "Hello"}
 
 
 @respx.mock
 def test_sessions_create_request_object_can_be_overridden_by_kwargs(client: Gumloop) -> None:
     route = respx.post(f"{API_BASE}/agents/agent_123/sessions").mock(
-        return_value=httpx.Response(201, json={"session": {"id": "session_123", "object": "session"}})
+        return_value=httpx.Response(201, json={"session": {"id": "session_123", "agent_id": "agent_123"}})
     )
 
     client.sessions.create("agent_123", {"input": "Old"}, message="New")
@@ -54,18 +59,22 @@ def test_sessions_create_request_object_can_be_overridden_by_kwargs(client: Guml
 @respx.mock
 def test_sessions_retrieve_send_and_cancel_routes(client: Gumloop) -> None:
     retrieve_route = respx.get(f"{API_BASE}/sessions/session_123").mock(
-        return_value=httpx.Response(200, json={"session": {"id": "session_123", "object": "session"}})
+        return_value=httpx.Response(200, json={"session": {"id": "session_123", "agent_id": "agent_123"}})
     )
-    send_route = respx.post(f"{API_BASE}/sessions/session_123").mock(
-        return_value=httpx.Response(200, json={"response": {"id": "session_123", "object": "response"}})
+    send_route = respx.post(f"{API_BASE}/sessions/session_123/messages").mock(
+        return_value=httpx.Response(
+            200, json={"session": {"id": "session_123", "agent_id": "agent_123"}, "queue_position": 0}
+        )
     )
     cancel_route = respx.post(f"{API_BASE}/sessions/session_123/cancel").mock(
-        return_value=httpx.Response(200, json={"response": {"id": "session_123", "object": "response"}})
+        return_value=httpx.Response(
+            200, json={"session": {"id": "session_123", "agent_id": "agent_123", "state": "cancelled"}}
+        )
     )
 
     assert client.sessions.retrieve("session_123")["session"]["id"] == "session_123"
-    assert client.sessions.send("session_123", message="Continue")["response"]["id"] == "session_123"
-    assert client.sessions.cancel("session_123")["response"]["id"] == "session_123"
+    assert client.sessions.send("session_123", message="Continue")["session"]["id"] == "session_123"
+    assert client.sessions.cancel("session_123")["session"]["id"] == "session_123"
     assert retrieve_route.call_count == 1
     assert request_json(send_route.calls[0].request) == {"message": "Continue"}
     assert request_json(cancel_route.calls[0].request) == {}
@@ -85,31 +94,106 @@ def test_sessions_reject_ambiguous_or_empty_message(kwargs: dict) -> None:
         client.sessions.send("session_123", **kwargs)
 
 
-def test_sessions_do_not_expose_stream_methods(client: Gumloop) -> None:
-    assert not hasattr(client.sessions, "stream")
-    assert not hasattr(client, "stream_session")
+@respx.mock
+def test_sessions_create_with_stream_true_uses_stream_host(client: Gumloop) -> None:
+    route = respx.post(f"{STREAM_BASE}/agents/agent_123/sessions").mock(
+        return_value=httpx.Response(
+            200,
+            text='event: message\ndata: {"type": "message", "stream_cursor": "sid:1"}\n\n'
+            'event: finish\ndata: {"type": "finish", "final": true}\n\n',
+            headers={"content-type": "text/event-stream"},
+        )
+    )
+
+    events = list(client.sessions.create("agent_123", input="Hello", stream=True))
+
+    assert events == [
+        {"type": "message", "stream_cursor": "sid:1"},
+        {"type": "finish", "final": True},
+    ]
+    assert request_json(route.calls[0].request) == {"input": "Hello", "stream": True}
+
+
+@respx.mock
+def test_sessions_send_with_stream_true_uses_stream_host(client: Gumloop) -> None:
+    route = respx.post(f"{STREAM_BASE}/sessions/session_123/messages").mock(
+        return_value=httpx.Response(
+            200,
+            text='event: finish\ndata: {"type": "finish", "final": true}\n\n',
+            headers={"content-type": "text/event-stream"},
+        )
+    )
+
+    events = list(client.sessions.send("session_123", input="Continue", stream=True))
+
+    assert events == [{"type": "finish", "final": True}]
+    assert request_json(route.calls[0].request) == {"input": "Continue", "stream": True}
+
+
+@respx.mock
+def test_sessions_resume_stream_uses_last_cursor(client: Gumloop) -> None:
+    route = respx.get(f"{STREAM_BASE}/sessions/session_123").mock(
+        return_value=httpx.Response(
+            200,
+            text='event: finish\ndata: {"type": "finish", "finishReason": "not_resumable", "final": true}\n\n',
+            headers={"content-type": "text/event-stream"},
+        )
+    )
+
+    events = list(client.sessions.resume_stream("session_123", "sid:1"))
+
+    assert events == [{"type": "finish", "finishReason": "not_resumable", "final": True}]
+    assert route.calls[0].request.url.params["stream"] == "true"
+    assert route.calls[0].request.url.params["last_cursor"] == "sid:1"
 
 
 @respx.mock
 def test_async_sessions_methods() -> None:
     respx.post(f"{API_BASE}/agents/agent_123/sessions").mock(
-        return_value=httpx.Response(201, json={"session": {"id": "session_123", "object": "session"}})
+        return_value=httpx.Response(201, json={"session": {"id": "session_123", "agent_id": "agent_123"}})
     )
     respx.get(f"{API_BASE}/sessions/session_123").mock(
-        return_value=httpx.Response(200, json={"session": {"id": "session_123", "object": "session"}})
+        return_value=httpx.Response(200, json={"session": {"id": "session_123", "agent_id": "agent_123"}})
     )
-    respx.post(f"{API_BASE}/sessions/session_123").mock(
-        return_value=httpx.Response(200, json={"response": {"id": "session_123", "object": "response"}})
+    respx.post(f"{API_BASE}/sessions/session_123/messages").mock(
+        return_value=httpx.Response(200, json={"session": {"id": "session_123", "agent_id": "agent_123"}})
     )
     respx.post(f"{API_BASE}/sessions/session_123/cancel").mock(
-        return_value=httpx.Response(200, json={"response": {"id": "session_123", "object": "response"}})
+        return_value=httpx.Response(
+            200, json={"session": {"id": "session_123", "agent_id": "agent_123", "state": "cancelled"}}
+        )
     )
 
     async def run() -> None:
         async with AsyncGumloop(access_token="token") as client:
             assert (await client.sessions.create("agent_123"))["session"]["id"] == "session_123"
             assert (await client.sessions.retrieve("session_123"))["session"]["id"] == "session_123"
-            assert (await client.sessions.send("session_123", input="Hello"))["response"]["id"] == "session_123"
-            assert (await client.sessions.cancel("session_123"))["response"]["id"] == "session_123"
+            assert (await client.sessions.send("session_123", input="Hello"))["session"]["id"] == "session_123"
+            assert (await client.sessions.cancel("session_123"))["session"]["id"] == "session_123"
+
+    asyncio.run(run())
+
+
+@respx.mock
+def test_async_sessions_stream_methods() -> None:
+    create_route = respx.post(f"{STREAM_BASE}/agents/agent_123/sessions").mock(
+        return_value=httpx.Response(
+            200,
+            text='event: message\ndata: {"type": "message", "stream_cursor": "sid:1"}\n\n'
+            'event: finish\ndata: {"type": "finish", "final": true}\n\n',
+            headers={"content-type": "text/event-stream"},
+        )
+    )
+
+    async def run() -> None:
+        async with AsyncGumloop(access_token="token") as client:
+            stream = await client.sessions.create("agent_123", input="Hello", stream=True)
+            events = [event async for event in stream]
+
+        assert events == [
+            {"type": "message", "stream_cursor": "sid:1"},
+            {"type": "finish", "final": True},
+        ]
+        assert request_json(create_route.calls[0].request) == {"input": "Hello", "stream": True}
 
     asyncio.run(run())

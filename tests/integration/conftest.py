@@ -1,8 +1,5 @@
-"""Fixtures for live integration tests.
-
-Each fixture reads one env var and skips the test if missing. Adding a
-new resource is a 4-line fixture below.
-"""
+"""Fixtures for live integration tests. Each fixture reads one env var
+and skips its tests if missing."""
 
 from __future__ import annotations
 
@@ -12,6 +9,7 @@ from pathlib import Path
 import pytest
 from dotenv import load_dotenv
 
+from gumloop import Gumloop
 from gumloop import GumloopClient
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
@@ -42,3 +40,11 @@ def test_flow_id() -> str:
 @pytest.fixture
 def live_client(api_key: str, user_id: str) -> GumloopClient:
     return GumloopClient(api_key=api_key, user_id=user_id)
+
+
+@pytest.fixture
+def dev_client(api_key: str, user_id: str) -> Gumloop:
+    # GUMLOOP_BASE_URL gates the dev-API tests: the dev API isn't on
+    # prod yet, so blindly hitting the default URL would be all 404s.
+    base_url = _required("GUMLOOP_BASE_URL")
+    return Gumloop(api_key=api_key, user_id=user_id, base_url=base_url)

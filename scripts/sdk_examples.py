@@ -159,9 +159,11 @@ def get_authenticated_config() -> dict[str, Any]:
 
 def pick_model(client: Gumloop) -> str:
     models = client.models.list()
-    data = models.get("data", [])
-    if data and data[0].get("id"):
-        return data[0]["id"]
+    for group in models.get("model_groups", []):
+        for option in group.get("options", []):
+            value = option.get("value") or option.get("model_name") or option.get("id")
+            if value and not option.get("restricted"):
+                return value
     return "auto"
 
 
@@ -171,10 +173,10 @@ def wait_for_session(client: Gumloop, session_id: str, timeout_seconds: float = 
     while time.monotonic() < deadline:
         session_response = client.sessions.retrieve(session_id)
         session = session_response["session"]
-        if session.get("status") != last_status:
-            last_status = session.get("status")
-            log(f"Session {session_id} status: {last_status}")
-        if session.get("status") in {"completed", "failed"}:
+        if session.get("state") != last_status:
+            last_status = session.get("state")
+            log(f"Session {session_id} state: {last_status}")
+        if session.get("state") in {"completed", "failed"}:
             return session_response
         time.sleep(2)
     return client.sessions.retrieve(session_id)
@@ -183,9 +185,30 @@ def wait_for_session(client: Gumloop, session_id: str, timeout_seconds: float = 
 def extract_session_id(result: dict[str, Any]) -> str:
     if "session" in result:
         return result["session"]["id"]
-    if "response" in result:
-        return result["response"]["id"]
     raise RuntimeError(f"Could not find session id in response: {result}")
+
+
+def run_stream_smoke(client: Gumloop, agent_id: str) -> dict[str, Any]:
+    log("\n== Sync streaming smoke ==")
+    session_id = f"sdk_example_stream_{int(time.time() * 1000)}"
+    last_cursor = None
+    event_count = 0
+    for event in client.sessions.stream(
+        agent_id,
+        session_id=session_id,
+        input="Stream one short sentence confirming HTTP streaming works.",
+        metadata={"example": "sync_stream"},
+    ):
+        event_count += 1
+        last_cursor = event.get("stream_cursor") or last_cursor
+        log(f"Stream event {event_count}: {event.get('type')}")
+        if event.get("final"):
+            break
+
+    log(f"Stream session id: {session_id}")
+    if last_cursor:
+        log(f"Last stream cursor: {last_cursor}")
+    return {"session_id": session_id, "last_cursor": last_cursor, "event_count": event_count}
 
 
 def run_sync_smoke(access_token: str, base_url: str) -> dict[str, Any]:
@@ -195,14 +218,14 @@ def run_sync_smoke(access_token: str, base_url: str) -> dict[str, Any]:
     log(f"Base URL: {base_url}")
     models = client.models.list()
     agents = client.agents.list(limit=10)
-    log(f"Models returned: {len(models.get('data', []))}")
-    log(f"Agents returned: {len(agents.get('data', []))}")
+    log(f"Model groups returned: {len(models.get('model_groups', []))}")
+    log(f"Agents returned: {len(agents.get('agents', []))}")
 
     model = pick_model(client)
     agent = client.agents.create(
         name=f"SDK Example Agent {int(time.time())}",
-        model=model,
-        instructions="You are a concise assistant used to test the Gumloop Python SDK.",
+        model_name=model,
+        system_prompt="You are a concise assistant used to test the Gumloop Python SDK.",
     )
     agent_id = agent["agent"]["id"]
     log(f"Created agent: {agent_id}")
@@ -213,21 +236,23 @@ def run_sync_smoke(access_token: str, base_url: str) -> dict[str, Any]:
         metadata={"example": "sync"},
     )
     session_id = extract_session_id(first_response)
-    initial_status = first_response.get("response", first_response.get("session", {})).get("status")
-    log(f"Created session / response: {session_id}")
-    log(f"Initial response status: {initial_status}")
+    initial_state = first_response.get("session", {}).get("state")
+    log(f"Created session: {session_id}")
+    log(f"Initial session state: {initial_state}")
 
     final_session = wait_for_session(client, session_id)
-    final_status = final_session["session"].get("status")
-    log(f"Final/last observed session status: {final_status}")
+    final_state = final_session["session"].get("state")
+    log(f"Final/last observed session state: {final_state}")
 
     second_response: dict[str, Any] | None = None
-    if final_status in {"completed", "failed"}:
+    if final_state in {"completed", "failed"}:
         second_response = client.sessions.send(session_id, "Send one more short confirmation.")
-        log(f"Second response status: {second_response.get('response', {}).get('status')}")
+        log(f"Second response state: {second_response.get('session', {}).get('state')}")
     else:
         log("Skipping follow-up send because the first response did not reach a terminal state.")
-    return {"agent_id": agent_id, "session_id": session_id, "response": second_response}
+
+    stream_result = run_stream_smoke(client, agent_id)
+    return {"agent_id": agent_id, "session_id": session_id, "response": second_response, "stream": stream_result}
 
 
 async def run_async_smoke(access_token: str, base_url: str, agent_id: str) -> dict[str, Any]:
@@ -237,8 +262,8 @@ async def run_async_smoke(access_token: str, base_url: str, agent_id: str) -> di
             client.models.list(),
             client.agents.list(limit=10),
         )
-        log(f"Async models returned: {len(models.get('data', []))}")
-        log(f"Async agents returned: {len(agents.get('data', []))}")
+        log(f"Async model groups returned: {len(models.get('model_groups', []))}")
+        log(f"Async agents returned: {len(agents.get('agents', []))}")
 
         created = await client.sessions.create(
             agent_id,
@@ -248,16 +273,29 @@ async def run_async_smoke(access_token: str, base_url: str, agent_id: str) -> di
         session_id = extract_session_id(created)
         latest = await client.sessions.retrieve(session_id)
         follow_up = None
-        if latest["session"].get("status") in {"completed", "failed"}:
+        if latest["session"].get("state") in {"completed", "failed"}:
             follow_up = await client.sessions.send(session_id, "Send an async follow-up confirmation.")
 
+        stream_session_id = f"sdk_example_async_stream_{int(time.time() * 1000)}"
+        stream_event_count = 0
+        async for event in client.sessions.stream(
+            agent_id,
+            session_id=stream_session_id,
+            input="Stream one short sentence confirming async HTTP streaming works.",
+            metadata={"example": "async_stream"},
+        ):
+            stream_event_count += 1
+            log(f"Async stream event {stream_event_count}: {event.get('type')}")
+            if event.get("final"):
+                break
+
     log(f"Async session id: {session_id}")
-    log(f"Async latest status: {latest['session'].get('status')}")
+    log(f"Async latest state: {latest['session'].get('state')}")
     if follow_up:
-        log(f"Async follow-up status: {follow_up.get('response', {}).get('status')}")
+        log(f"Async follow-up state: {follow_up.get('session', {}).get('state')}")
     else:
         log("Skipping async follow-up send because the response is not terminal yet.")
-    return {"session_id": session_id, "response": follow_up}
+    return {"session_id": session_id, "response": follow_up, "stream_session_id": stream_session_id}
 
 
 def main() -> None:

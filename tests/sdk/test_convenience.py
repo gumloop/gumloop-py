@@ -76,16 +76,16 @@ def test_sync_convenience_methods_delegate_to_resources() -> None:
     client.sessions = _SyncResource()
 
     assert client.list_models() == {"method": "list"}
-    assert client.list_agents(search="support", limit=5) == {"method": "list"}
-    assert client.create_agent(name="Support", model="auto") == {"method": "create"}
+    assert client.list_agents(search="support") == {"method": "list"}
+    assert client.create_agent(name="Support", model_name="auto") == {"method": "create"}
     assert client.get_agent("agent_123") == {"method": "retrieve"}
-    assert client.update_agent("agent_123", model="auto") == {"method": "update"}
+    assert client.update_agent("agent_123", model_name="auto") == {"method": "update"}
     assert client.create_session("agent_123", input="Hello") == {"method": "create"}
     assert client.get_session("session_123") == {"method": "retrieve"}
     assert client.send_message("session_123", "Hello") == {"method": "send"}
     assert client.cancel_session("session_123") == {"method": "cancel"}
 
-    assert client.agents.calls[0] == ("list", (), {"search": "support", "limit": 5})
+    assert client.agents.calls[0] == ("list", (), {"search": "support"})
     assert client.sessions.calls[-2] == ("send", ("session_123", "Hello"), {})
 
 
@@ -97,16 +97,16 @@ def test_async_convenience_methods_delegate_to_resources() -> None:
             client.sessions = _AsyncResource()
 
             assert await client.list_models() == {"method": "list"}
-            assert await client.list_agents(search="support", limit=5) == {"method": "list"}
-            assert await client.create_agent(name="Support", model="auto") == {"method": "create"}
+            assert await client.list_agents(search="support") == {"method": "list"}
+            assert await client.create_agent(name="Support", model_name="auto") == {"method": "create"}
             assert await client.get_agent("agent_123") == {"method": "retrieve"}
-            assert await client.update_agent("agent_123", model="auto") == {"method": "update"}
+            assert await client.update_agent("agent_123", model_name="auto") == {"method": "update"}
             assert await client.create_session("agent_123", input="Hello") == {"method": "create"}
             assert await client.get_session("session_123") == {"method": "retrieve"}
             assert await client.send_message("session_123", "Hello") == {"method": "send"}
             assert await client.cancel_session("session_123") == {"method": "cancel"}
 
-            assert client.agents.calls[0] == ("list", (), {"search": "support", "limit": 5})
+            assert client.agents.calls[0] == ("list", (), {"search": "support"})
             assert client.sessions.calls[-2] == ("send", ("session_123", "Hello"), {})
 
     asyncio.run(run())

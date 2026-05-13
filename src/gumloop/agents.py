@@ -20,8 +20,8 @@ class Agents:
     def __init__(self, client: Any) -> None:
         self._client = client
 
-    def list(self, search: str | None = None, limit: int | None = None) -> AgentListResponse:
-        params = _body(search=search or None, limit=limit)
+    def list(self, *, search: str | None = None, team_id: str | None = None, **kwargs: Any) -> AgentListResponse:
+        params = _body(search=search or None, team_id=team_id, **kwargs)
         return self._client._request_json("GET", "agents", params=params)
 
     def create(
@@ -29,9 +29,9 @@ class Agents:
         request: AgentCreateRequest | None = None,
         *,
         name: str | None = None,
-        model: str | None = None,
+        model_name: str | None = None,
         description: str | None = None,
-        instructions: str | None = None,
+        system_prompt: str | None = None,
         tools: list[dict[str, Any]] | None = None,
         resources: list[dict[str, Any]] | None = None,
         metadata: dict[str, Any] | None = None,
@@ -39,13 +39,14 @@ class Agents:
         is_active: bool | None = None,
         agent_id: str | None = None,
         team_id: str | None = None,
+        **kwargs: Any,
     ) -> AgentResponse:
         body = _body(
             request,
             name=name,
-            model=model,
+            model_name=model_name,
             description=description,
-            instructions=instructions,
+            system_prompt=system_prompt,
             tools=tools,
             resources=resources,
             metadata=metadata,
@@ -53,6 +54,7 @@ class Agents:
             is_active=is_active,
             agent_id=agent_id,
             team_id=team_id,
+            **kwargs,
         )
         return self._client._request_json("POST", "agents", json=body)
 
@@ -65,26 +67,28 @@ class Agents:
         request: AgentUpdateRequest | None = None,
         *,
         name: str | None = None,
-        model: str | None = None,
+        model_name: str | None = None,
         description: str | None = None,
-        instructions: str | None = None,
+        system_prompt: str | None = None,
         tools: list[dict[str, Any]] | None = None,
         resources: list[dict[str, Any]] | None = None,
         metadata: dict[str, Any] | None = None,
         is_active: bool | None = None,
         team_id: str | None = None,
+        **kwargs: Any,
     ) -> AgentResponse:
         body = _body(
             request,
             name=name,
-            model=model,
+            model_name=model_name,
             description=description,
-            instructions=instructions,
+            system_prompt=system_prompt,
             tools=tools,
             resources=resources,
             metadata=metadata,
             is_active=is_active,
             team_id=team_id,
+            **kwargs,
         )
         return self._client._request_json("PATCH", f"agents/{agent_id}", json=body)
 
@@ -93,16 +97,17 @@ class Models:
     def __init__(self, client: Any) -> None:
         self._client = client
 
-    def list(self) -> ModelListResponse:
-        return self._client._request_json("GET", "models")
+    def list(self, **kwargs: Any) -> ModelListResponse:
+        params = _body(**kwargs)
+        return self._client._request_json("GET", "models", params=params)
 
 
 class AsyncAgents:
     def __init__(self, client: Any) -> None:
         self._client = client
 
-    async def list(self, search: str | None = None, limit: int | None = None) -> AgentListResponse:
-        params = _body(search=search or None, limit=limit)
+    async def list(self, *, search: str | None = None, team_id: str | None = None, **kwargs: Any) -> AgentListResponse:
+        params = _body(search=search or None, team_id=team_id, **kwargs)
         return await self._client._request_json("GET", "agents", params=params)
 
     async def create(
@@ -110,9 +115,9 @@ class AsyncAgents:
         request: AgentCreateRequest | None = None,
         *,
         name: str | None = None,
-        model: str | None = None,
+        model_name: str | None = None,
         description: str | None = None,
-        instructions: str | None = None,
+        system_prompt: str | None = None,
         tools: list[dict[str, Any]] | None = None,
         resources: list[dict[str, Any]] | None = None,
         metadata: dict[str, Any] | None = None,
@@ -120,13 +125,14 @@ class AsyncAgents:
         is_active: bool | None = None,
         agent_id: str | None = None,
         team_id: str | None = None,
+        **kwargs: Any,
     ) -> AgentResponse:
         body = _body(
             request,
             name=name,
-            model=model,
+            model_name=model_name,
             description=description,
-            instructions=instructions,
+            system_prompt=system_prompt,
             tools=tools,
             resources=resources,
             metadata=metadata,
@@ -134,6 +140,7 @@ class AsyncAgents:
             is_active=is_active,
             agent_id=agent_id,
             team_id=team_id,
+            **kwargs,
         )
         return await self._client._request_json("POST", "agents", json=body)
 
@@ -146,26 +153,28 @@ class AsyncAgents:
         request: AgentUpdateRequest | None = None,
         *,
         name: str | None = None,
-        model: str | None = None,
+        model_name: str | None = None,
         description: str | None = None,
-        instructions: str | None = None,
+        system_prompt: str | None = None,
         tools: list[dict[str, Any]] | None = None,
         resources: list[dict[str, Any]] | None = None,
         metadata: dict[str, Any] | None = None,
         is_active: bool | None = None,
         team_id: str | None = None,
+        **kwargs: Any,
     ) -> AgentResponse:
         body = _body(
             request,
             name=name,
-            model=model,
+            model_name=model_name,
             description=description,
-            instructions=instructions,
+            system_prompt=system_prompt,
             tools=tools,
             resources=resources,
             metadata=metadata,
             is_active=is_active,
             team_id=team_id,
+            **kwargs,
         )
         return await self._client._request_json("PATCH", f"agents/{agent_id}", json=body)
 
@@ -174,5 +183,6 @@ class AsyncModels:
     def __init__(self, client: Any) -> None:
         self._client = client
 
-    async def list(self) -> ModelListResponse:
-        return await self._client._request_json("GET", "models")
+    async def list(self, **kwargs: Any) -> ModelListResponse:
+        params = _body(**kwargs)
+        return await self._client._request_json("GET", "models", params=params)
