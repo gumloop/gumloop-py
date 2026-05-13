@@ -122,6 +122,8 @@ class Sessions:
         message: str | list[Any] | None = None,
         **kwargs: Any,
     ) -> Iterator[StreamEvent]:
+        if input is None and message is None:
+            raise ValueError("input or message is required")
         return self._client._stream_json(
             "POST",
             f"sessions/{session_id}/messages",
@@ -217,6 +219,8 @@ class AsyncSessions:
         message: str | list[Any] | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[StreamEvent]:
+        if input is None and message is None:
+            raise ValueError("input or message is required")
         return self._client._astream_json(
             "POST",
             f"sessions/{session_id}/messages",
