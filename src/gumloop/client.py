@@ -23,6 +23,18 @@ class GumloopClient:
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         }
+        # Persistent client so the polling loop reuses one TCP connection
+        # across start_pipeline + get_pl_run instead of handshaking per call.
+        self._client = httpx.Client(headers=self.headers)
+
+    def close(self) -> None:
+        self._client.close()
+
+    def __enter__(self) -> GumloopClient:
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        self.close()
 
     def run_flow(
         self,
@@ -58,22 +70,19 @@ class GumloopClient:
         if self.project_id:
             request_body["project_id"] = self.project_id
 
-        response = httpx.post(
+        response = self._client.post(
             f"{self.base_url}/start_pipeline",
-            headers=self.headers,
             json=request_body,
         )
         response.raise_for_status()
         response_data = response.json()
         run_id = response_data["run_id"]
 
-        # Log the automation start with URL
-        print(f"Started automation run: {response_data['url']}")
-
-        # Poll until completion
         start_time = time.time()
         while True:
-            if timeout and (time.time() - start_time) > timeout:
+            # `is not None` so timeout=0 raises immediately rather than
+            # being treated as "no deadline" by truthiness.
+            if timeout is not None and (time.time() - start_time) > timeout:
                 raise TimeoutError("Flow execution timed out")
 
             status = self.get_run_status(run_id)
@@ -100,9 +109,8 @@ class GumloopClient:
         if self.project_id:
             params["project_id"] = self.project_id
 
-        response = httpx.get(
+        response = self._client.get(
             f"{self.base_url}/get_pl_run",
-            headers=self.headers,
             params=params,
         )
         response.raise_for_status()
