@@ -66,7 +66,10 @@ def _read_prompt(value: str | None, file_path: str | None, field_name: str) -> s
     if value is not None and file_path is not None:
         raise GumloopError(f"Pass at most one of --{field_name} or --{field_name}-file.")
     if file_path is not None:
-        return Path(file_path).expanduser().read_text(encoding="utf-8")
+        try:
+            return Path(file_path).expanduser().read_text(encoding="utf-8")
+        except OSError as error:
+            raise GumloopError(f"Could not read {file_path}: {error.strerror or error}") from error
     return value
 
 
@@ -289,7 +292,10 @@ def _resolve_tools(tools_json: str | None, tools_file: str | None) -> list[dict[
     import json
 
     if tools_file is not None:
-        raw = Path(tools_file).expanduser().read_text(encoding="utf-8")
+        try:
+            raw = Path(tools_file).expanduser().read_text(encoding="utf-8")
+        except OSError as error:
+            raise GumloopError(f"Could not read {tools_file}: {error.strerror or error}") from error
     else:
         raw = tools_json or ""
 

@@ -33,7 +33,13 @@ def resolve_json_args(
     if inline is not None:
         raw = inline
     elif file_path is not None:
-        raw = Path(file_path).expanduser().read_text(encoding="utf-8")
+        # OSError covers FileNotFoundError, PermissionError, IsADirectoryError,
+        # etc. Wrap so callers' `except GumloopError` catches it cleanly
+        # instead of leaking a Python traceback.
+        try:
+            raw = Path(file_path).expanduser().read_text(encoding="utf-8")
+        except OSError as error:
+            raise GumloopError(f"Could not read {file_path}: {error.strerror or error}") from error
     elif stdin_marker is not None:
         if stdin_marker != "-":
             raise GumloopError(

@@ -4,6 +4,7 @@ from typing import Any
 from typing import NoReturn
 
 import typer
+from rich.markup import escape as escape_markup
 
 from gumloop import APIStatusError
 from gumloop import AuthenticationError
@@ -38,5 +39,8 @@ def exit_with_error(error: Exception, *, json_output: bool = False) -> NoReturn:
     if json_output:
         print_json_error(payload)
     else:
-        error_console.print(f"[red]Error:[/red] {message}")
+        # message can include server-supplied text (e.g. APIStatusError body);
+        # escape it so a crafted response can't render terminal hyperlinks
+        # through the [red]Error:[/red] framing print.
+        error_console.print(f"[red]Error:[/red] {escape_markup(message)}")
     raise typer.Exit(1)
