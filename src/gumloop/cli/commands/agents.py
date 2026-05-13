@@ -9,6 +9,7 @@ from typing import Any
 import typer
 from rich.markup import escape as escape_markup
 from rich.table import Table
+from rich.text import Text
 
 from gumloop import GumloopError
 from gumloop.cli.console import console
@@ -32,11 +33,13 @@ def _render_agents(agents: Sequence[Mapping[str, Any]]) -> None:
     table.add_column("Active")
 
     for agent in agents:
+        # Wrap remote strings in rich.text.Text so Rich never interprets
+        # them as markup (Table cells default to markup=True).
         table.add_row(
-            str(agent.get("id") or ""),
-            str(agent.get("name") or ""),
-            str(agent.get("model_name") or ""),
-            str(agent.get("team_id") or ""),
+            Text(str(agent.get("id") or "")),
+            Text(str(agent.get("name") or "")),
+            Text(str(agent.get("model_name") or "")),
+            Text(str(agent.get("team_id") or "")),
             "yes" if agent.get("is_active") else "no",
         )
 
@@ -111,7 +114,7 @@ def list_agents(
     _render_agents(response.get("agents", []))
     next_cursor = response.get("next_cursor")
     if next_cursor:
-        console.print(f"\n[dim]Next cursor:[/dim] {next_cursor}")
+        console.print(f"\n[dim]Next cursor:[/dim] {escape_markup(str(next_cursor))}")
 
 
 @agents_app.command("get", epilog="Example:\n  gumloop agents get agent_abc --json")

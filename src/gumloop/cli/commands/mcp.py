@@ -8,6 +8,7 @@ from typing import Any
 import typer
 from rich.markup import escape as escape_markup
 from rich.table import Table
+from rich.text import Text
 
 from gumloop import GumloopError
 from gumloop.cli.commands._args_input import resolve_json_args
@@ -36,13 +37,14 @@ def _render_servers(servers: Sequence[Mapping[str, Any]]) -> None:
         status_value = str(server.get("status") or "")
         auth_url = "" if status_value == "connected" else str(server.get("gumloop_auth_url") or "")
         tool_count = server.get("tool_count")
+        # rich.text.Text cells are rendered as plain strings, not markup.
         table.add_row(
-            str(server.get("server_id") or ""),
-            str(server.get("name") or ""),
-            str(server.get("type") or ""),
-            status_value,
+            Text(str(server.get("server_id") or "")),
+            Text(str(server.get("name") or "")),
+            Text(str(server.get("type") or "")),
+            Text(status_value),
             "" if tool_count is None else str(tool_count),
-            auth_url,
+            Text(auth_url),
         )
 
     console.print(table)
@@ -71,9 +73,9 @@ def _render_tools(tools: Sequence[Mapping[str, Any]]) -> None:
 
     for tool in tools:
         table.add_row(
-            str(tool.get("name") or ""),
-            str(tool.get("tool_call_id") or ""),
-            str(tool.get("description") or ""),
+            Text(str(tool.get("name") or "")),
+            Text(str(tool.get("tool_call_id") or "")),
+            Text(str(tool.get("description") or "")),
         )
 
     console.print(table)

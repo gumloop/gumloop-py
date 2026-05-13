@@ -6,7 +6,9 @@ from typing import Annotated
 from typing import Any
 
 import typer
+from rich.markup import escape as escape_markup
 from rich.table import Table
+from rich.text import Text
 
 from gumloop import GumloopError
 from gumloop.cli.commands._downloads import download_response
@@ -31,12 +33,13 @@ def _render_artifacts(artifacts: Sequence[Mapping[str, Any]]) -> None:
     table.add_column("Created")
 
     for artifact in artifacts:
+        # rich.text.Text cells are rendered as plain strings, not markup.
         table.add_row(
-            str(artifact.get("id") or ""),
-            str(artifact.get("filename") or ""),
-            str(artifact.get("version_id") or ""),
-            str(artifact.get("session_id") or ""),
-            str(artifact.get("created_at") or ""),
+            Text(str(artifact.get("id") or "")),
+            Text(str(artifact.get("filename") or "")),
+            Text(str(artifact.get("version_id") or "")),
+            Text(str(artifact.get("session_id") or "")),
+            Text(str(artifact.get("created_at") or "")),
         )
 
     console.print(table)
@@ -87,7 +90,7 @@ def list_artifacts(
     _render_artifacts(response.get("artifacts", []))
     next_cursor = response.get("next_cursor")
     if next_cursor:
-        console.print(f"\n[dim]Next cursor:[/dim] {next_cursor}")
+        console.print(f"\n[dim]Next cursor:[/dim] {escape_markup(str(next_cursor))}")
 
 
 @artifacts_app.command(

@@ -7,7 +7,9 @@ from typing import Annotated
 from typing import Any
 
 import typer
+from rich.markup import escape as escape_markup
 from rich.table import Table
+from rich.text import Text
 
 from gumloop import GumloopError
 from gumloop.cli.commands._downloads import download_response
@@ -33,12 +35,13 @@ def _render_skills(skills: Sequence[Mapping[str, Any]]) -> None:
     table.add_column("Updated")
 
     for skill in skills:
+        # rich.text.Text cells are rendered as plain strings, not markup.
         table.add_row(
-            str(skill.get("id") or ""),
-            str(skill.get("name") or ""),
-            str(skill.get("team_id") or ""),
+            Text(str(skill.get("id") or "")),
+            Text(str(skill.get("name") or "")),
+            Text(str(skill.get("team_id") or "")),
             "" if skill.get("usage_count") is None else str(skill.get("usage_count")),
-            str(skill.get("updated_at") or ""),
+            Text(str(skill.get("updated_at") or "")),
         )
 
     console.print(table)
@@ -105,7 +108,7 @@ def list_skills(
     _render_skills(response.get("skills", []))
     next_cursor = response.get("next_cursor")
     if next_cursor:
-        console.print(f"\n[dim]Next cursor:[/dim] {next_cursor}")
+        console.print(f"\n[dim]Next cursor:[/dim] {escape_markup(str(next_cursor))}")
 
 
 @skills_app.command(
@@ -146,10 +149,10 @@ def create_skill(
         return
 
     skill = response.get("skill") or {}
-    console.print(f"[green]Created skill[/green] {skill.get('id', '')}")
+    console.print(f"[green]Created skill[/green] {escape_markup(str(skill.get('id', '')))}")
     skill_name = skill.get("name")
     if skill_name:
-        console.print(f"  Name: {skill_name}")
+        console.print(f"  Name: {skill_name}", markup=False, highlight=False)
 
 
 @skills_app.command(
