@@ -138,4 +138,8 @@ class Auth:
                 status_code=response.status_code,
                 body=body,
             )
+        # RFC 7009 /oauth/revoke (and some token endpoints) return 200 with an
+        # empty body on success; calling .json() on that raises JSONDecodeError.
+        if not response.content:
+            return {}
         return response.json()

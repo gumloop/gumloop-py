@@ -63,8 +63,8 @@ def _derive_stream_base_url(base_url: str) -> str:
         stream_host = "ws.gumloop.com"
     elif host.endswith(".api.gumloop.com"):
         stream_host = host.replace(".api.gumloop.com", ".ws.gumloop.com")
-    elif host.startswith("localhost:8080"):
-        stream_host = host.replace("localhost:8080", "localhost:9093", 1)
+    elif host == "localhost:8080":
+        stream_host = "localhost:9093"
 
     return urlunsplit((parts.scheme, stream_host, parts.path, "", ""))
 
@@ -158,10 +158,6 @@ class Gumloop:
         self.skills = Skills(self)
         self.artifacts = Artifacts(self)
         self.auth = Auth(base_url=self.base_url, timeout=self.timeout)
-
-        self.headers = {"Authorization": f"Bearer {self.access_token or self.api_key or ''}"}
-        if self.user_id:
-            self.headers["x-auth-key"] = self.user_id
 
     def _request_json(self, method: str, path: str, **kwargs: Any) -> Any:
         response = httpx.request(
@@ -368,10 +364,6 @@ class AsyncGumloop:
         self.teams = AsyncTeams(self)
         self.skills = AsyncSkills(self)
         self.artifacts = AsyncArtifacts(self)
-
-        self.headers = {"Authorization": f"Bearer {self.access_token or self.api_key or ''}"}
-        if self.user_id:
-            self.headers["x-auth-key"] = self.user_id
 
     async def __aenter__(self) -> AsyncGumloop:
         return self

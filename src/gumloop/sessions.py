@@ -107,9 +107,9 @@ class Sessions:
         stream: bool | None = None,
         **kwargs: Any,
     ) -> SessionResponse | Iterator[StreamEvent]:
-        body = _session_body(input=input, message=message, stream=stream, **kwargs)
-        if not body:
+        if input is None and message is None:
             raise ValueError("input or message is required")
+        body = _session_body(input=input, message=message, stream=stream, **kwargs)
         if body.get("stream") is True:
             return self._client._stream_json("POST", f"sessions/{session_id}/messages", json=body)
         return self._client._request_json("POST", f"sessions/{session_id}/messages", json=body)
@@ -202,9 +202,9 @@ class AsyncSessions:
         stream: bool | None = None,
         **kwargs: Any,
     ) -> SessionResponse | AsyncIterator[StreamEvent]:
-        body = _session_body(input=input, message=message, stream=stream, **kwargs)
-        if not body:
+        if input is None and message is None:
             raise ValueError("input or message is required")
+        body = _session_body(input=input, message=message, stream=stream, **kwargs)
         if body.get("stream") is True:
             return self._client._astream_json("POST", f"sessions/{session_id}/messages", json=body)
         return await self._client._request_json("POST", f"sessions/{session_id}/messages", json=body)
