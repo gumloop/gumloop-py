@@ -6,6 +6,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TypeVar
 
+import httpx
+
 from gumloop import APIStatusError
 from gumloop import AuthenticationError
 from gumloop import Gumloop
@@ -58,7 +60,15 @@ class CliContext:
             base_url=self.effective_base_url,
             refresh_token=self.credentials.refresh_token,
         )
-        self.credentials.access_token = tokens.get("access_token")
+        # 2xx with no access_token = broken server response; treat as a hard
+        # auth failure so we don't overwrite the stored token with ``None``
+        # and then retry the original call unauthenticated.
+        new_access = tokens.get("access_token")
+        if not new_access:
+            raise AuthenticationError(
+                "Refresh response did not include an access_token. Run `gumloop login` to sign in again."
+            )
+        self.credentials.access_token = new_access
         if tokens.get("refresh_token"):
             self.credentials.refresh_token = tokens["refresh_token"]
         save_credentials(self.credentials)
@@ -73,11 +83,25 @@ class CliContext:
                 raise
             try:
                 refreshed = self.refresh_if_possible()
-            except Exception as refresh_error:
+            except APIStatusError as refresh_error:
+                # Only a 4xx from the token endpoint means the refresh token
+                # itself is dead. 5xx / network errors are transient and must
+                # NOT wipe the keychain - otherwise a flaky connection forces
+                # a re-login even though the credentials are still valid.
+                if 400 <= refresh_error.status_code < 500:
+                    clear_credentials()
+                    raise AuthenticationError(
+                        "Session expired or revoked. Run `gumloop login` to sign in again."
+                    ) from refresh_error
+                raise
+            except AuthenticationError:
+                # refresh_if_possible already classified this as terminal.
                 clear_credentials()
-                raise AuthenticationError(
-                    "Session expired or revoked. Run `gumloop login` to sign in again."
-                ) from refresh_error
+                raise
+            except httpx.HTTPError:
+                # Transport-layer failure (timeout, DNS, conn reset). Surface
+                # untouched so the user can retry with creds intact.
+                raise
             if not refreshed:
                 raise
             return fn(self.build_client())

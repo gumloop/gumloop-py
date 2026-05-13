@@ -8,6 +8,7 @@ from typing import Any
 from typing import cast
 
 import typer
+from rich.markup import escape as escape_markup
 from rich.table import Table
 
 from gumloop import GumloopError
@@ -24,9 +25,12 @@ sessions_app = typer.Typer(
 
 def _render_session(session: Mapping[str, Any]) -> None:
     # markup=False on remote fields keeps agent/user message text from
-    # being interpreted as Rich markup. Table cells need rich.text.Text
-    # because table cells default to markup=True.
-    console.print(f"[bold]Session {session.get('id') or ''}[/bold]", markup=True, highlight=False)
+    # being interpreted as Rich markup. The header line uses markup=True
+    # for the [bold] frame, so the server-supplied id is escape_markup'd
+    # to neutralize any embedded markup syntax. Table cells use rich.text.Text
+    # for the same reason (Table cells default to markup=True).
+    session_id = escape_markup(str(session.get("id") or ""))
+    console.print(f"[bold]Session {session_id}[/bold]", markup=True, highlight=False)
     for field in ("agent_id", "agent_name", "state", "created_at"):
         value = session.get(field)
         if value not in (None, ""):

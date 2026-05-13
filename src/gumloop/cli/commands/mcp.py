@@ -6,6 +6,7 @@ from typing import Annotated
 from typing import Any
 
 import typer
+from rich.markup import escape as escape_markup
 from rich.table import Table
 
 from gumloop import GumloopError
@@ -48,11 +49,14 @@ def _render_servers(servers: Sequence[Mapping[str, Any]]) -> None:
 
 
 def _render_server(server: Mapping[str, Any]) -> None:
-    console.print(f"[bold]{server.get('name') or server.get('server_id')}[/bold]")
+    # See _render_call_result: escape server strings inside markup=True
+    # headers, drop to markup=False on the data rows.
+    title = str(server.get("name") or server.get("server_id") or "")
+    console.print(f"[bold]{escape_markup(title)}[/bold]")
     for field in ("server_id", "type", "status", "tool_count", "description", "gumloop_auth_url", "mcp_url"):
         value = server.get(field)
         if value not in (None, ""):
-            console.print(f"  {field}: {value}")
+            console.print(f"  {field}: {value}", markup=False, highlight=False)
 
 
 def _render_tools(tools: Sequence[Mapping[str, Any]]) -> None:
@@ -85,10 +89,10 @@ def _render_call_result(response: Mapping[str, Any]) -> None:
         return
     for result in results:
         status_value = str(result.get("status") or "")
-        ref = result.get("ref") or ""
+        ref = str(result.get("ref") or "")
         tool_name = str(result.get("tool_name") or "")
-        ref_suffix = f" (ref: {ref})" if ref else ""
-        console.print(f"[bold]{tool_name}[/bold]{ref_suffix}", markup=True, highlight=False)
+        ref_suffix = f" (ref: {escape_markup(ref)})" if ref else ""
+        console.print(f"[bold]{escape_markup(tool_name)}[/bold]{ref_suffix}", markup=True, highlight=False)
         console.print(f"  status: {status_value}", markup=False, highlight=False)
         error = result.get("error")
         if error:
@@ -163,10 +167,11 @@ def list_tools(
         return
 
     if response.get("status") and response.get("status") != "connected":
-        console.print(f"Server [bold]{server}[/bold] is not connected ({response.get('status')}).")
+        status_text = escape_markup(str(response.get("status") or ""))
+        console.print(f"Server [bold]{escape_markup(server)}[/bold] is not connected ({status_text}).")
         auth_url = response.get("gumloop_auth_url")
         if auth_url:
-            console.print(f"Connect here: {auth_url}")
+            console.print(f"Connect here: {auth_url}", markup=False, highlight=False)
         return
 
     _render_tools(response.get("tools", []))

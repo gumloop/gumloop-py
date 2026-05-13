@@ -7,6 +7,7 @@ from typing import Annotated
 from typing import Any
 
 import typer
+from rich.markup import escape as escape_markup
 from rich.table import Table
 
 from gumloop import GumloopError
@@ -43,13 +44,19 @@ def _render_agents(agents: Sequence[Mapping[str, Any]]) -> None:
 
 
 def _render_agent(agent: Mapping[str, Any]) -> None:
-    console.print(f"[bold]{agent.get('name') or agent.get('id')}[/bold]")
+    # Server-controlled strings (name, description, system_prompt) get
+    # escape_markup() when interpolated into a markup=True line, and
+    # markup=False on lines that are pure remote data. Without this a
+    # malicious agent record can render fake terminal hyperlinks.
+    title = str(agent.get("name") or agent.get("id") or "")
+    console.print(f"[bold]{escape_markup(title)}[/bold]")
     for field in ("id", "model_name", "team_id", "is_active", "folder_id", "description", "created_at"):
         value = agent.get(field)
         if value not in (None, ""):
-            console.print(f"  {field}: {value}")
+            console.print(f"  {field}: {value}", markup=False, highlight=False)
     if agent.get("system_prompt"):
-        console.print(f"  system_prompt:\n    {agent['system_prompt']}")
+        console.print("  system_prompt:", markup=False, highlight=False)
+        console.print(f"    {agent['system_prompt']}", markup=False, highlight=False)
 
 
 def _read_prompt(value: str | None, file_path: str | None, field_name: str) -> str | None:
@@ -196,10 +203,10 @@ def create_agent(
         return
 
     agent = response.get("agent") or {}
-    console.print(f"[green]Created agent[/green] {agent.get('id', '')}")
+    console.print(f"[green]Created agent[/green] {escape_markup(str(agent.get('id', '')))}")
     agent_name = agent.get("name")
     if agent_name:
-        console.print(f"  Name: {agent_name}")
+        console.print(f"  Name: {agent_name}", markup=False, highlight=False)
 
 
 @agents_app.command(
