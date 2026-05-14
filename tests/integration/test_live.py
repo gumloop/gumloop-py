@@ -25,40 +25,37 @@ def test_invalid_run_id_surfaces_an_error(live_client: GumloopClient) -> None:
 def test_models_list_returns_model_groups_envelope(dev_client: Gumloop) -> None:
     response = dev_client.models.list()
 
-    assert "model_groups" in response
-    assert isinstance(response["model_groups"], list)
+    assert isinstance(response.model_groups, list)
 
 
 def test_teams_list_returns_teams_with_id_and_name(dev_client: Gumloop) -> None:
     response = dev_client.teams.list()
 
-    assert "teams" in response
-    assert isinstance(response["teams"], list)
-    for team in response["teams"]:
-        assert "id" in team
-        assert "name" in team
+    assert isinstance(response.teams, list)
+    for team in response.teams:
+        assert team.id
+        assert team.name
 
 
 def test_agents_list_returns_paginated_envelope(dev_client: Gumloop) -> None:
     response = dev_client.agents.list(page_size=5)
 
-    assert "agents" in response
-    assert isinstance(response["agents"], list)
-    assert "next_cursor" in response
+    assert isinstance(response.agents, list)
+    # ``next_cursor`` can be None when there's a single page; just check it
+    # is the declared field rather than its truthiness.
+    assert hasattr(response, "next_cursor")
 
 
 def test_mcp_servers_list_returns_servers_envelope(dev_client: Gumloop) -> None:
     response = dev_client.mcp.list_servers()
 
-    assert "servers" in response
-    assert isinstance(response["servers"], list)
+    assert isinstance(response.servers, list)
 
 
 def test_skills_list_returns_paginated_envelope(dev_client: Gumloop) -> None:
     response = dev_client.skills.list(page_size=5)
 
-    assert "skills" in response
-    assert isinstance(response["skills"], list)
+    assert isinstance(response.skills, list)
 
 
 def test_dev_api_invalid_agent_id_raises_api_status_error(dev_client: Gumloop) -> None:

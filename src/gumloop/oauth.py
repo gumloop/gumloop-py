@@ -9,35 +9,32 @@ from urllib.parse import urlencode
 
 import httpx
 
-from gumloop.errors import APIStatusError
+from gumloop.errors import to_api_error
 
 DEFAULT_OAUTH_SCOPES = ("gumloop", "userinfo")
 
 
-def _scope_string(scopes: str | Sequence[str]) -> str:
-    return scopes if isinstance(scopes, str) else " ".join(scopes)
+class OAuth:
+    """OAuth 2.0 + PKCE helpers for the Gumloop developer API. Endpoints
+    live at the root host (``/oauth/*``), not under ``/api/v1``, and don't
+    consume a bearer token themselves."""
 
-
-def _oauth_base_url(base_url: str) -> str:
-    normalized = base_url.rstrip("/")
-    return normalized[:-7] if normalized.endswith("/api/v1") else normalized
-
-
-def _code_challenge(code_verifier: str) -> str:
-    digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
-    return base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
-
-
-class Auth:
     def __init__(self, *, base_url: str, timeout: float) -> None:
-        self.base_url = _oauth_base_url(base_url)
+        # OAuth endpoints sit at the root, so strip a trailing /api/v1 if the
+        # caller reused the API base URL.
+        self.base_url = base_url.rstrip("/").removesuffix("/api/v1")
         self.timeout = timeout
+
+    @staticmethod
+    def _scope_string(scopes: str | Sequence[str]) -> str:
+        # Wire format is a single space-separated string per RFC 6749 §3.3.
+        return scopes if isinstance(scopes, str) else " ".join(scopes)
 
     def register_client(
         self,
         redirect_uri: str,
-        client_name: str = "Gumloop Python SDK",
         *,
+        client_name: str = "Gumloop Python SDK",
         scopes: str | Sequence[str] = DEFAULT_OAUTH_SCOPES,
     ) -> dict[str, Any]:
         return self._post_json(
@@ -48,7 +45,7 @@ class Auth:
                 "grant_types": ["authorization_code", "refresh_token"],
                 "response_types": ["code"],
                 "token_endpoint_auth_method": "none",
-                "scope": _scope_string(scopes),
+                "scope": self._scope_string(scopes),
             },
         )
 
@@ -63,13 +60,17 @@ class Auth:
     ) -> tuple[str, str, str]:
         code_verifier = secrets.token_urlsafe(64)
         state = state or secrets.token_urlsafe(24)
+        # PKCE S256 challenge (RFC 7636 §4.2).
+        code_challenge = (
+            base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode("ascii")).digest()).decode("ascii").rstrip("=")
+        )
         params = {
             "response_type": "code",
             "client_id": client_id,
             "redirect_uri": redirect_uri,
-            "scope": _scope_string(scopes),
+            "scope": self._scope_string(scopes),
             "state": state,
-            "code_challenge": _code_challenge(code_verifier),
+            "code_challenge": code_challenge,
             "code_challenge_method": "S256",
         }
         if resource:
@@ -105,13 +106,7 @@ class Auth:
         )
 
     def revoke(self, client_id: str, token: str) -> None:
-        """Revoke an access or refresh token server-side (RFC 7009).
-
-        The Gumloop ``POST /oauth/revoke`` endpoint accepts either token
-        type and returns ``200`` on success. Callers typically want to
-        invoke this on logout so a leaked refresh token can't be reused
-        after the local credential file is wiped.
-        """
+        """Revoke an access or refresh token server-side (RFC 7009)."""
         self._post_json(
             "oauth/revoke",
             data={
@@ -123,23 +118,8 @@ class Auth:
     def _post_json(self, path: str, **kwargs: Any) -> dict[str, Any]:
         response = httpx.post(f"{self.base_url}/{path}", timeout=self.timeout, **kwargs)
         if response.status_code < 200 or response.status_code >= 300:
-            try:
-                body: Any = response.json()
-            except ValueError:
-                body = response.text
-            error = body.get("error") if isinstance(body, dict) else None
-            message = (
-                str(error.get("message") or f"Gumloop API returned HTTP {response.status_code}")
-                if isinstance(error, dict)
-                else f"Gumloop API returned HTTP {response.status_code}"
-            )
-            raise APIStatusError(
-                message,
-                status_code=response.status_code,
-                body=body,
-            )
-        # RFC 7009 /oauth/revoke (and some token endpoints) return 200 with an
-        # empty body on success; calling .json() on that raises JSONDecodeError.
+            raise to_api_error(response)
+        # RFC 7009 /oauth/revoke returns 200 with an empty body on success.
         if not response.content:
             return {}
         return response.json()

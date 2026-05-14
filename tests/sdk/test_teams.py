@@ -19,7 +19,7 @@ def test_teams_list_hits_teams_endpoint_with_bearer_header(client: Gumloop) -> N
 
     result = client.teams.list()
 
-    assert result == {"teams": [{"id": "team_123", "name": "Acme"}]}
+    assert [(t.id, t.name) for t in result.teams] == [("team_123", "Acme")]
     assert auth_header(route.calls[0].request) == "Bearer token"
 
 
@@ -29,6 +29,7 @@ def test_async_teams_list() -> None:
 
     async def run() -> None:
         async with AsyncGumloop(access_token="token") as client:
-            assert await client.teams.list() == {"teams": []}
+            result = await client.teams.list()
+            assert result.teams == []
 
     asyncio.run(run())

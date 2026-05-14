@@ -1,19 +1,42 @@
 from __future__ import annotations
 
 from typing import Any
-from typing import TypedDict
+from typing import Literal
+
+from pydantic import BaseModel
+from pydantic import ConfigDict
+from pydantic import Field
+
+
+class _Model(BaseModel):
+    """Base for all SDK models. ``extra="allow"`` lets the SDK transparently
+    pass through fields the backend adds in future versions without an SDK
+    bump — both on parsed responses and on user-supplied request kwargs."""
+
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    @classmethod
+    def build(cls, request: Any = None, /, **kwargs: Any) -> dict[str, Any]:
+        """Merge a (model | dict | None) request with caller kwargs and return
+        a JSON-ready dict. ``exclude_unset`` is used so unspecified fields
+        keep their backend-side defaults instead of being overwritten by the
+        SDK's local default values."""
+        base = request.model_dump(exclude_unset=True) if isinstance(request, cls) else dict(request or {})
+        base.update({k: v for k, v in kwargs.items() if v is not None})
+        return cls.model_validate(base).model_dump(exclude_unset=True)
+
 
 # ---------------------------------------------------------------------------
 # Shared payload types
 # ---------------------------------------------------------------------------
 
 
-class CreatorPayload(TypedDict, total=False):
-    id: str | None
-    first_name: str | None
-    last_name: str | None
-    email: str | None
-    profile_picture: str | None
+class CreatorPayload(_Model):
+    id: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    email: str | None = None
+    profile_picture: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -21,56 +44,57 @@ class CreatorPayload(TypedDict, total=False):
 # ---------------------------------------------------------------------------
 
 
-class AgentCreateRequest(TypedDict, total=False):
+class AgentCreateRequest(_Model):
     name: str
     model_name: str
-    description: str | None
-    system_prompt: str | None
-    tools: list[dict[str, Any]]
-    resources: list[dict[str, Any]]
-    metadata: dict[str, Any] | None
-    folder_id: str | None
-    is_active: bool
-    agent_id: str | None
-    team_id: str | None
+    description: str | None = None
+    system_prompt: str | None = None
+    tools: list[dict[str, Any]] = Field(default_factory=list)
+    resources: list[dict[str, Any]] = Field(default_factory=list)
+    metadata: dict[str, Any] | None = None
+    folder_id: str | None = None
+    is_active: bool = True
+    agent_id: str | None = None
+    team_id: str | None = None
 
 
-class AgentUpdateRequest(TypedDict, total=False):
-    name: str | None
-    model_name: str | None
-    description: str | None
-    system_prompt: str | None
-    tools: list[dict[str, Any]] | None
-    resources: list[dict[str, Any]] | None
-    metadata: dict[str, Any] | None
-    is_active: bool | None
-    team_id: str | None
+class AgentUpdateRequest(_Model):
+    name: str | None = None
+    model_name: str | None = None
+    description: str | None = None
+    system_prompt: str | None = None
+    tools: list[dict[str, Any]] | None = None
+    resources: list[dict[str, Any]] | None = None
+    metadata: dict[str, Any] | None = None
+    is_active: bool | None = None
+    team_id: str | None = None
 
 
-class Agent(TypedDict, total=False):
+class Agent(_Model):
     id: str
     name: str
-    description: str | None
-    team_id: str | None
-    is_active: bool
-    tools: list[dict[str, Any]]
-    resources: list[dict[str, Any]]
-    metadata: dict[str, Any]
-    model_name: str | None
-    system_prompt: str | None
-    folder_id: str | None
-    type: str | None
-    created_at: str | None
-    creator: CreatorPayload | None
+    description: str | None = None
+    team_id: str | None = None
+    is_active: bool = False
+    tools: list[dict[str, Any]] = Field(default_factory=list)
+    resources: list[dict[str, Any]] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    model_name: str | None = None
+    system_prompt: str | None = None
+    folder_id: str | None = None
+    type: str | None = None
+    created_at: str | None = None
+    active_trigger_count: int | None = None
+    creator: CreatorPayload | None = None
 
 
-class AgentResponse(TypedDict):
+class AgentResponse(_Model):
     agent: Agent
 
 
-class AgentListResponse(TypedDict, total=False):
-    agents: list[Agent]
-    next_cursor: str | None
+class AgentListResponse(_Model):
+    agents: list[Agent] = Field(default_factory=list)
+    next_cursor: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -78,8 +102,8 @@ class AgentListResponse(TypedDict, total=False):
 # ---------------------------------------------------------------------------
 
 
-class ModelListResponse(TypedDict, total=False):
-    model_groups: list[dict[str, Any]]
+class ModelListResponse(_Model):
+    model_groups: list[dict[str, Any]] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -87,13 +111,13 @@ class ModelListResponse(TypedDict, total=False):
 # ---------------------------------------------------------------------------
 
 
-class Team(TypedDict, total=False):
+class Team(_Model):
     id: str
     name: str
 
 
-class TeamsResponse(TypedDict):
-    teams: list[Team]
+class TeamsResponse(_Model):
+    teams: list[Team] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -101,57 +125,59 @@ class TeamsResponse(TypedDict):
 # ---------------------------------------------------------------------------
 
 
-class SessionCreateRequest(TypedDict, total=False):
-    session_id: str | None
-    input: str | list[Any] | None
-    message: str | list[Any] | None
-    metadata: dict[str, Any] | None
-    stream: bool
+class SessionCreateRequest(_Model):
+    input: str | list[Any] | None = None
+    message: str | list[Any] | None = None
+    session_id: str | None = None
+    metadata: dict[str, Any] | None = None
+    stream: bool = False
 
 
-class SessionContinueRequest(TypedDict, total=False):
-    input: str | list[Any] | None
-    message: str | list[Any] | None
-    stream: bool
+class SessionContinueRequest(_Model):
+    input: str | list[Any] | None = None
+    message: str | list[Any] | None = None
+    stream: bool = False
 
 
-class MessagePayload(TypedDict, total=False):
-    id: str | None
-    role: str | None
-    content: str | None
-    created_at: str | None
-    creator_id: str | None
-    parts: list[dict[str, Any]] | None
+class MessagePayload(_Model):
+    id: str | None = None
+    role: str | None = None
+    content: str | None = None
+    created_at: str | None = None
+    creator_id: str | None = None
+    parts: list[dict[str, Any]] | None = None
 
 
-class Session(TypedDict, total=False):
+class Session(_Model):
     id: str
     agent_id: str
-    state: str | None
-    messages: list[dict[str, Any]]
-    created_at: str | None
-    agent_name: str | None
-    agent_team_id: str | None
-    agent_creator_user_id: str | None
-    agent_icon_url: str | None
-    agent_tools: list[dict[str, Any]]
-    participants: dict[str, dict[str, Any]]
-    creator: CreatorPayload | None
+    state: str | None = None
+    messages: list[MessagePayload] = Field(default_factory=list)
+    created_at: str | None = None
+    agent_name: str | None = None
+    agent_team_id: str | None = None
+    agent_creator_user_id: str | None = None
+    agent_icon_url: str | None = None
+    agent_tools: list[dict[str, Any]] = Field(default_factory=list)
+    participants: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    creator: CreatorPayload | None = None
 
 
-class SessionResponse(TypedDict, total=False):
+class SessionResponse(_Model):
     session: Session
-    queue_position: int | None
+    queue_position: int | None = None
 
 
-class StreamEvent(TypedDict, total=False):
-    type: str
-    data: Any
-    stream_cursor: str
-    final: bool
-    finishReason: str
-    error: str
-    errorMessage: str
+class StreamEvent(_Model):
+    type: str | None = None
+    data: Any = None
+    stream_cursor: str | None = None
+    final: bool | None = None
+    # Wire format uses camelCase on these two; surface snake_case attributes
+    # to callers while still accepting the wire names on deserialize.
+    finish_reason: str | None = Field(default=None, validation_alias="finishReason")
+    error: str | None = None
+    error_message: str | None = Field(default=None, validation_alias="errorMessage")
 
 
 # ---------------------------------------------------------------------------
@@ -159,42 +185,42 @@ class StreamEvent(TypedDict, total=False):
 # ---------------------------------------------------------------------------
 
 
-class Skill(TypedDict, total=False):
+class Skill(_Model):
     id: str
     name: str
     description: str
     team_id: str
-    created_at: str | None
-    updated_at: str | None
-    metadata: dict[str, Any]
-    usage_count: int | None
-    view_count: int | None
-    last_used_at: str | None
-    version_id: str | None
-    major_version: int | None
-    is_deployed: bool | None
-    version_created_at: str | None
-    creator: CreatorPayload | None
+    created_at: str | None = None
+    updated_at: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    usage_count: int | None = None
+    view_count: int | None = None
+    last_used_at: str | None = None
+    version_id: str | None = None
+    major_version: int | None = None
+    is_deployed: bool | None = None
+    version_created_at: str | None = None
+    creator: CreatorPayload | None = None
 
 
-class SkillListResponse(TypedDict, total=False):
-    skills: list[Skill]
-    next_cursor: str | None
-    total_count: int | None
+class SkillListResponse(_Model):
+    skills: list[Skill] = Field(default_factory=list)
+    next_cursor: str | None = None
+    total_count: int | None = None
 
 
-class SkillResponse(TypedDict):
+class SkillResponse(_Model):
     skill: Skill
 
 
-class SkillDownloadResponse(TypedDict, total=False):
+class SkillDownloadResponse(_Model):
     download_url: str
     filename: str
-    media_type: str
-    size: int | None
+    media_type: Literal["application/zip"]
+    size: int | None = None
     id: str
-    version_id: str | None
-    major_version: int | None
+    version_id: str | None = None
+    major_version: int | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -202,29 +228,29 @@ class SkillDownloadResponse(TypedDict, total=False):
 # ---------------------------------------------------------------------------
 
 
-class Artifact(TypedDict, total=False):
+class Artifact(_Model):
     id: str
-    version_id: str | None
-    major_version: int | None
-    agent_id: str | None
-    session_id: str | None
-    filename: str | None
-    created_at: str | None
-    metadata: dict[str, Any]
-    url: str | None
-    creator: CreatorPayload | None
+    version_id: str | None = None
+    major_version: int | None = None
+    agent_id: str | None = None
+    session_id: str | None = None
+    filename: str | None = None
+    created_at: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    url: str | None = None
+    creator: CreatorPayload | None = None
 
 
-class ArtifactListResponse(TypedDict, total=False):
-    artifacts: list[Artifact]
-    next_cursor: str | None
+class ArtifactListResponse(_Model):
+    artifacts: list[Artifact] = Field(default_factory=list)
+    next_cursor: str | None = None
 
 
-class ArtifactDownloadResponse(TypedDict, total=False):
+class ArtifactDownloadResponse(_Model):
     download_url: str
-    filename: str | None
-    media_type: str | None
-    size: int | None
+    filename: str | None = None
+    media_type: str | None = None
+    size: int | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -232,76 +258,59 @@ class ArtifactDownloadResponse(TypedDict, total=False):
 # ---------------------------------------------------------------------------
 
 
-class McpServer(TypedDict, total=False):
+class McpServer(_Model):
     server_id: str
-    name: str | None
+    name: str | None = None
     type: str
     status: str
-    icon_url: str | None
-    description: str | None
+    icon_url: str | None = None
+    description: str | None = None
     gumloop_auth_url: str
-    mcp_url: str | None
-    tool_count: int | None
-    allowed_tool_call_ids: list[str] | None
+    mcp_url: str | None = None
+    tool_count: int | None = None
+    allowed_tool_call_ids: list[str] | None = None
 
 
-class McpTool(TypedDict, total=False):
+class McpTool(_Model):
     tool_call_id: str
-    server_id: str | None
-    server_type: str | None
+    server_id: str | None = None
+    server_type: str | None = None
     name: str
-    description: str | None
-    input_schema: dict[str, Any]
-    server: dict[str, Any]
+    description: str | None = None
+    input_schema: dict[str, Any] = Field(default_factory=dict)
+    server: dict[str, Any] = Field(default_factory=dict)
 
 
-class McpToolCallRequest(TypedDict, total=False):
-    ref: str | None
+class McpToolCallRequest(_Model):
+    ref: str | None = None
     server_id: str
     tool_name: str
-    arguments: dict[str, Any]
+    arguments: dict[str, Any] = Field(default_factory=dict)
 
 
-class McpToolCallResult(TypedDict, total=False):
+class McpToolCallResult(_Model):
     ref: str
-    server_id: str | None
-    tool_name: str | None
+    server_id: str | None = None
+    tool_name: str | None = None
     status: str
-    content: list[Any] | None
-    error: dict[str, Any] | None
+    content: list[Any] | None = None
+    error: dict[str, Any] | None = None
 
 
-class McpServersResponse(TypedDict, total=False):
-    servers: list[McpServer]
+class McpServersResponse(_Model):
+    servers: list[McpServer] = Field(default_factory=list)
 
 
-class McpServerResponse(TypedDict):
+class McpServerResponse(_Model):
     server: McpServer
 
 
-class McpToolsResponse(TypedDict, total=False):
-    tools: list[McpTool]
-    server_id: str | None
-    status: str | None
-    gumloop_auth_url: str | None
+class McpToolsResponse(_Model):
+    tools: list[McpTool] = Field(default_factory=list)
+    server_id: str | None = None
+    status: str | None = None
+    gumloop_auth_url: str | None = None
 
 
-class McpExecuteResponse(TypedDict):
-    results: list[McpToolCallResult]
-
-
-# ---------------------------------------------------------------------------
-# Error types
-# ---------------------------------------------------------------------------
-
-
-class SdkError(TypedDict, total=False):
-    code: str
-    message: str
-    type: str
-    param: str | None
-    details: dict[str, Any]
-
-
-class SdkErrorResponse(TypedDict):
-    error: SdkError
+class McpExecuteResponse(_Model):
+    results: list[McpToolCallResult] = Field(default_factory=list)

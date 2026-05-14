@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import httpx
+
 
 class GumloopError(Exception):
     """Base error for Gumloop SDK failures."""
@@ -23,3 +25,19 @@ class APIStatusError(GumloopError):
         self.type = self.error.get("type") if isinstance(self.error, dict) else None
         self.param = self.error.get("param") if isinstance(self.error, dict) else None
         self.details = self.error.get("details", {}) if isinstance(self.error, dict) else {}
+
+
+def to_api_error(response: httpx.Response) -> APIStatusError:
+    """Translate a non-success ``httpx.Response`` into :class:`APIStatusError`,
+    extracting the backend error envelope's ``message`` when present."""
+    try:
+        body: Any = response.json()
+    except ValueError:
+        body = response.text
+    error = body.get("error") if isinstance(body, dict) else None
+    message = (
+        str(error.get("message") or f"Gumloop API returned HTTP {response.status_code}")
+        if isinstance(error, dict)
+        else f"Gumloop API returned HTTP {response.status_code}"
+    )
+    return APIStatusError(message, status_code=response.status_code, body=body)

@@ -20,7 +20,7 @@ def test_env_access_token_is_used_when_no_explicit_credential(monkeypatch: pytes
     monkeypatch.setenv("GUMLOOP_ACCESS_TOKEN", "env-token")
     route = respx.get(f"{API_BASE}/models").mock(return_value=httpx.Response(200, json={"model_groups": []}))
 
-    assert Gumloop().models.list() == {"model_groups": []}
+    assert Gumloop().models.list().model_groups == []
     assert auth_header(route.calls[0].request) == "Bearer env-token"
 
 
@@ -85,12 +85,12 @@ def test_non_success_response_raises_gumloop_status_error(client: Gumloop) -> No
     assert exc_info.value.details == {}
 
 
-def test_legacy_gumloop_client_warns_but_still_constructs() -> None:
-    with pytest.warns(DeprecationWarning, match="legacy flows client"):
-        legacy_client = GumloopClient(api_key="api-key", user_id="user-id")
+def test_flows_gumloop_client_warns_but_still_constructs() -> None:
+    with pytest.warns(DeprecationWarning, match="flows client"):
+        flows_client = GumloopClient(api_key="api-key", user_id="user-id")
 
-    assert legacy_client.api_key == "api-key"
-    assert hasattr(legacy_client, "run_flow")
+    assert flows_client.api_key == "api-key"
+    assert hasattr(flows_client, "run_flow")
 
 
 @respx.mock

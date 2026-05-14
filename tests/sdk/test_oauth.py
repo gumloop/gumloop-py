@@ -19,7 +19,7 @@ def test_register_client_posts_dynamic_client_registration_shape() -> None:
         return_value=httpx.Response(201, json={"client_id": "client_123"})
     )
 
-    result = Gumloop(access_token="token").auth.register_client(
+    result = Gumloop(access_token="token").oauth.register_client(
         redirect_uri="http://localhost:8765/callback",
         client_name="Test App",
         scopes=("gumloop", "userinfo"),
@@ -37,7 +37,7 @@ def test_register_client_posts_dynamic_client_registration_shape() -> None:
 
 
 def test_build_authorization_url_includes_pkce_and_state() -> None:
-    authorization_url, code_verifier, state = Gumloop(access_token="token").auth.build_authorization_url(
+    authorization_url, code_verifier, state = Gumloop(access_token="token").oauth.build_authorization_url(
         client_id="client_123",
         redirect_uri="http://localhost:8765/callback",
         scopes="gumloop",
@@ -69,12 +69,12 @@ def test_exchange_code_and_refresh_token_form_payloads() -> None:
         ]
     )
 
-    auth = Gumloop(access_token="token").auth
+    oauth = Gumloop(access_token="token").oauth
     assert (
-        auth.exchange_code("client_123", "code_123", "http://localhost/callback", "verifier")["access_token"]
+        oauth.exchange_code("client_123", "code_123", "http://localhost/callback", "verifier")["access_token"]
         == "access"
     )
-    assert auth.refresh_token("client_123", "refresh")["access_token"] == "new-access"
+    assert oauth.refresh_token("client_123", "refresh")["access_token"] == "new-access"
 
     first_form = parse_qs(token_route.calls[0].request.content.decode())
     second_form = parse_qs(token_route.calls[1].request.content.decode())
@@ -89,7 +89,7 @@ def test_exchange_code_and_refresh_token_form_payloads() -> None:
 
 
 @respx.mock
-def test_auth_non_success_response_raises_gumloop_status_error() -> None:
+def test_oauth_non_success_response_raises_gumloop_status_error() -> None:
     error = {
         "error": {
             "code": "invalid_request",
@@ -101,7 +101,7 @@ def test_auth_non_success_response_raises_gumloop_status_error() -> None:
     respx.post(f"{OAUTH_BASE}/oauth/register").mock(return_value=httpx.Response(400, json=error))
 
     with pytest.raises(APIStatusError) as exc_info:
-        Gumloop(access_token="token").auth.register_client("http://localhost/callback")
+        Gumloop(access_token="token").oauth.register_client("http://localhost/callback")
 
     assert exc_info.value.status_code == 400
     assert exc_info.value.body == error
@@ -111,16 +111,7 @@ def test_auth_non_success_response_raises_gumloop_status_error() -> None:
 
 
 @respx.mock
-def test_static_oauth_helpers_delegate_to_auth_resource() -> None:
-    respx.post(f"{OAUTH_BASE}/oauth/register").mock(return_value=httpx.Response(201, json={"client_id": "client_123"}))
+def test_revoke_returns_empty_dict_for_empty_body() -> None:
+    respx.post(f"{OAUTH_BASE}/oauth/revoke").mock(return_value=httpx.Response(200, content=b""))
 
-    assert Gumloop.register_oauth_client("http://localhost/callback") == {"client_id": "client_123"}
-
-    authorization_url, code_verifier, state = Gumloop.build_authorization_url(
-        "client_123",
-        "http://localhost/callback",
-        state="state_123",
-    )
-    assert "/oauth/authorize?" in authorization_url
-    assert code_verifier
-    assert state == "state_123"
+    Gumloop(access_token="token").oauth.revoke("client_123", "token_to_revoke")

@@ -3,15 +3,13 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from gumloop._http import AsyncHttpClient
+from gumloop._http import HttpClient
 from gumloop.types import SkillDownloadResponse
 from gumloop.types import SkillListResponse
 from gumloop.types import SkillResponse
 
 SkillFile = tuple[str, bytes | str] | tuple[str, bytes | str, str]
-
-
-def _params(**fields: Any) -> dict[str, Any]:
-    return {key: value for key, value in fields.items() if value is not None}
 
 
 def _multipart_files(files: Mapping[str, bytes | str] | list[SkillFile]) -> list[tuple[str, Any]]:
@@ -25,7 +23,7 @@ def _multipart_files(files: Mapping[str, bytes | str] | list[SkillFile]) -> list
 
 
 class Skills:
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: HttpClient) -> None:
         self._client = client
 
     def list(
@@ -38,23 +36,25 @@ class Skills:
         cursor: str | None = None,
         creator_user_id: str | None = None,
         related_server_id: str | None = None,
-        gummie_id: str | None = None,
-        unused: str | None = None,
+        agent_id: str | None = None,
         **kwargs: Any,
     ) -> SkillListResponse:
-        params = _params(
-            team_id=team_id,
-            search_query=search_query,
-            sort_order=sort_order,
-            page_size=page_size,
-            cursor=cursor,
-            creator_user_id=creator_user_id,
-            related_server_id=related_server_id,
-            gummie_id=gummie_id,
-            unused=unused,
-            **kwargs,
+        return SkillListResponse.model_validate(
+            self._client.get(
+                "skills",
+                params={
+                    "team_id": team_id,
+                    "search_query": search_query,
+                    "sort_order": sort_order,
+                    "page_size": page_size,
+                    "cursor": cursor,
+                    "creator_user_id": creator_user_id,
+                    "related_server_id": related_server_id,
+                    "agent_id": agent_id,
+                    **kwargs,
+                },
+            )
         )
-        return self._client._request_json("GET", "skills", params=params)
 
     def create(
         self,
@@ -63,11 +63,12 @@ class Skills:
         team_id: str | None = None,
         **kwargs: Any,
     ) -> SkillResponse:
-        return self._client._request_json(
-            "POST",
-            "skills",
-            data=_params(team_id=team_id, **kwargs),
-            files=_multipart_files(files),
+        return SkillResponse.model_validate(
+            self._client.post(
+                "skills",
+                data={"team_id": team_id, **kwargs},
+                files=_multipart_files(files),
+            )
         )
 
     def update(
@@ -75,15 +76,16 @@ class Skills:
         skill_id: str,
         files: Mapping[str, bytes | str] | list[SkillFile],
     ) -> SkillResponse:
-        return self._client._request_json("PATCH", f"skills/{skill_id}", files=_multipart_files(files))
+        return SkillResponse.model_validate(self._client.patch(f"skills/{skill_id}", files=_multipart_files(files)))
 
     def download(self, skill_id: str, *, version_id: str | None = None, **kwargs: Any) -> SkillDownloadResponse:
-        params = _params(version_id=version_id, **kwargs)
-        return self._client._request_json("GET", f"skills/{skill_id}/download", params=params)
+        return SkillDownloadResponse.model_validate(
+            self._client.get(f"skills/{skill_id}/download", params={"version_id": version_id, **kwargs})
+        )
 
 
 class AsyncSkills:
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: AsyncHttpClient) -> None:
         self._client = client
 
     async def list(
@@ -96,23 +98,24 @@ class AsyncSkills:
         cursor: str | None = None,
         creator_user_id: str | None = None,
         related_server_id: str | None = None,
-        gummie_id: str | None = None,
-        unused: str | None = None,
+        agent_id: str | None = None,
         **kwargs: Any,
     ) -> SkillListResponse:
-        params = _params(
-            team_id=team_id,
-            search_query=search_query,
-            sort_order=sort_order,
-            page_size=page_size,
-            cursor=cursor,
-            creator_user_id=creator_user_id,
-            related_server_id=related_server_id,
-            gummie_id=gummie_id,
-            unused=unused,
-            **kwargs,
+        data = await self._client.get(
+            "skills",
+            params={
+                "team_id": team_id,
+                "search_query": search_query,
+                "sort_order": sort_order,
+                "page_size": page_size,
+                "cursor": cursor,
+                "creator_user_id": creator_user_id,
+                "related_server_id": related_server_id,
+                "agent_id": agent_id,
+                **kwargs,
+            },
         )
-        return await self._client._request_json("GET", "skills", params=params)
+        return SkillListResponse.model_validate(data)
 
     async def create(
         self,
@@ -121,20 +124,21 @@ class AsyncSkills:
         team_id: str | None = None,
         **kwargs: Any,
     ) -> SkillResponse:
-        return await self._client._request_json(
-            "POST",
+        data = await self._client.post(
             "skills",
-            data=_params(team_id=team_id, **kwargs),
+            data={"team_id": team_id, **kwargs},
             files=_multipart_files(files),
         )
+        return SkillResponse.model_validate(data)
 
     async def update(
         self,
         skill_id: str,
         files: Mapping[str, bytes | str] | list[SkillFile],
     ) -> SkillResponse:
-        return await self._client._request_json("PATCH", f"skills/{skill_id}", files=_multipart_files(files))
+        data = await self._client.patch(f"skills/{skill_id}", files=_multipart_files(files))
+        return SkillResponse.model_validate(data)
 
     async def download(self, skill_id: str, *, version_id: str | None = None, **kwargs: Any) -> SkillDownloadResponse:
-        params = _params(version_id=version_id, **kwargs)
-        return await self._client._request_json("GET", f"skills/{skill_id}/download", params=params)
+        data = await self._client.get(f"skills/{skill_id}/download", params={"version_id": version_id, **kwargs})
+        return SkillDownloadResponse.model_validate(data)

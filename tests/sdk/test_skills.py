@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-# pyright: reportTypedDictNotRequiredAccess=false
 import asyncio
 
 import httpx
@@ -14,7 +13,13 @@ from tests.sdk.helpers import API_BASE
 @respx.mock
 def test_skills_list_forwards_set_filters_and_drops_unset_ones(client: Gumloop) -> None:
     route = respx.get(f"{API_BASE}/skills").mock(
-        return_value=httpx.Response(200, json={"skills": [{"id": "skill_123"}], "next_cursor": "abc"})
+        return_value=httpx.Response(
+            200,
+            json={
+                "skills": [{"id": "skill_123", "name": "n", "description": "d", "team_id": "t"}],
+                "next_cursor": "abc",
+            },
+        )
     )
 
     result = client.skills.list(
@@ -25,7 +30,8 @@ def test_skills_list_forwards_set_filters_and_drops_unset_ones(client: Gumloop) 
         related_server_id="gmail",
     )
 
-    assert result == {"skills": [{"id": "skill_123"}], "next_cursor": "abc"}
+    assert [s.id for s in result.skills] == ["skill_123"]
+    assert result.next_cursor == "abc"
     params = route.calls[0].request.url.params
     assert params["team_id"] == "team_123"
     assert params["search_query"] == "retrieval"
@@ -35,14 +41,18 @@ def test_skills_list_forwards_set_filters_and_drops_unset_ones(client: Gumloop) 
     # Unset filters must not appear as ``=None`` in the URL.
     assert "sort_order" not in params
     assert "creator_user_id" not in params
-    assert "gummie_id" not in params
-    assert "unused" not in params
+    assert "agent_id" not in params
 
 
 @respx.mock
 def test_skills_create_posts_multipart_with_files_and_team_id(client: Gumloop) -> None:
     route = respx.post(f"{API_BASE}/skills").mock(
-        return_value=httpx.Response(201, json={"skill": {"id": "skill_123", "name": "my-skill"}})
+        return_value=httpx.Response(
+            201,
+            json={
+                "skill": {"id": "skill_123", "name": "my-skill", "description": "d", "team_id": "team_123"},
+            },
+        )
     )
 
     result = client.skills.create(
@@ -50,7 +60,7 @@ def test_skills_create_posts_multipart_with_files_and_team_id(client: Gumloop) -
         team_id="team_123",
     )
 
-    assert result["skill"]["id"] == "skill_123"
+    assert result.skill.id == "skill_123"
     body = route.calls[0].request.content
     assert b"# A real skill" in body
     assert b"my-skill.md" in body
@@ -60,7 +70,11 @@ def test_skills_create_posts_multipart_with_files_and_team_id(client: Gumloop) -
 
 @respx.mock
 def test_skills_create_accepts_mapping_form_of_files(client: Gumloop) -> None:
-    route = respx.post(f"{API_BASE}/skills").mock(return_value=httpx.Response(201, json={"skill": {"id": "skill_abc"}}))
+    route = respx.post(f"{API_BASE}/skills").mock(
+        return_value=httpx.Response(
+            201, json={"skill": {"id": "skill_abc", "name": "n", "description": "d", "team_id": "t"}}
+        )
+    )
 
     client.skills.create({"a.md": b"alpha", "b.md": b"beta"})
 
@@ -74,12 +88,14 @@ def test_skills_create_accepts_mapping_form_of_files(client: Gumloop) -> None:
 @respx.mock
 def test_skills_update_patches_per_skill_endpoint_with_multipart(client: Gumloop) -> None:
     route = respx.patch(f"{API_BASE}/skills/skill_abc").mock(
-        return_value=httpx.Response(200, json={"skill": {"id": "skill_abc"}})
+        return_value=httpx.Response(
+            200, json={"skill": {"id": "skill_abc", "name": "n", "description": "d", "team_id": "t"}}
+        )
     )
 
     result = client.skills.update("skill_abc", [("v2.md", b"new content")])
 
-    assert result["skill"]["id"] == "skill_abc"
+    assert result.skill.id == "skill_abc"
     body = route.calls[0].request.content
     assert b"new content" in body
     assert b"v2.md" in body
@@ -102,7 +118,7 @@ def test_skills_download_forwards_version_id_query_param(client: Gumloop) -> Non
 
     result = client.skills.download("skill_abc", version_id="v_42")
 
-    assert result["download_url"] == "https://signed.example/skill.zip"
+    assert result.download_url == "https://signed.example/skill.zip"
     assert route.calls[0].request.url.params["version_id"] == "v_42"
 
     client.skills.download("skill_abc")
@@ -112,9 +128,15 @@ def test_skills_download_forwards_version_id_query_param(client: Gumloop) -> Non
 @respx.mock
 def test_async_skills_methods() -> None:
     respx.get(f"{API_BASE}/skills").mock(return_value=httpx.Response(200, json={"skills": [], "next_cursor": None}))
-    respx.post(f"{API_BASE}/skills").mock(return_value=httpx.Response(201, json={"skill": {"id": "skill_abc"}}))
+    respx.post(f"{API_BASE}/skills").mock(
+        return_value=httpx.Response(
+            201, json={"skill": {"id": "skill_abc", "name": "n", "description": "d", "team_id": "t"}}
+        )
+    )
     respx.patch(f"{API_BASE}/skills/skill_abc").mock(
-        return_value=httpx.Response(200, json={"skill": {"id": "skill_abc"}})
+        return_value=httpx.Response(
+            200, json={"skill": {"id": "skill_abc", "name": "n", "description": "d", "team_id": "t"}}
+        )
     )
     respx.get(f"{API_BASE}/skills/skill_abc/download").mock(
         return_value=httpx.Response(
@@ -130,12 +152,12 @@ def test_async_skills_methods() -> None:
 
     async def run() -> None:
         async with AsyncGumloop(access_token="token") as client:
-            assert (await client.skills.list(search_query="foo"))["skills"] == []
+            assert (await client.skills.list(search_query="foo")).skills == []
             created = await client.skills.create([("s.md", b"body")], team_id="team_123")
-            assert created["skill"]["id"] == "skill_abc"
+            assert created.skill.id == "skill_abc"
             updated = await client.skills.update("skill_abc", [("s.md", b"body2")])
-            assert updated["skill"]["id"] == "skill_abc"
+            assert updated.skill.id == "skill_abc"
             downloaded = await client.skills.download("skill_abc", version_id="v_1")
-            assert downloaded["download_url"] == "https://signed.example/skill.zip"
+            assert downloaded.download_url == "https://signed.example/skill.zip"
 
     asyncio.run(run())

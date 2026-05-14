@@ -18,7 +18,7 @@ import pytest
 import respx
 
 from gumloop import GumloopClient
-from gumloop import client as client_module
+from gumloop import _client as client_module
 
 API_BASE = "https://api.gumloop.com/api/v1"
 START_URL = f"{API_BASE}/start_pipeline"

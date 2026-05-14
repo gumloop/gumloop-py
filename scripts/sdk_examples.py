@@ -90,8 +90,8 @@ def run_oauth_callback_server(expected_state: str) -> str:
 def authenticate(config: dict[str, Any]) -> dict[str, Any]:
     base_url = resolve_base_url(config)
     config["base_url"] = base_url
-    auth_client = Gumloop(access_token=config.get("access_token") or "bootstrap", base_url=base_url).auth
-    registration = config.get("oauth_client") or auth_client.register_client(
+    oauth_client = Gumloop(access_token=config.get("access_token") or "bootstrap", base_url=base_url).oauth
+    registration = config.get("oauth_client") or oauth_client.register_client(
         redirect_uri=REDIRECT_URI,
         client_name="Gumloop Python SDK Example",
         scopes=SCOPES,
@@ -99,7 +99,7 @@ def authenticate(config: dict[str, Any]) -> dict[str, Any]:
     config["oauth_client"] = registration
     save_config(config)
 
-    authorization_url, code_verifier, state = auth_client.build_authorization_url(
+    authorization_url, code_verifier, state = oauth_client.build_authorization_url(
         client_id=registration["client_id"],
         redirect_uri=REDIRECT_URI,
         scopes=SCOPES,
@@ -108,7 +108,7 @@ def authenticate(config: dict[str, Any]) -> dict[str, Any]:
     log(f"Opening browser for OAuth: {authorization_url}")
     webbrowser.open(authorization_url)
     code = run_oauth_callback_server(state)
-    tokens = auth_client.exchange_code(
+    tokens = oauth_client.exchange_code(
         client_id=registration["client_id"],
         code=code,
         redirect_uri=REDIRECT_URI,
@@ -122,17 +122,17 @@ def authenticate(config: dict[str, Any]) -> dict[str, Any]:
 
 
 def refresh_access_token(config: dict[str, Any]) -> dict[str, Any] | None:
-    oauth_client = config.get("oauth_client") or {}
+    oauth_client_meta = config.get("oauth_client") or {}
     refresh_token = config.get("refresh_token")
-    client_id = oauth_client.get("client_id")
+    client_id = oauth_client_meta.get("client_id")
     if not client_id or not refresh_token:
         return None
 
-    auth_client = Gumloop(
+    oauth_client = Gumloop(
         access_token=config.get("access_token") or "bootstrap",
         base_url=resolve_base_url(config),
-    ).auth
-    tokens = auth_client.refresh_token(client_id=client_id, refresh_token=refresh_token)
+    ).oauth
+    tokens = oauth_client.refresh_token(client_id=client_id, refresh_token=refresh_token)
     config["access_token"] = tokens["access_token"]
     if tokens.get("refresh_token"):
         config["refresh_token"] = tokens["refresh_token"]
@@ -159,7 +159,7 @@ def get_authenticated_config() -> dict[str, Any]:
 
 def pick_model(client: Gumloop) -> str:
     models = client.models.list()
-    for group in models.get("model_groups", []):
+    for group in models.model_groups:
         for option in group.get("options", []):
             value = option.get("value") or option.get("model_name") or option.get("id")
             if value and not option.get("restricted"):
@@ -167,25 +167,18 @@ def pick_model(client: Gumloop) -> str:
     return "auto"
 
 
-def wait_for_session(client: Gumloop, session_id: str, timeout_seconds: float = SESSION_WAIT_SECONDS) -> dict[str, Any]:
+def wait_for_session(client: Gumloop, session_id: str, timeout_seconds: float = SESSION_WAIT_SECONDS):
     deadline = time.monotonic() + timeout_seconds
     last_status = None
     while time.monotonic() < deadline:
         session_response = client.sessions.retrieve(session_id)
-        session = session_response["session"]
-        if session.get("state") != last_status:
-            last_status = session.get("state")
+        if session_response.session.state != last_status:
+            last_status = session_response.session.state
             log(f"Session {session_id} state: {last_status}")
-        if session.get("state") in {"completed", "failed"}:
+        if session_response.session.state in {"completed", "failed"}:
             return session_response
         time.sleep(2)
     return client.sessions.retrieve(session_id)
-
-
-def extract_session_id(result: dict[str, Any]) -> str:
-    if "session" in result:
-        return result["session"]["id"]
-    raise RuntimeError(f"Could not find session id in response: {result}")
 
 
 def run_stream_smoke(client: Gumloop, agent_id: str) -> dict[str, Any]:
@@ -200,9 +193,9 @@ def run_stream_smoke(client: Gumloop, agent_id: str) -> dict[str, Any]:
         metadata={"example": "sync_stream"},
     ):
         event_count += 1
-        last_cursor = event.get("stream_cursor") or last_cursor
-        log(f"Stream event {event_count}: {event.get('type')}")
-        if event.get("final"):
+        last_cursor = event.stream_cursor or last_cursor
+        log(f"Stream event {event_count}: {event.type}")
+        if event.final:
             break
 
     log(f"Stream session id: {session_id}")
@@ -217,17 +210,17 @@ def run_sync_smoke(access_token: str, base_url: str) -> dict[str, Any]:
     log("\n== Sync SDK smoke ==")
     log(f"Base URL: {base_url}")
     models = client.models.list()
-    agents = client.agents.list(limit=10)
-    log(f"Model groups returned: {len(models.get('model_groups', []))}")
-    log(f"Agents returned: {len(agents.get('agents', []))}")
+    agents = client.agents.list(page_size=10)
+    log(f"Model groups returned: {len(models.model_groups)}")
+    log(f"Agents returned: {len(agents.agents)}")
 
     model = pick_model(client)
-    agent = client.agents.create(
+    agent_response = client.agents.create(
         name=f"SDK Example Agent {int(time.time())}",
         model_name=model,
         system_prompt="You are a concise assistant used to test the Gumloop Python SDK.",
     )
-    agent_id = agent["agent"]["id"]
+    agent_id = agent_response.agent.id
     log(f"Created agent: {agent_id}")
 
     first_response = client.sessions.create(
@@ -235,19 +228,22 @@ def run_sync_smoke(access_token: str, base_url: str) -> dict[str, Any]:
         input="Reply with one short sentence confirming the Gumloop Python SDK works.",
         metadata={"example": "sync"},
     )
-    session_id = extract_session_id(first_response)
-    initial_state = first_response.get("session", {}).get("state")
+    # Streaming branch returns an iterator; without ``stream=True`` we get
+    # a SessionResponse back.
+    assert not hasattr(first_response, "__iter__")
+    session_id = first_response.session.id
+    initial_state = first_response.session.state
     log(f"Created session: {session_id}")
     log(f"Initial session state: {initial_state}")
 
     final_session = wait_for_session(client, session_id)
-    final_state = final_session["session"].get("state")
+    final_state = final_session.session.state
     log(f"Final/last observed session state: {final_state}")
 
-    second_response: dict[str, Any] | None = None
+    second_response = None
     if final_state in {"completed", "failed"}:
-        second_response = client.sessions.send(session_id, "Send one more short confirmation.")
-        log(f"Second response state: {second_response.get('session', {}).get('state')}")
+        second_response = client.sessions.send(session_id, input="Send one more short confirmation.")
+        log(f"Second response state: {second_response.session.state}")
     else:
         log("Skipping follow-up send because the first response did not reach a terminal state.")
 
@@ -260,21 +256,21 @@ async def run_async_smoke(access_token: str, base_url: str, agent_id: str) -> di
     async with AsyncGumloop(access_token=access_token, base_url=base_url) as client:
         models, agents = await asyncio.gather(
             client.models.list(),
-            client.agents.list(limit=10),
+            client.agents.list(page_size=10),
         )
-        log(f"Async model groups returned: {len(models.get('model_groups', []))}")
-        log(f"Async agents returned: {len(agents.get('agents', []))}")
+        log(f"Async model groups returned: {len(models.model_groups)}")
+        log(f"Async agents returned: {len(agents.agents)}")
 
         created = await client.sessions.create(
             agent_id,
             input="Reply with one short sentence confirming async SDK calls work.",
             metadata={"example": "async"},
         )
-        session_id = extract_session_id(created)
+        session_id = created.session.id
         latest = await client.sessions.retrieve(session_id)
         follow_up = None
-        if latest["session"].get("state") in {"completed", "failed"}:
-            follow_up = await client.sessions.send(session_id, "Send an async follow-up confirmation.")
+        if latest.session.state in {"completed", "failed"}:
+            follow_up = await client.sessions.send(session_id, input="Send an async follow-up confirmation.")
 
         stream_session_id = f"sdk_example_async_stream_{int(time.time() * 1000)}"
         stream_event_count = 0
@@ -285,14 +281,14 @@ async def run_async_smoke(access_token: str, base_url: str, agent_id: str) -> di
             metadata={"example": "async_stream"},
         ):
             stream_event_count += 1
-            log(f"Async stream event {stream_event_count}: {event.get('type')}")
-            if event.get("final"):
+            log(f"Async stream event {stream_event_count}: {event.type}")
+            if event.final:
                 break
 
     log(f"Async session id: {session_id}")
-    log(f"Async latest state: {latest['session'].get('state')}")
+    log(f"Async latest state: {latest.session.state}")
     if follow_up:
-        log(f"Async follow-up state: {follow_up.get('session', {}).get('state')}")
+        log(f"Async follow-up state: {follow_up.session.state}")
     else:
         log("Skipping async follow-up send because the response is not terminal yet.")
     return {"session_id": session_id, "response": follow_up, "stream_session_id": stream_session_id}
