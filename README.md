@@ -42,11 +42,11 @@ from gumloop import AsyncGumloop
 
 async def main() -> None:
     async with AsyncGumloop(access_token="your_access_token") as client:
-        agents = await client.list_agents()
-        agent = agents["agents"][0]
+        agents = await client.agents.list()
+        agent = agents.agents[0]
 
-        async for event in client.stream_session(
-            agent_id=agent["id"],
+        async for event in client.sessions.stream(
+            agent.id,
             input="Hello, what can you do?",
         ):
             print(event)
