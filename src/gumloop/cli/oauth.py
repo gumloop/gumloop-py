@@ -10,8 +10,9 @@ from typing import Any
 from urllib.parse import parse_qs
 from urllib.parse import urlparse
 
-from gumloop import Gumloop
 from gumloop import GumloopError
+from gumloop import OAuth
+from gumloop._client import DEFAULT_TIMEOUT
 
 GUMLOOP_CLI_CLIENT_ID = "gumloop_cli"
 GUMLOOP_CLI_SCOPES = ("gumloop_api", "userinfo")
@@ -106,14 +107,11 @@ def perform_oauth_login(
     on_url: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
     """Run the PKCE flow against the well-known Gumloop CLI client and return tokens."""
-    # ``access_token="bootstrap"`` is a placeholder; the auth helpers
-    # never send the bearer header. Breaks if the SDK ever validates the
-    # token at construction time.
-    client = Gumloop(access_token="bootstrap", base_url=base_url)
+    oauth = OAuth(base_url=base_url, timeout=DEFAULT_TIMEOUT)
     redirect_uri = build_redirect_uri(port)
     # Security invariant: SDK uses secrets.token_urlsafe for state +
     # code_verifier. Swapping to random.* breaks both PKCE and CSRF.
-    authorization_url, code_verifier, state = client.auth.build_authorization_url(
+    authorization_url, code_verifier, state = oauth.build_authorization_url(
         client_id=GUMLOOP_CLI_CLIENT_ID,
         redirect_uri=redirect_uri,
         scopes=GUMLOOP_CLI_SCOPES,
@@ -125,7 +123,7 @@ def perform_oauth_login(
         webbrowser.open(authorization_url)
 
     code = _run_callback_server(state, port=port)
-    return client.auth.exchange_code(
+    return oauth.exchange_code(
         client_id=GUMLOOP_CLI_CLIENT_ID,
         code=code,
         redirect_uri=redirect_uri,
@@ -134,8 +132,8 @@ def perform_oauth_login(
 
 
 def refresh_oauth_tokens(*, base_url: str, refresh_token: str) -> dict[str, Any]:
-    client = Gumloop(access_token="bootstrap", base_url=base_url)
-    return client.auth.refresh_token(
+    oauth = OAuth(base_url=base_url, timeout=DEFAULT_TIMEOUT)
+    return oauth.refresh_token(
         client_id=GUMLOOP_CLI_CLIENT_ID,
         refresh_token=refresh_token,
     )
@@ -143,5 +141,5 @@ def refresh_oauth_tokens(*, base_url: str, refresh_token: str) -> dict[str, Any]
 
 def revoke_oauth_token(*, base_url: str, token: str) -> None:
     """Server-side revoke. Raises on HTTP failure; the caller decides whether to surface."""
-    client = Gumloop(access_token="bootstrap", base_url=base_url)
-    client.auth.revoke(client_id=GUMLOOP_CLI_CLIENT_ID, token=token)
+    oauth = OAuth(base_url=base_url, timeout=DEFAULT_TIMEOUT)
+    oauth.revoke(client_id=GUMLOOP_CLI_CLIENT_ID, token=token)

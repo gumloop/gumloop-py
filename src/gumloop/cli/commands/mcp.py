@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
 from collections.abc import Sequence
 from typing import Annotated
-from typing import Any
 
 import typer
 from rich.markup import escape as escape_markup
@@ -16,11 +14,14 @@ from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
 from gumloop.cli.errors import exit_with_error
+from gumloop.types import McpExecuteResponse
+from gumloop.types import McpServer
+from gumloop.types import McpTool
 
 mcp_app = typer.Typer(help="Explore Gumloop MCP servers.", no_args_is_help=True, rich_markup_mode="rich")
 
 
-def _render_servers(servers: Sequence[Mapping[str, Any]]) -> None:
+def _render_servers(servers: Sequence[McpServer]) -> None:
     if not servers:
         console.print("No MCP servers found.")
         return
@@ -33,35 +34,31 @@ def _render_servers(servers: Sequence[Mapping[str, Any]]) -> None:
     table.add_column("Tools", justify="right")
     table.add_column("Auth URL", overflow="fold")
 
+    # Table cells default to markup=True; Text cells render as plain text.
     for server in servers:
-        status_value = str(server.get("status") or "")
-        auth_url = "" if status_value == "connected" else str(server.get("gumloop_auth_url") or "")
-        tool_count = server.get("tool_count")
-        # rich.text.Text cells are rendered as plain strings, not markup.
+        auth_url = "" if server.status == "connected" else (server.gumloop_auth_url or "")
         table.add_row(
-            Text(str(server.get("server_id") or "")),
-            Text(str(server.get("name") or "")),
-            Text(str(server.get("type") or "")),
-            Text(status_value),
-            "" if tool_count is None else str(tool_count),
+            Text(server.server_id),
+            Text(server.name or ""),
+            Text(server.type),
+            Text(server.status),
+            "" if server.tool_count is None else str(server.tool_count),
             Text(auth_url),
         )
 
     console.print(table)
 
 
-def _render_server(server: Mapping[str, Any]) -> None:
-    # See _render_call_result: escape server strings inside markup=True
-    # headers, drop to markup=False on the data rows.
-    title = str(server.get("name") or server.get("server_id") or "")
+def _render_server(server: McpServer) -> None:
+    title = server.name or server.server_id
     console.print(f"[bold]{escape_markup(title)}[/bold]")
     for field in ("server_id", "type", "status", "tool_count", "description", "gumloop_auth_url", "mcp_url"):
-        value = server.get(field)
+        value = getattr(server, field, None)
         if value not in (None, ""):
             console.print(f"  {field}: {value}", markup=False, highlight=False)
 
 
-def _render_tools(tools: Sequence[Mapping[str, Any]]) -> None:
+def _render_tools(tools: Sequence[McpTool]) -> None:
     if not tools:
         console.print("No tools found.")
         return
@@ -73,34 +70,30 @@ def _render_tools(tools: Sequence[Mapping[str, Any]]) -> None:
 
     for tool in tools:
         table.add_row(
-            Text(str(tool.get("name") or "")),
-            Text(str(tool.get("tool_call_id") or "")),
-            Text(str(tool.get("description") or "")),
+            Text(tool.name),
+            Text(tool.tool_call_id),
+            Text(tool.description or ""),
         )
 
     console.print(table)
 
 
-def _render_call_result(response: Mapping[str, Any]) -> None:
-    # markup=False on remote fields stops MCP server output from being
-    # interpreted as Rich markup (e.g. fake terminal hyperlinks). Framing
-    # uses markup=True because we built it from trusted strings.
-    results = response.get("results") or []
-    if not results:
+def _render_call_result(response: McpExecuteResponse) -> None:
+    # markup=False on remote fields stops MCP server output from rendering
+    # as Rich markup (e.g. fake terminal hyperlinks).
+    if not response.results:
         console.print("(no results)")
         return
-    for result in results:
-        status_value = str(result.get("status") or "")
-        ref = str(result.get("ref") or "")
-        tool_name = str(result.get("tool_name") or "")
+    for result in response.results:
+        ref = result.ref or ""
+        tool_name = result.tool_name or ""
         ref_suffix = f" (ref: {escape_markup(ref)})" if ref else ""
         console.print(f"[bold]{escape_markup(tool_name)}[/bold]{ref_suffix}", markup=True, highlight=False)
-        console.print(f"  status: {status_value}", markup=False, highlight=False)
-        error = result.get("error")
-        if error:
-            console.print(f"  error: {error}", markup=False, highlight=False)
-        content = result.get("content")
-        if content is None or content == "":
+        console.print(f"  status: {result.status}", markup=False, highlight=False)
+        if result.error:
+            console.print(f"  error: {result.error}", markup=False, highlight=False)
+        content = result.content
+        if not content:
             continue
         if isinstance(content, str):
             console.print(content, markup=False, highlight=False)
@@ -124,7 +117,7 @@ def list_servers(
         print_json(response)
         return
 
-    _render_servers(response.get("servers", []))
+    _render_servers(response.servers)
 
 
 @mcp_app.command("get", epilog="Example:\n  gumloop mcp get gmail --json")
@@ -144,11 +137,7 @@ def get_server(
         print_json(response)
         return
 
-    payload = response.get("server")
-    if isinstance(payload, Mapping):
-        _render_server(payload)
-    else:
-        console.print("(no server payload)")
+    _render_server(response.server)
 
 
 @mcp_app.command("tools", epilog="Example:\n  gumloop mcp tools gmail")
@@ -168,15 +157,14 @@ def list_tools(
         print_json(response)
         return
 
-    if response.get("status") and response.get("status") != "connected":
-        status_text = escape_markup(str(response.get("status") or ""))
+    if response.status and response.status != "connected":
+        status_text = escape_markup(response.status)
         console.print(f"Server [bold]{escape_markup(server)}[/bold] is not connected ({status_text}).")
-        auth_url = response.get("gumloop_auth_url")
-        if auth_url:
-            console.print(f"Connect here: {auth_url}", markup=False, highlight=False)
+        if response.gumloop_auth_url:
+            console.print(f"Connect here: {response.gumloop_auth_url}", markup=False, highlight=False)
         return
 
-    _render_tools(response.get("tools", []))
+    _render_tools(response.tools)
 
 
 @mcp_app.command(

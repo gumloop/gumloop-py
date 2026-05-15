@@ -19,7 +19,7 @@ def test_call_with_refresh_retries_after_401_using_refresh_token() -> None:
     models_route = respx.get(f"{API_BASE}/models").mock(
         side_effect=[
             httpx.Response(401, json={"error": {"message": "expired", "code": "invalid_token"}}),
-            httpx.Response(200, json={"model_groups": ["auto"]}),
+            httpx.Response(200, json={"model_groups": [{"name": "auto"}]}),
         ]
     )
     refresh_route = respx.post(f"{OAUTH_BASE}/oauth/token").mock(
@@ -32,7 +32,7 @@ def test_call_with_refresh_retries_after_401_using_refresh_token() -> None:
 
     result = cli.call_with_refresh(lambda client: client.models.list())
 
-    assert result == {"model_groups": ["auto"]}
+    assert result.model_groups == [{"name": "auto"}]
     assert models_route.call_count == 2
     assert refresh_route.call_count == 1
     assert cli.credentials.access_token == "fresh_acct"
@@ -98,7 +98,7 @@ def test_call_with_refresh_clears_credentials_and_raises_auth_error_when_refresh
 
 
 def test_effective_base_url_layers_override_over_creds_over_sdk_default() -> None:
-    from gumloop.sdk import DEFAULT_BASE_URL
+    from gumloop._client import DEFAULT_BASE_URL
 
     no_state = CliContext(credentials=Credentials())
     assert no_state.effective_base_url == DEFAULT_BASE_URL

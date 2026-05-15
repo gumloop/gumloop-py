@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
 from collections.abc import Sequence
 from typing import Annotated
-from typing import Any
 
 import typer
 from rich.markup import escape as escape_markup
@@ -16,11 +14,12 @@ from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
 from gumloop.cli.errors import exit_with_error
+from gumloop.types import Artifact
 
 artifacts_app = typer.Typer(help="List and download Gumloop artifacts.", no_args_is_help=True, rich_markup_mode="rich")
 
 
-def _render_artifacts(artifacts: Sequence[Mapping[str, Any]]) -> None:
+def _render_artifacts(artifacts: Sequence[Artifact]) -> None:
     if not artifacts:
         console.print("No artifacts found.")
         return
@@ -32,14 +31,14 @@ def _render_artifacts(artifacts: Sequence[Mapping[str, Any]]) -> None:
     table.add_column("Session", overflow="fold")
     table.add_column("Created")
 
+    # Table cells default to markup=True; Text cells render as plain text.
     for artifact in artifacts:
-        # rich.text.Text cells are rendered as plain strings, not markup.
         table.add_row(
-            Text(str(artifact.get("id") or "")),
-            Text(str(artifact.get("filename") or "")),
-            Text(str(artifact.get("version_id") or "")),
-            Text(str(artifact.get("session_id") or "")),
-            Text(str(artifact.get("created_at") or "")),
+            Text(artifact.id),
+            Text(artifact.filename or ""),
+            Text(artifact.version_id or ""),
+            Text(artifact.session_id or ""),
+            Text(artifact.created_at or ""),
         )
 
     console.print(table)
@@ -52,9 +51,9 @@ def _render_artifacts(artifacts: Sequence[Mapping[str, Any]]) -> None:
 def list_artifacts(
     ctx: typer.Context,
     agent_id: Annotated[str, typer.Argument(help="Agent id whose artifacts should be listed.")],
-    interaction: Annotated[
+    session: Annotated[
         str | None,
-        typer.Option("--interaction", help="Filter to a single agent interaction id."),
+        typer.Option("--session", help="Filter to a single session id."),
     ] = None,
     limit: Annotated[
         int | None,
@@ -75,7 +74,7 @@ def list_artifacts(
         response = cli.call_with_refresh(
             lambda client: client.artifacts.list(
                 agent_id,
-                interaction_id=interaction,
+                session_id=session,
                 page_size=limit,
                 cursor=cursor,
             )
@@ -87,10 +86,9 @@ def list_artifacts(
         print_json(response)
         return
 
-    _render_artifacts(response.get("artifacts", []))
-    next_cursor = response.get("next_cursor")
-    if next_cursor:
-        console.print(f"\n[dim]Next cursor:[/dim] {escape_markup(str(next_cursor))}")
+    _render_artifacts(response.artifacts)
+    if response.next_cursor:
+        console.print(f"\n[dim]Next cursor:[/dim] {escape_markup(response.next_cursor)}")
 
 
 @artifacts_app.command(

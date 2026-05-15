@@ -1,21 +1,20 @@
 from __future__ import annotations
 
 import sys
-from collections.abc import Mapping
-from collections.abc import Sequence
 from typing import Annotated
-from typing import Any
 from typing import cast
 
 import typer
 from rich.markup import escape as escape_markup
 from rich.table import Table
+from rich.text import Text
 
 from gumloop import GumloopError
 from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
 from gumloop.cli.errors import exit_with_error
+from gumloop.types import Session
 from gumloop.types import SessionResponse
 
 sessions_app = typer.Typer(
@@ -23,34 +22,23 @@ sessions_app = typer.Typer(
 )
 
 
-def _render_session(session: Mapping[str, Any]) -> None:
-    # markup=False on remote fields keeps agent/user message text from
-    # being interpreted as Rich markup. The header line uses markup=True
-    # for the [bold] frame, so the server-supplied id is escape_markup'd
-    # to neutralize any embedded markup syntax. Table cells use rich.text.Text
-    # for the same reason (Table cells default to markup=True).
-    session_id = escape_markup(str(session.get("id") or ""))
-    console.print(f"[bold]Session {session_id}[/bold]", markup=True, highlight=False)
+def _render_session(session: Session) -> None:
+    # Header uses markup=True framing -> escape the server-supplied id.
+    # Data rows use markup=False. Table cells default to markup=True so
+    # message bodies go through rich.text.Text.
+    console.print(f"[bold]Session {escape_markup(session.id)}[/bold]", markup=True, highlight=False)
     for field in ("agent_id", "agent_name", "state", "created_at"):
-        value = session.get(field)
+        value = getattr(session, field, None)
         if value not in (None, ""):
             console.print(f"  {field}: {value}", markup=False, highlight=False)
-    messages: Sequence[Mapping[str, Any]] = session.get("messages") or []
-    if messages:
-        console.print(f"  messages: {len(messages)}")
-        from rich.text import Text
-
+    if session.messages:
+        console.print(f"  messages: {len(session.messages)}")
         table = Table(show_header=True, header_style="bold")
         table.add_column("Role")
         table.add_column("Content", overflow="fold")
-        for m in messages[-5:]:
-            content = m.get("content")
-            if not isinstance(content, str):
-                content = str(content)
-            table.add_row(
-                Text(str(m.get("role") or "")),
-                Text(content[:200]),
-            )
+        for m in session.messages[-5:]:
+            content = m.content if isinstance(m.content, str) else str(m.content or "")
+            table.add_row(Text(m.role or ""), Text(content[:200]))
         console.print(table)
 
 
@@ -98,8 +86,8 @@ def create_session(
 
     try:
         message = _resolve_input(input_text, input_stdin)
-        # ``sessions.create`` returns ``SessionResponse | Iterator[StreamEvent]``;
-        # the iterator branch only fires when ``stream=True``, which we never pass.
+        # Cast narrows the SessionResponse | Iterator union to the
+        # non-streaming branch (we never pass stream=True).
         response = cast(
             SessionResponse,
             cli.call_with_refresh(
@@ -117,11 +105,7 @@ def create_session(
         print_json(response)
         return
 
-    session = response.get("session")
-    if isinstance(session, Mapping):
-        _render_session(session)
-    else:
-        console.print("(no session payload)")
+    _render_session(response.session)
 
 
 @sessions_app.command("get", epilog="Example:\n  gumloop sessions get session_abc --json")
@@ -144,11 +128,7 @@ def get_session(
         print_json(response)
         return
 
-    session = response.get("session")
-    if isinstance(session, Mapping):
-        _render_session(session)
-    else:
-        console.print("(no session payload)")
+    _render_session(response.session)
 
 
 @sessions_app.command(
@@ -182,7 +162,10 @@ def send_session(
         message = _resolve_input(input_text, input_stdin)
         if not message:
             raise GumloopError("Pass --input or --input-stdin with text to send.")
-        response = cli.call_with_refresh(lambda client: client.sessions.send(session_id, input=message))
+        response = cast(
+            SessionResponse,
+            cli.call_with_refresh(lambda client: client.sessions.send(session_id, input=message)),
+        )
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
 
@@ -190,9 +173,8 @@ def send_session(
         print_json(response)
         return
 
-    session = response.get("session") if isinstance(response, Mapping) else None
-    if isinstance(session, Mapping):
-        _render_session(session)
+    if response.session:
+        _render_session(response.session)
     else:
         console.print("[green]Message sent.[/green]")
 

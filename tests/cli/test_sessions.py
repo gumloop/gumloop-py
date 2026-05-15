@@ -32,7 +32,7 @@ def test_sessions_create_posts_to_per_agent_endpoint_with_inline_input(cli_runne
 @respx.mock
 def test_sessions_create_reads_input_from_stdin(cli_runner: CliRunner) -> None:
     route = respx.post(f"{API_BASE}/agents/agent_abc/sessions").mock(
-        return_value=httpx.Response(201, json={"session": {"id": "session_xyz"}})
+        return_value=httpx.Response(201, json={"session": {"id": "session_xyz", "agent_id": "agent_abc"}})
     )
     save_credentials(Credentials(api_key="key"))
 
@@ -62,7 +62,9 @@ def test_sessions_create_rejects_both_input_and_input_stdin(cli_runner: CliRunne
 @respx.mock
 def test_sessions_get_calls_per_session_endpoint(cli_runner: CliRunner) -> None:
     respx.get(f"{API_BASE}/sessions/session_xyz").mock(
-        return_value=httpx.Response(200, json={"session": {"id": "session_xyz", "state": "completed"}})
+        return_value=httpx.Response(
+            200, json={"session": {"id": "session_xyz", "agent_id": "agent_abc", "state": "completed"}}
+        )
     )
     save_credentials(Credentials(api_key="key"))
 
@@ -75,7 +77,7 @@ def test_sessions_get_calls_per_session_endpoint(cli_runner: CliRunner) -> None:
 @respx.mock
 def test_sessions_send_posts_to_messages_endpoint(cli_runner: CliRunner) -> None:
     route = respx.post(f"{API_BASE}/sessions/session_xyz/messages").mock(
-        return_value=httpx.Response(200, json={"session": {"id": "session_xyz"}})
+        return_value=httpx.Response(200, json={"session": {"id": "session_xyz", "agent_id": "agent_abc"}})
     )
     save_credentials(Credentials(api_key="key"))
 
@@ -100,7 +102,9 @@ def test_sessions_send_requires_message_text(cli_runner: CliRunner) -> None:
 @respx.mock
 def test_sessions_cancel_posts_to_cancel_endpoint(cli_runner: CliRunner) -> None:
     route = respx.post(f"{API_BASE}/sessions/session_xyz/cancel").mock(
-        return_value=httpx.Response(200, json={"session": {"id": "session_xyz", "state": "cancelled"}})
+        return_value=httpx.Response(
+            200, json={"session": {"id": "session_xyz", "agent_id": "agent_abc", "state": "cancelled"}}
+        )
     )
     save_credentials(Credentials(api_key="key"))
 

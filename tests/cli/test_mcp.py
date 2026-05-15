@@ -58,7 +58,18 @@ def test_mcp_list_exits_nonzero_on_api_error(cli_runner: CliRunner) -> None:
 @respx.mock
 def test_mcp_get_calls_per_server_endpoint(cli_runner: CliRunner) -> None:
     respx.get(f"{API_BASE}/mcp/servers/gmail").mock(
-        return_value=httpx.Response(200, json={"server": {"server_id": "gmail", "name": "Gmail"}})
+        return_value=httpx.Response(
+            200,
+            json={
+                "server": {
+                    "server_id": "gmail",
+                    "name": "Gmail",
+                    "type": "gumcp",
+                    "status": "connected",
+                    "gumloop_auth_url": "",
+                }
+            },
+        )
     )
     save_credentials(Credentials(api_key="key"))
 

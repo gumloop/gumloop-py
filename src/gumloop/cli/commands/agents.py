@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Annotated
@@ -16,11 +15,12 @@ from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
 from gumloop.cli.errors import exit_with_error
+from gumloop.types import Agent
 
 agents_app = typer.Typer(help="Manage Gumloop agents.", no_args_is_help=True, rich_markup_mode="rich")
 
 
-def _render_agents(agents: Sequence[Mapping[str, Any]]) -> None:
+def _render_agents(agents: Sequence[Agent]) -> None:
     if not agents:
         console.print("No agents found.")
         return
@@ -32,34 +32,32 @@ def _render_agents(agents: Sequence[Mapping[str, Any]]) -> None:
     table.add_column("Team", overflow="fold")
     table.add_column("Active")
 
+    # Table cells default to markup=True; wrap remote strings in Text to
+    # keep server-supplied markup syntax inert.
     for agent in agents:
-        # Wrap remote strings in rich.text.Text so Rich never interprets
-        # them as markup (Table cells default to markup=True).
         table.add_row(
-            Text(str(agent.get("id") or "")),
-            Text(str(agent.get("name") or "")),
-            Text(str(agent.get("model_name") or "")),
-            Text(str(agent.get("team_id") or "")),
-            "yes" if agent.get("is_active") else "no",
+            Text(agent.id),
+            Text(agent.name),
+            Text(agent.model_name or ""),
+            Text(agent.team_id or ""),
+            "yes" if agent.is_active else "no",
         )
 
     console.print(table)
 
 
-def _render_agent(agent: Mapping[str, Any]) -> None:
-    # Server-controlled strings (name, description, system_prompt) get
-    # escape_markup() when interpolated into a markup=True line, and
-    # markup=False on lines that are pure remote data. Without this a
-    # malicious agent record can render fake terminal hyperlinks.
-    title = str(agent.get("name") or agent.get("id") or "")
+def _render_agent(agent: Agent) -> None:
+    # Header line uses markup=True framing, so the server-supplied title
+    # is escape'd. Data lines use markup=False end-to-end.
+    title = agent.name or agent.id
     console.print(f"[bold]{escape_markup(title)}[/bold]")
     for field in ("id", "model_name", "team_id", "is_active", "folder_id", "description", "created_at"):
-        value = agent.get(field)
+        value = getattr(agent, field, None)
         if value not in (None, ""):
             console.print(f"  {field}: {value}", markup=False, highlight=False)
-    if agent.get("system_prompt"):
+    if agent.system_prompt:
         console.print("  system_prompt:", markup=False, highlight=False)
-        console.print(f"    {agent['system_prompt']}", markup=False, highlight=False)
+        console.print(f"    {agent.system_prompt}", markup=False, highlight=False)
 
 
 def _read_prompt(value: str | None, file_path: str | None, field_name: str) -> str | None:
@@ -71,6 +69,34 @@ def _read_prompt(value: str | None, file_path: str | None, field_name: str) -> s
         except OSError as error:
             raise GumloopError(f"Could not read {file_path}: {error.strerror or error}") from error
     return value
+
+
+def _resolve_tools(tools_json: str | None, tools_file: str | None) -> list[dict[str, Any]] | None:
+    # Tools is a top-level array; resolve_json_args is object-only.
+    if tools_json is None and tools_file is None:
+        return None
+    if tools_json is not None and tools_file is not None:
+        raise GumloopError("Pass at most one of --tools-json or --tools-file.")
+
+    import json
+
+    if tools_file is not None:
+        try:
+            raw = Path(tools_file).expanduser().read_text(encoding="utf-8")
+        except OSError as error:
+            raise GumloopError(f"Could not read {tools_file}: {error.strerror or error}") from error
+    else:
+        raw = tools_json or ""
+
+    if not raw.strip():
+        return []
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as error:
+        raise GumloopError(f"Could not parse tools JSON: {error.msg} at line {error.lineno}.") from error
+    if not isinstance(parsed, list):
+        raise GumloopError("Tools JSON must be an array at the top level.")
+    return parsed
 
 
 @agents_app.command(
@@ -114,10 +140,9 @@ def list_agents(
         print_json(response)
         return
 
-    _render_agents(response.get("agents", []))
-    next_cursor = response.get("next_cursor")
-    if next_cursor:
-        console.print(f"\n[dim]Next cursor:[/dim] {escape_markup(str(next_cursor))}")
+    _render_agents(response.agents)
+    if response.next_cursor:
+        console.print(f"\n[dim]Next cursor:[/dim] {escape_markup(response.next_cursor)}")
 
 
 @agents_app.command("get", epilog="Example:\n  gumloop agents get agent_abc --json")
@@ -140,11 +165,7 @@ def get_agent(
         print_json(response)
         return
 
-    payload = response.get("agent")
-    if isinstance(payload, Mapping):
-        _render_agent(payload)
-    else:
-        console.print("(no agent payload)")
+    _render_agent(response.agent)
 
 
 @agents_app.command(
@@ -208,11 +229,10 @@ def create_agent(
         print_json(response)
         return
 
-    agent = response.get("agent") or {}
-    console.print(f"[green]Created agent[/green] {escape_markup(str(agent.get('id', '')))}")
-    agent_name = agent.get("name")
-    if agent_name:
-        console.print(f"  Name: {agent_name}", markup=False, highlight=False)
+    agent = response.agent
+    console.print(f"[green]Created agent[/green] {escape_markup(agent.id)}")
+    if agent.name:
+        console.print(f"  Name: {agent.name}", markup=False, highlight=False)
 
 
 @agents_app.command(
@@ -280,31 +300,3 @@ def update_agent(
         return
 
     console.print(f"[green]Updated agent[/green] {agent_id}")
-
-
-def _resolve_tools(tools_json: str | None, tools_file: str | None) -> list[dict[str, Any]] | None:
-    # Not via resolve_json_args: that requires a top-level object, tools is an array.
-    if tools_json is None and tools_file is None:
-        return None
-    if tools_json is not None and tools_file is not None:
-        raise GumloopError("Pass at most one of --tools-json or --tools-file.")
-
-    import json
-
-    if tools_file is not None:
-        try:
-            raw = Path(tools_file).expanduser().read_text(encoding="utf-8")
-        except OSError as error:
-            raise GumloopError(f"Could not read {tools_file}: {error.strerror or error}") from error
-    else:
-        raw = tools_json or ""
-
-    if not raw.strip():
-        return []
-    try:
-        parsed = json.loads(raw)
-    except json.JSONDecodeError as error:
-        raise GumloopError(f"Could not parse tools JSON: {error.msg} at line {error.lineno}.") from error
-    if not isinstance(parsed, list):
-        raise GumloopError("Tools JSON must be an array at the top level.")
-    return parsed

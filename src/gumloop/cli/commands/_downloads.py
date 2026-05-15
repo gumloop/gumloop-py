@@ -3,17 +3,33 @@
 from __future__ import annotations
 
 import sys
-from collections.abc import Mapping
 from pathlib import Path
 from pathlib import PurePosixPath
 from pathlib import PureWindowsPath
 from typing import Any
+from typing import Protocol
 from urllib.parse import urlsplit
 from urllib.parse import urlunsplit
 
 import httpx
 
 from gumloop import GumloopError
+
+
+class _DownloadInfo(Protocol):
+    """Subset of fields the helper reads off the SDK's download response.
+
+    Declared as ``@property`` so concrete subtypes can narrow ``filename`` /
+    ``media_type`` to ``str`` without tripping invariance on mutable attrs.
+    """
+
+    @property
+    def download_url(self) -> str: ...
+    @property
+    def filename(self) -> str | None: ...
+    @property
+    def media_type(self) -> str | None: ...
+
 
 _DOWNLOAD_CHUNK_BYTES = 64 * 1024
 # No timeout=None: a stuck upstream could hang CI forever and drip-fill disk.
@@ -130,16 +146,14 @@ def _stream_to_file_atomically(remote: httpx.Response, destination: Path) -> int
     return written
 
 
-def download_response(response: Mapping[str, Any], *, output: str | None, fallback_name: str) -> dict[str, Any]:
+def download_response(response: _DownloadInfo, *, output: str | None, fallback_name: str) -> dict[str, Any]:
     """Stream a signed-URL download response to disk or stdout. Returns
     ``{path, bytes, filename, media_type}`` for the caller to render."""
-    url = response.get("download_url")
-    if not isinstance(url, str) or not url:
+    url = response.download_url
+    if not url:
         raise GumloopError("Download response did not include a download_url.")
 
-    server_filename_raw = response.get("filename")
-    server_filename = str(server_filename_raw) if isinstance(server_filename_raw, str) else None
-
+    server_filename = response.filename
     destination = _resolve_output_path(output, server_filename, fallback_name)
 
     try:
@@ -150,9 +164,8 @@ def download_response(response: Mapping[str, Any], *, output: str | None, fallba
             else:
                 bytes_written = _stream_to_file_atomically(remote, destination)
     except httpx.HTTPStatusError as error:
-        # httpx.HTTPStatusError.__str__ interpolates the full request URL,
-        # so we must not pass ``error`` straight through - report the
-        # status code only and use the redacted URL.
+        # httpx.HTTPStatusError.__str__ embeds the full request URL, which
+        # would leak the signed query string. Report the status only.
         raise GumloopError(
             f"Failed to download {_redact_signed_url(url)}: HTTP {error.response.status_code}"
         ) from error
@@ -163,5 +176,5 @@ def download_response(response: Mapping[str, Any], *, output: str | None, fallba
         "path": None if destination is None else str(destination),
         "bytes": bytes_written,
         "filename": server_filename,
-        "media_type": response.get("media_type"),
+        "media_type": response.media_type,
     }

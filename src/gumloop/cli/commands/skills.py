@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Annotated
-from typing import Any
 
 import typer
 from rich.markup import escape as escape_markup
@@ -17,12 +15,13 @@ from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
 from gumloop.cli.errors import exit_with_error
-from gumloop.skills import SkillFile
+from gumloop.resources.skills import SkillFile
+from gumloop.types import Skill
 
 skills_app = typer.Typer(help="Manage Gumloop skills.", no_args_is_help=True, rich_markup_mode="rich")
 
 
-def _render_skills(skills: Sequence[Mapping[str, Any]]) -> None:
+def _render_skills(skills: Sequence[Skill]) -> None:
     if not skills:
         console.print("No skills found.")
         return
@@ -34,14 +33,14 @@ def _render_skills(skills: Sequence[Mapping[str, Any]]) -> None:
     table.add_column("Usage", justify="right")
     table.add_column("Updated")
 
+    # Table cells default to markup=True; Text cells render as plain text.
     for skill in skills:
-        # rich.text.Text cells are rendered as plain strings, not markup.
         table.add_row(
-            Text(str(skill.get("id") or "")),
-            Text(str(skill.get("name") or "")),
-            Text(str(skill.get("team_id") or "")),
-            "" if skill.get("usage_count") is None else str(skill.get("usage_count")),
-            Text(str(skill.get("updated_at") or "")),
+            Text(skill.id),
+            Text(skill.name),
+            Text(skill.team_id),
+            "" if skill.usage_count is None else str(skill.usage_count),
+            Text(skill.updated_at or ""),
         )
 
     console.print(table)
@@ -105,10 +104,9 @@ def list_skills(
         print_json(response)
         return
 
-    _render_skills(response.get("skills", []))
-    next_cursor = response.get("next_cursor")
-    if next_cursor:
-        console.print(f"\n[dim]Next cursor:[/dim] {escape_markup(str(next_cursor))}")
+    _render_skills(response.skills)
+    if response.next_cursor:
+        console.print(f"\n[dim]Next cursor:[/dim] {escape_markup(response.next_cursor)}")
 
 
 @skills_app.command(
@@ -148,11 +146,10 @@ def create_skill(
         print_json(response)
         return
 
-    skill = response.get("skill") or {}
-    console.print(f"[green]Created skill[/green] {escape_markup(str(skill.get('id', '')))}")
-    skill_name = skill.get("name")
-    if skill_name:
-        console.print(f"  Name: {skill_name}", markup=False, highlight=False)
+    skill = response.skill
+    console.print(f"[green]Created skill[/green] {escape_markup(skill.id)}")
+    if skill.name:
+        console.print(f"  Name: {skill.name}", markup=False, highlight=False)
 
 
 @skills_app.command(

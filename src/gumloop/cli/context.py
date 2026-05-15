@@ -11,11 +11,11 @@ import httpx
 from gumloop import APIStatusError
 from gumloop import AuthenticationError
 from gumloop import Gumloop
+from gumloop._client import DEFAULT_BASE_URL
 from gumloop.cli.credentials import Credentials
 from gumloop.cli.credentials import clear_credentials
 from gumloop.cli.credentials import save_credentials
 from gumloop.cli.oauth import refresh_oauth_tokens
-from gumloop.sdk import DEFAULT_BASE_URL
 
 T = TypeVar("T")
 

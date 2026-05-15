@@ -63,7 +63,9 @@ def test_agents_create_posts_required_fields(cli_runner: CliRunner) -> None:
 def test_agents_create_reads_system_prompt_from_file(cli_runner: CliRunner, tmp_path: Path) -> None:
     prompt_file = tmp_path / "prompt.md"
     prompt_file.write_text("# system prompt body\n\nbe nice")
-    route = respx.post(f"{API_BASE}/agents").mock(return_value=httpx.Response(201, json={"agent": {"id": "agent_new"}}))
+    route = respx.post(f"{API_BASE}/agents").mock(
+        return_value=httpx.Response(201, json={"agent": {"id": "agent_new", "name": "Bot"}})
+    )
     save_credentials(Credentials(api_key="key"))
 
     result = cli_runner.invoke(
@@ -78,7 +80,9 @@ def test_agents_create_reads_system_prompt_from_file(cli_runner: CliRunner, tmp_
 
 @respx.mock
 def test_agents_create_parses_tools_json_into_request_body(cli_runner: CliRunner) -> None:
-    route = respx.post(f"{API_BASE}/agents").mock(return_value=httpx.Response(201, json={"agent": {"id": "agent_new"}}))
+    route = respx.post(f"{API_BASE}/agents").mock(
+        return_value=httpx.Response(201, json={"agent": {"id": "agent_new", "name": "Bot"}})
+    )
     save_credentials(Credentials(api_key="key"))
 
     tools = '[{"type": "gumcp_server", "server": "gmail"}]'
@@ -106,7 +110,7 @@ def test_agents_create_rejects_invalid_tools_json(cli_runner: CliRunner) -> None
 @respx.mock
 def test_agents_update_only_sends_specified_fields(cli_runner: CliRunner) -> None:
     route = respx.patch(f"{API_BASE}/agents/agent_abc").mock(
-        return_value=httpx.Response(200, json={"agent": {"id": "agent_abc"}})
+        return_value=httpx.Response(200, json={"agent": {"id": "agent_abc", "name": "Bot"}})
     )
     save_credentials(Credentials(api_key="key"))
 
@@ -121,7 +125,9 @@ def test_agents_update_only_sends_specified_fields(cli_runner: CliRunner) -> Non
 
 @respx.mock
 def test_agents_create_uses_effective_team_id(cli_runner: CliRunner, monkeypatch) -> None:
-    route = respx.post(f"{API_BASE}/agents").mock(return_value=httpx.Response(201, json={"agent": {"id": "agent_new"}}))
+    route = respx.post(f"{API_BASE}/agents").mock(
+        return_value=httpx.Response(201, json={"agent": {"id": "agent_new", "name": "Bot"}})
+    )
     save_credentials(Credentials(api_key="key"))
     monkeypatch.setenv("GUMLOOP_TEAM_ID", "team_env")
 

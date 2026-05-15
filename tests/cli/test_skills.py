@@ -33,7 +33,9 @@ def test_skills_create_uploads_real_file_contents(cli_runner: CliRunner, tmp_pat
     skill = tmp_path / "my-skill.md"
     skill.write_text("# A real skill\n\nbody text")
     route = respx.post(f"{API_BASE}/skills").mock(
-        return_value=httpx.Response(201, json={"skill": {"id": "skill_abc", "name": "my-skill"}})
+        return_value=httpx.Response(
+            201, json={"skill": {"id": "skill_abc", "name": "my-skill", "description": "", "team_id": "team_abc"}}
+        )
     )
     save_credentials(Credentials(api_key="key"))
 
@@ -59,7 +61,9 @@ def test_skills_update_posts_to_per_skill_endpoint(cli_runner: CliRunner, tmp_pa
     skill = tmp_path / "skill.md"
     skill.write_text("new")
     route = respx.patch(f"{API_BASE}/skills/skill_abc").mock(
-        return_value=httpx.Response(200, json={"skill": {"id": "skill_abc"}})
+        return_value=httpx.Response(
+            200, json={"skill": {"id": "skill_abc", "name": "my-skill", "description": "", "team_id": "team_abc"}}
+        )
     )
     save_credentials(Credentials(api_key="key"))
 
@@ -75,7 +79,12 @@ def test_skills_download_streams_signed_url_bytes_to_output_path(cli_runner: Cli
     respx.get(f"{API_BASE}/skills/skill_abc/download").mock(
         return_value=httpx.Response(
             200,
-            json={"download_url": _FAKE_DOWNLOAD_URL, "filename": "skill.md", "media_type": "text/markdown"},
+            json={
+                "id": "skill_abc",
+                "download_url": _FAKE_DOWNLOAD_URL,
+                "filename": "skill.zip",
+                "media_type": "application/zip",
+            },
         )
     )
     respx.get(_FAKE_DOWNLOAD_URL).mock(return_value=httpx.Response(200, content=download_body))
@@ -92,7 +101,15 @@ def test_skills_download_streams_signed_url_bytes_to_output_path(cli_runner: Cli
 def test_skills_download_streams_to_stdout_when_output_is_dash(cli_runner: CliRunner) -> None:
     download_body = b"stdout-bytes"
     respx.get(f"{API_BASE}/skills/skill_abc/download").mock(
-        return_value=httpx.Response(200, json={"download_url": _FAKE_DOWNLOAD_URL, "filename": "skill.md"})
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": "skill_abc",
+                "download_url": _FAKE_DOWNLOAD_URL,
+                "filename": "skill.zip",
+                "media_type": "application/zip",
+            },
+        )
     )
     respx.get(_FAKE_DOWNLOAD_URL).mock(return_value=httpx.Response(200, content=download_body))
     save_credentials(Credentials(api_key="key"))
@@ -107,7 +124,15 @@ def test_skills_download_streams_to_stdout_when_output_is_dash(cli_runner: CliRu
 def test_skills_download_with_directory_output_uses_server_filename(cli_runner: CliRunner, tmp_path: Path) -> None:
     body = b"named-by-server"
     respx.get(f"{API_BASE}/skills/skill_abc/download").mock(
-        return_value=httpx.Response(200, json={"download_url": _FAKE_DOWNLOAD_URL, "filename": "actual-name.md"})
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": "skill_abc",
+                "download_url": _FAKE_DOWNLOAD_URL,
+                "filename": "actual-name.zip",
+                "media_type": "application/zip",
+            },
+        )
     )
     respx.get(_FAKE_DOWNLOAD_URL).mock(return_value=httpx.Response(200, content=body))
     save_credentials(Credentials(api_key="key"))
@@ -115,4 +140,4 @@ def test_skills_download_with_directory_output_uses_server_filename(cli_runner: 
     result = cli_runner.invoke(app, ["skills", "download", "skill_abc", "-o", str(tmp_path) + "/", "--json"])
 
     assert result.exit_code == 0, result.output
-    assert (tmp_path / "actual-name.md").read_bytes() == body
+    assert (tmp_path / "actual-name.zip").read_bytes() == body
