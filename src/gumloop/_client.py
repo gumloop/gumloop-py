@@ -31,9 +31,9 @@ DEFAULT_STREAM_TIMEOUT = 3600.0
 
 
 def _derive_stream_base_url(base_url: str) -> str:
-    # SSE traffic terminates on ws.gumloop.com. Non-prod backends should
-    # pass ``stream_base_url=`` explicitly instead of relying on this swap.
-    return base_url.replace("api.gumloop.com", "ws.gumloop.com")
+    # Prod: api.gumloop.com -> ws.gumloop.com. Local dev: :8080 -> :9093.
+    # Other backends should pass ``stream_base_url=`` explicitly.
+    return base_url.replace("api.gumloop.com", "ws.gumloop.com").replace("localhost:8080", "localhost:9093")
 
 
 class Gumloop:
