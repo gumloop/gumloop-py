@@ -18,11 +18,13 @@ import pytest
 import respx
 
 from gumloop import GumloopClient
-from gumloop import client as client_module
+from gumloop import _client as client_module
 
 API_BASE = "https://api.gumloop.com/api/v1"
 START_URL = f"{API_BASE}/start_pipeline"
 STATUS_URL = f"{API_BASE}/get_pl_run"
+
+pytestmark = pytest.mark.filterwarnings("ignore:GumloopClient is the legacy flows client:DeprecationWarning")
 
 
 def _start_response(run_id: str = "run-123") -> dict[str, Any]:
