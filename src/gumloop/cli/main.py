@@ -72,6 +72,10 @@ def root(
     if env_access:
         credentials.access_token = env_access
         credentials.api_key = None
+        # Drop the stored refresh_token too: otherwise a 401 on the env
+        # access_token would trigger refresh_if_possible -> save_credentials,
+        # overwriting the keychain with tokens for a different identity.
+        credentials.refresh_token = None
     elif env_api_key:
         credentials.api_key = env_api_key
         credentials.access_token = None

@@ -54,7 +54,10 @@ def _read_files(paths: Sequence[Path]) -> list[SkillFile]:
             raise GumloopError(f"File not found: {path}")
         if not resolved.is_file():
             raise GumloopError(f"Not a regular file: {path}")
-        contents.append((resolved.name, resolved.read_bytes()))
+        try:
+            contents.append((resolved.name, resolved.read_bytes()))
+        except OSError as error:
+            raise GumloopError(f"Could not read {path}: {error.strerror or error}") from error
     return contents
 
 
@@ -227,4 +230,6 @@ def download_skill(
 
     if result["path"] is None:
         return
-    console.print(f"[green]Saved[/green] {result['path']} ({result['bytes']} bytes)")
+    # result["path"] embeds the server-supplied filename, which is path-safe
+    # but not markup-safe; escape before the markup=True framing print.
+    console.print(f"[green]Saved[/green] {escape_markup(result['path'])} ({result['bytes']} bytes)")
