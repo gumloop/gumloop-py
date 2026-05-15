@@ -1,15 +1,14 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Annotated
+from typing import Any
 
 import typer
 from rich.markup import escape as escape_markup
-from rich.table import Table
-from rich.text import Text
 
 from gumloop import GumloopError
-from gumloop.cli.commands._inputs import parse_tools_json
-from gumloop.cli.commands._inputs import read_text_arg
 from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
@@ -62,22 +61,17 @@ def list_agents(
     if not response.agents:
         console.print("No agents found.")
     else:
-        table = Table(title="Gumloop Agents")
-        table.add_column("ID", overflow="fold")
-        table.add_column("Name", overflow="fold")
-        table.add_column("Model", overflow="fold")
-        table.add_column("Team", overflow="fold")
-        table.add_column("Active")
-        # Table cells default to markup=True; wrap remote strings in Text.
+        console.print("ID", "NAME", "MODEL", "TEAM", "ACTIVE", sep="\t", soft_wrap=True)
         for agent in response.agents:
-            table.add_row(
-                Text(agent.id),
-                Text(agent.name),
-                Text(agent.model_name or ""),
-                Text(agent.team_id or ""),
+            console.print(
+                agent.id,
+                agent.name,
+                agent.model_name or "",
+                agent.team_id or "",
                 "yes" if agent.is_active else "no",
+                sep="\t",
+                soft_wrap=True,
             )
-        console.print(table)
 
     if response.next_cursor:
         console.print(f"\n[dim]Next cursor:[/dim] {escape_markup(response.next_cursor)}")
@@ -159,8 +153,39 @@ def create_agent(
     cli: CliContext = ctx.obj
 
     try:
-        resolved_prompt = read_text_arg(system_prompt, system_prompt_file, "system-prompt")
-        tools = parse_tools_json(tools_json, tools_file)
+        # Resolve --system-prompt vs --system-prompt-file (at most one).
+        if system_prompt is not None and system_prompt_file is not None:
+            raise GumloopError("Pass at most one of --system-prompt or --system-prompt-file.")
+        resolved_prompt = system_prompt
+        if system_prompt_file is not None:
+            try:
+                resolved_prompt = Path(system_prompt_file).expanduser().read_text(encoding="utf-8")
+            except OSError as error:
+                raise GumloopError(f"Could not read {system_prompt_file}: {error.strerror or error}") from error
+
+        # Resolve --tools-json vs --tools-file (at most one), parse as a top-level array.
+        tools: list[dict[str, Any]] | None = None
+        if tools_json is not None and tools_file is not None:
+            raise GumloopError("Pass at most one of --tools-json or --tools-file.")
+        if tools_json is not None or tools_file is not None:
+            if tools_file is not None:
+                try:
+                    raw = Path(tools_file).expanduser().read_text(encoding="utf-8")
+                except OSError as error:
+                    raise GumloopError(f"Could not read {tools_file}: {error.strerror or error}") from error
+            else:
+                raw = tools_json or ""
+            if not raw.strip():
+                tools = []
+            else:
+                try:
+                    parsed = json.loads(raw)
+                except json.JSONDecodeError as error:
+                    raise GumloopError(f"Could not parse tools JSON: {error.msg} at line {error.lineno}.") from error
+                if not isinstance(parsed, list):
+                    raise GumloopError("Tools JSON must be an array at the top level.")
+                tools = parsed
+
         response = cli.call_with_refresh(
             lambda client: client.agents.create(
                 name=name,
@@ -227,8 +252,37 @@ def update_agent(
     cli: CliContext = ctx.obj
 
     try:
-        resolved_prompt = read_text_arg(system_prompt, system_prompt_file, "system-prompt")
-        tools = parse_tools_json(tools_json, tools_file)
+        if system_prompt is not None and system_prompt_file is not None:
+            raise GumloopError("Pass at most one of --system-prompt or --system-prompt-file.")
+        resolved_prompt = system_prompt
+        if system_prompt_file is not None:
+            try:
+                resolved_prompt = Path(system_prompt_file).expanduser().read_text(encoding="utf-8")
+            except OSError as error:
+                raise GumloopError(f"Could not read {system_prompt_file}: {error.strerror or error}") from error
+
+        tools: list[dict[str, Any]] | None = None
+        if tools_json is not None and tools_file is not None:
+            raise GumloopError("Pass at most one of --tools-json or --tools-file.")
+        if tools_json is not None or tools_file is not None:
+            if tools_file is not None:
+                try:
+                    raw = Path(tools_file).expanduser().read_text(encoding="utf-8")
+                except OSError as error:
+                    raise GumloopError(f"Could not read {tools_file}: {error.strerror or error}") from error
+            else:
+                raw = tools_json or ""
+            if not raw.strip():
+                tools = []
+            else:
+                try:
+                    parsed = json.loads(raw)
+                except json.JSONDecodeError as error:
+                    raise GumloopError(f"Could not parse tools JSON: {error.msg} at line {error.lineno}.") from error
+                if not isinstance(parsed, list):
+                    raise GumloopError("Tools JSON must be an array at the top level.")
+                tools = parsed
+
         response = cli.call_with_refresh(
             lambda client: client.agents.update(
                 agent_id,

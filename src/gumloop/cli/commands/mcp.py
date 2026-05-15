@@ -4,8 +4,6 @@ from typing import Annotated
 
 import typer
 from rich.markup import escape as escape_markup
-from rich.table import Table
-from rich.text import Text
 
 from gumloop import GumloopError
 from gumloop.cli.commands._args_input import resolve_json_args
@@ -37,25 +35,19 @@ def list_servers(
         console.print("No MCP servers found.")
         return
 
-    table = Table(title="Gumloop MCP Servers")
-    table.add_column("Server ID", overflow="fold")
-    table.add_column("Name", overflow="fold")
-    table.add_column("Type")
-    table.add_column("Status")
-    table.add_column("Tools", justify="right")
-    table.add_column("Auth URL", overflow="fold")
-    # Table cells default to markup=True; Text cells render as plain text.
+    console.print("SERVER_ID", "NAME", "TYPE", "STATUS", "TOOLS", "AUTH_URL", sep="\t", soft_wrap=True)
     for server in response.servers:
         auth_url = "" if server.status == "connected" else (server.gumloop_auth_url or "")
-        table.add_row(
-            Text(server.server_id),
-            Text(server.name or ""),
-            Text(server.type),
-            Text(server.status),
+        console.print(
+            server.server_id,
+            server.name or "",
+            server.type,
+            server.status,
             "" if server.tool_count is None else str(server.tool_count),
-            Text(auth_url),
+            auth_url,
+            sep="\t",
+            soft_wrap=True,
         )
-    console.print(table)
 
 
 @mcp_app.command("get", epilog="Example:\n  gumloop mcp get gmail --json")
@@ -112,17 +104,9 @@ def list_tools(
         console.print("No tools found.")
         return
 
-    table = Table(title="MCP Tools")
-    table.add_column("Name", overflow="fold")
-    table.add_column("Tool Call ID", overflow="fold")
-    table.add_column("Description", overflow="fold")
+    console.print("NAME", "TOOL_CALL_ID", "DESCRIPTION", sep="\t", soft_wrap=True)
     for tool in response.tools:
-        table.add_row(
-            Text(tool.name),
-            Text(tool.tool_call_id),
-            Text(tool.description or ""),
-        )
-    console.print(table)
+        console.print(tool.name, tool.tool_call_id, tool.description or "", sep="\t", soft_wrap=True)
 
 
 @mcp_app.command(

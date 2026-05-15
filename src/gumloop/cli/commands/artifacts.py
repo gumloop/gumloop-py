@@ -4,8 +4,6 @@ from typing import Annotated
 
 import typer
 from rich.markup import escape as escape_markup
-from rich.table import Table
-from rich.text import Text
 
 from gumloop import GumloopError
 from gumloop.cli.commands._downloads import download_response
@@ -62,22 +60,17 @@ def list_artifacts(
     if not response.artifacts:
         console.print("No artifacts found.")
     else:
-        table = Table(title="Gumloop Artifacts")
-        table.add_column("ID", overflow="fold")
-        table.add_column("Filename", overflow="fold")
-        table.add_column("Version", overflow="fold")
-        table.add_column("Session", overflow="fold")
-        table.add_column("Created")
-        # Table cells default to markup=True; Text cells render as plain text.
+        console.print("ID", "FILENAME", "VERSION", "SESSION", "CREATED", sep="\t", soft_wrap=True)
         for artifact in response.artifacts:
-            table.add_row(
-                Text(artifact.id),
-                Text(artifact.filename or ""),
-                Text(artifact.version_id or ""),
-                Text(artifact.session_id or ""),
-                Text(artifact.created_at or ""),
+            console.print(
+                artifact.id,
+                artifact.filename or "",
+                artifact.version_id or "",
+                artifact.session_id or "",
+                artifact.created_at or "",
+                sep="\t",
+                soft_wrap=True,
             )
-        console.print(table)
 
     if response.next_cursor:
         console.print(f"\n[dim]Next cursor:[/dim] {escape_markup(response.next_cursor)}")
