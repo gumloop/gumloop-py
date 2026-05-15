@@ -130,6 +130,4 @@ def download_artifact(
 
     if result["path"] is None:
         return
-    # result["path"] embeds the server-supplied filename, which is path-safe
-    # but not markup-safe; escape before the markup=True framing print.
-    console.print(f"[green]Saved[/green] {escape_markup(result['path'])} ({result['bytes']} bytes)")
+    console.print(f"[green]Saved[/green] {result['path']} ({result['bytes']} bytes)")
