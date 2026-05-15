@@ -33,7 +33,7 @@ def test_keyring_round_trip_persists_every_field() -> None:
             refresh_token="ref",
             api_key="key",
             user_id="user_abc",
-            base_url="https://staging.api.gumloop.com/api/v1",
+            base_url="https://example.com/api/v1",
         )
     )
 
@@ -42,7 +42,7 @@ def test_keyring_round_trip_persists_every_field() -> None:
     assert loaded.refresh_token == "ref"
     assert loaded.api_key == "key"
     assert loaded.user_id == "user_abc"
-    assert loaded.base_url == "https://staging.api.gumloop.com/api/v1"
+    assert loaded.base_url == "https://example.com/api/v1"
 
 
 def test_keyring_save_clears_fields_set_to_none() -> None:

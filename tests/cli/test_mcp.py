@@ -96,7 +96,7 @@ def test_mcp_tools_shows_auth_url_when_server_is_not_connected(cli_runner: CliRu
     payload = {
         "server_id": "gmail",
         "status": "unauthenticated",
-        "gumloop_auth_url": "http://localhost:3000/settings/profile/apps?server=gmail",
+        "gumloop_auth_url": "https://example.com/settings/profile/apps?server=gmail",
         "tools": [],
     }
     respx.get(f"{API_BASE}/mcp/servers/gmail/tools").mock(return_value=httpx.Response(200, json=payload))
@@ -106,7 +106,7 @@ def test_mcp_tools_shows_auth_url_when_server_is_not_connected(cli_runner: CliRu
 
     assert result.exit_code == 0
     assert "not connected" in result.output
-    assert "http://localhost:3000/settings/profile/apps?server=gmail" in result.output
+    assert "https://example.com/settings/profile/apps?server=gmail" in result.output
 
 
 @respx.mock

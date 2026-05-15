@@ -103,11 +103,11 @@ def test_effective_base_url_layers_override_over_creds_over_sdk_default() -> Non
     no_state = CliContext(credentials=Credentials())
     assert no_state.effective_base_url == DEFAULT_BASE_URL
 
-    stored = CliContext(credentials=Credentials(base_url="https://staging.api.gumloop.com/api/v1"))
-    assert stored.effective_base_url == "https://staging.api.gumloop.com/api/v1"
+    stored = CliContext(credentials=Credentials(base_url="https://example.com/api/v1"))
+    assert stored.effective_base_url == "https://example.com/api/v1"
 
     overridden = CliContext(
-        credentials=Credentials(base_url="https://staging.api.gumloop.com/api/v1"),
-        base_url_override="http://localhost:8080/api/v1",
+        credentials=Credentials(base_url="https://example.com/api/v1"),
+        base_url_override="https://override.example.com/api/v1",
     )
-    assert overridden.effective_base_url == "http://localhost:8080/api/v1"
+    assert overridden.effective_base_url == "https://override.example.com/api/v1"

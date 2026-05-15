@@ -83,7 +83,7 @@ def test_login_with_invalid_credentials_exits_nonzero_and_does_not_save(cli_runn
 
 @respx.mock
 def test_login_against_custom_base_url_stores_it_in_keychain(cli_runner: CliRunner) -> None:
-    custom = "http://localhost:8080/api/v1"
+    custom = "https://example.com/api/v1"
     respx.get(f"{custom}/models").mock(return_value=httpx.Response(200, json={"model_groups": []}))
 
     result = cli_runner.invoke(

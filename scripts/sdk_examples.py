@@ -16,13 +16,13 @@ from gumloop import AsyncGumloop
 from gumloop import Gumloop
 from gumloop.errors import APIStatusError
 
-DEFAULT_BASE_URL = "http://localhost:8080/api/v1"
+DEFAULT_BASE_URL = "https://api.gumloop.com/api/v1"
 CONFIG_PATH = Path(os.environ.get("GUMLOOP_SDK_EXAMPLE_CONFIG", Path.home() / ".gumloop" / "config.json"))
 BASE_URL = os.environ.get("GUMLOOP_BASE_URL", DEFAULT_BASE_URL).rstrip("/")
 REDIRECT_HOST = "127.0.0.1"
 REDIRECT_PORT = 8765
 REDIRECT_URI = f"http://{REDIRECT_HOST}:{REDIRECT_PORT}/callback"
-SCOPES = ("gumloop", "userinfo")
+SCOPES = ("gumloop_api", "userinfo")
 SESSION_WAIT_SECONDS = float(os.environ.get("GUMLOOP_SDK_EXAMPLE_WAIT_SECONDS", "30"))
 
 
