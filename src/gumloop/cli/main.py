@@ -72,6 +72,7 @@ def root(
     if env_access:
         credentials.access_token = env_access
         credentials.api_key = None
+        credentials.refresh_token = None
     elif env_api_key:
         credentials.api_key = env_api_key
         credentials.access_token = None

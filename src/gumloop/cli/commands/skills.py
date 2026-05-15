@@ -54,7 +54,10 @@ def _read_files(paths: Sequence[Path]) -> list[SkillFile]:
             raise GumloopError(f"File not found: {path}")
         if not resolved.is_file():
             raise GumloopError(f"Not a regular file: {path}")
-        contents.append((resolved.name, resolved.read_bytes()))
+        try:
+            contents.append((resolved.name, resolved.read_bytes()))
+        except OSError as error:
+            raise GumloopError(f"Could not read {path}: {error.strerror or error}") from error
     return contents
 
 
