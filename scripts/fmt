@@ -1,0 +1,8 @@
+#!/bin/sh
+# Auto-fix everything ruff can fix: formatting + lint-with-fix.
+# Run before committing if you want a clean tree without re-staging twice.
+set -e
+cd "$(dirname "$0")/.."
+
+uv run --frozen ruff format
+uv run --frozen ruff check --fix

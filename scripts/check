@@ -1,0 +1,22 @@
+#!/bin/sh
+# Run every check pre-commit runs, read-only (no auto-fix).
+# Mirrors what CI will run once it's wired up — use this before pushing.
+set -e
+cd "$(dirname "$0")/.."
+
+echo "==> ruff format (check only)"
+uv run --frozen ruff format --check
+
+echo "==> ruff check"
+uv run --frozen ruff check
+
+echo "==> pyright"
+uv run --frozen pyright
+
+echo "==> uv lock check"
+uv lock --check
+
+echo "==> pytest"
+uv run --frozen pytest
+
+echo "All checks passed."
