@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
 from typing import Annotated
 
 import typer
@@ -14,34 +13,8 @@ from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
 from gumloop.cli.errors import exit_with_error
-from gumloop.types import Artifact
 
 artifacts_app = typer.Typer(help="List and download Gumloop artifacts.", no_args_is_help=True, rich_markup_mode="rich")
-
-
-def _render_artifacts(artifacts: Sequence[Artifact]) -> None:
-    if not artifacts:
-        console.print("No artifacts found.")
-        return
-
-    table = Table(title="Gumloop Artifacts")
-    table.add_column("ID", overflow="fold")
-    table.add_column("Filename", overflow="fold")
-    table.add_column("Version", overflow="fold")
-    table.add_column("Session", overflow="fold")
-    table.add_column("Created")
-
-    # Table cells default to markup=True; Text cells render as plain text.
-    for artifact in artifacts:
-        table.add_row(
-            Text(artifact.id),
-            Text(artifact.filename or ""),
-            Text(artifact.version_id or ""),
-            Text(artifact.session_id or ""),
-            Text(artifact.created_at or ""),
-        )
-
-    console.print(table)
 
 
 @artifacts_app.command(
@@ -86,7 +59,26 @@ def list_artifacts(
         print_json(response)
         return
 
-    _render_artifacts(response.artifacts)
+    if not response.artifacts:
+        console.print("No artifacts found.")
+    else:
+        table = Table(title="Gumloop Artifacts")
+        table.add_column("ID", overflow="fold")
+        table.add_column("Filename", overflow="fold")
+        table.add_column("Version", overflow="fold")
+        table.add_column("Session", overflow="fold")
+        table.add_column("Created")
+        # Table cells default to markup=True; Text cells render as plain text.
+        for artifact in response.artifacts:
+            table.add_row(
+                Text(artifact.id),
+                Text(artifact.filename or ""),
+                Text(artifact.version_id or ""),
+                Text(artifact.session_id or ""),
+                Text(artifact.created_at or ""),
+            )
+        console.print(table)
+
     if response.next_cursor:
         console.print(f"\n[dim]Next cursor:[/dim] {escape_markup(response.next_cursor)}")
 

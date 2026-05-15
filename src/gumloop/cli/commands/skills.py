@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
 from pathlib import Path
 from typing import Annotated
 
@@ -11,54 +10,13 @@ from rich.text import Text
 
 from gumloop import GumloopError
 from gumloop.cli.commands._downloads import download_response
+from gumloop.cli.commands._inputs import read_skill_files
 from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
 from gumloop.cli.errors import exit_with_error
-from gumloop.resources.skills import SkillFile
-from gumloop.types import Skill
 
 skills_app = typer.Typer(help="Manage Gumloop skills.", no_args_is_help=True, rich_markup_mode="rich")
-
-
-def _render_skills(skills: Sequence[Skill]) -> None:
-    if not skills:
-        console.print("No skills found.")
-        return
-
-    table = Table(title="Gumloop Skills")
-    table.add_column("ID", overflow="fold")
-    table.add_column("Name", overflow="fold")
-    table.add_column("Team", overflow="fold")
-    table.add_column("Usage", justify="right")
-    table.add_column("Updated")
-
-    # Table cells default to markup=True; Text cells render as plain text.
-    for skill in skills:
-        table.add_row(
-            Text(skill.id),
-            Text(skill.name),
-            Text(skill.team_id),
-            "" if skill.usage_count is None else str(skill.usage_count),
-            Text(skill.updated_at or ""),
-        )
-
-    console.print(table)
-
-
-def _read_files(paths: Sequence[Path]) -> list[SkillFile]:
-    contents: list[SkillFile] = []
-    for path in paths:
-        resolved = path.expanduser()
-        if not resolved.exists():
-            raise GumloopError(f"File not found: {path}")
-        if not resolved.is_file():
-            raise GumloopError(f"Not a regular file: {path}")
-        try:
-            contents.append((resolved.name, resolved.read_bytes()))
-        except OSError as error:
-            raise GumloopError(f"Could not read {path}: {error.strerror or error}") from error
-    return contents
 
 
 @skills_app.command(
@@ -107,7 +65,26 @@ def list_skills(
         print_json(response)
         return
 
-    _render_skills(response.skills)
+    if not response.skills:
+        console.print("No skills found.")
+    else:
+        table = Table(title="Gumloop Skills")
+        table.add_column("ID", overflow="fold")
+        table.add_column("Name", overflow="fold")
+        table.add_column("Team", overflow="fold")
+        table.add_column("Usage", justify="right")
+        table.add_column("Updated")
+        # Table cells default to markup=True; Text cells render as plain text.
+        for skill in response.skills:
+            table.add_row(
+                Text(skill.id),
+                Text(skill.name),
+                Text(skill.team_id),
+                "" if skill.usage_count is None else str(skill.usage_count),
+                Text(skill.updated_at or ""),
+            )
+        console.print(table)
+
     if response.next_cursor:
         console.print(f"\n[dim]Next cursor:[/dim] {escape_markup(response.next_cursor)}")
 
@@ -135,7 +112,7 @@ def create_skill(
     """Upload one or more files as a new skill."""
     cli: CliContext = ctx.obj
     try:
-        payload_files = _read_files(files)
+        payload_files = read_skill_files(files)
         response = cli.call_with_refresh(
             lambda client: client.skills.create(
                 files=payload_files,
@@ -179,7 +156,7 @@ def update_skill(
     """Replace the files attached to an existing skill."""
     cli: CliContext = ctx.obj
     try:
-        payload_files = _read_files(files)
+        payload_files = read_skill_files(files)
         response = cli.call_with_refresh(lambda client: client.skills.update(skill_id, files=payload_files))
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)

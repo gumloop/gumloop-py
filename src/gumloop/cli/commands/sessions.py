@@ -1,56 +1,22 @@
 from __future__ import annotations
 
-import sys
 from typing import Annotated
 from typing import cast
 
 import typer
-from rich.markup import escape as escape_markup
-from rich.table import Table
-from rich.text import Text
 
 from gumloop import GumloopError
+from gumloop.cli.commands._inputs import resolve_text_input
+from gumloop.cli.commands._renders import render_session
 from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
 from gumloop.cli.errors import exit_with_error
-from gumloop.types import Session
 from gumloop.types import SessionResponse
 
 sessions_app = typer.Typer(
     help="Create, inspect, and continue Gumloop agent sessions.", no_args_is_help=True, rich_markup_mode="rich"
 )
-
-
-def _render_session(session: Session) -> None:
-    # Header uses markup=True framing -> escape the server-supplied id.
-    # Data rows use markup=False. Table cells default to markup=True so
-    # message bodies go through rich.text.Text.
-    console.print(f"[bold]Session {escape_markup(session.id)}[/bold]", markup=True, highlight=False)
-    for field in ("agent_id", "agent_name", "state", "created_at"):
-        value = getattr(session, field, None)
-        if value not in (None, ""):
-            console.print(f"  {field}: {value}", markup=False, highlight=False)
-    if session.messages:
-        console.print(f"  messages: {len(session.messages)}")
-        table = Table(show_header=True, header_style="bold")
-        table.add_column("Role")
-        table.add_column("Content", overflow="fold")
-        for m in session.messages[-5:]:
-            content = m.content if isinstance(m.content, str) else str(m.content or "")
-            table.add_row(Text(m.role or ""), Text(content[:200]))
-        console.print(table)
-
-
-def _resolve_input(inline: str | None, stdin_marker: str | None) -> str | None:
-    """Mirror the args-input pattern: inline or '-' for stdin, never both."""
-    if inline is not None and stdin_marker is not None:
-        raise GumloopError("Pass at most one of --input or --input-stdin.")
-    if stdin_marker is not None:
-        if stdin_marker != "-":
-            raise GumloopError("--input-stdin only accepts '-' (reads from stdin).")
-        return sys.stdin.read()
-    return inline
 
 
 @sessions_app.command(
@@ -85,7 +51,7 @@ def create_session(
     cli: CliContext = ctx.obj
 
     try:
-        message = _resolve_input(input_text, input_stdin)
+        message = resolve_text_input(input_text, input_stdin)
         # Cast narrows the SessionResponse | Iterator union to the
         # non-streaming branch (we never pass stream=True).
         response = cast(
@@ -105,7 +71,7 @@ def create_session(
         print_json(response)
         return
 
-    _render_session(response.session)
+    render_session(response.session)
 
 
 @sessions_app.command("get", epilog="Example:\n  gumloop sessions get session_abc --json")
@@ -128,7 +94,7 @@ def get_session(
         print_json(response)
         return
 
-    _render_session(response.session)
+    render_session(response.session)
 
 
 @sessions_app.command(
@@ -159,7 +125,7 @@ def send_session(
     cli: CliContext = ctx.obj
 
     try:
-        message = _resolve_input(input_text, input_stdin)
+        message = resolve_text_input(input_text, input_stdin)
         if not message:
             raise GumloopError("Pass --input or --input-stdin with text to send.")
         response = cast(
@@ -174,7 +140,7 @@ def send_session(
         return
 
     if response.session:
-        _render_session(response.session)
+        render_session(response.session)
     else:
         console.print("[green]Message sent.[/green]")
 

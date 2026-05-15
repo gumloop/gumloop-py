@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
-from pathlib import Path
 from typing import Annotated
-from typing import Any
 
 import typer
 from rich.markup import escape as escape_markup
@@ -11,92 +8,14 @@ from rich.table import Table
 from rich.text import Text
 
 from gumloop import GumloopError
+from gumloop.cli.commands._inputs import parse_tools_json
+from gumloop.cli.commands._inputs import read_text_arg
 from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
 from gumloop.cli.errors import exit_with_error
-from gumloop.types import Agent
 
 agents_app = typer.Typer(help="Manage Gumloop agents.", no_args_is_help=True, rich_markup_mode="rich")
-
-
-def _render_agents(agents: Sequence[Agent]) -> None:
-    if not agents:
-        console.print("No agents found.")
-        return
-
-    table = Table(title="Gumloop Agents")
-    table.add_column("ID", overflow="fold")
-    table.add_column("Name", overflow="fold")
-    table.add_column("Model", overflow="fold")
-    table.add_column("Team", overflow="fold")
-    table.add_column("Active")
-
-    # Table cells default to markup=True; wrap remote strings in Text to
-    # keep server-supplied markup syntax inert.
-    for agent in agents:
-        table.add_row(
-            Text(agent.id),
-            Text(agent.name),
-            Text(agent.model_name or ""),
-            Text(agent.team_id or ""),
-            "yes" if agent.is_active else "no",
-        )
-
-    console.print(table)
-
-
-def _render_agent(agent: Agent) -> None:
-    # Header line uses markup=True framing, so the server-supplied title
-    # is escape'd. Data lines use markup=False end-to-end.
-    title = agent.name or agent.id
-    console.print(f"[bold]{escape_markup(title)}[/bold]")
-    for field in ("id", "model_name", "team_id", "is_active", "folder_id", "description", "created_at"):
-        value = getattr(agent, field, None)
-        if value not in (None, ""):
-            console.print(f"  {field}: {value}", markup=False, highlight=False)
-    if agent.system_prompt:
-        console.print("  system_prompt:", markup=False, highlight=False)
-        console.print(f"    {agent.system_prompt}", markup=False, highlight=False)
-
-
-def _read_prompt(value: str | None, file_path: str | None, field_name: str) -> str | None:
-    if value is not None and file_path is not None:
-        raise GumloopError(f"Pass at most one of --{field_name} or --{field_name}-file.")
-    if file_path is not None:
-        try:
-            return Path(file_path).expanduser().read_text(encoding="utf-8")
-        except OSError as error:
-            raise GumloopError(f"Could not read {file_path}: {error.strerror or error}") from error
-    return value
-
-
-def _resolve_tools(tools_json: str | None, tools_file: str | None) -> list[dict[str, Any]] | None:
-    # Tools is a top-level array; resolve_json_args is object-only.
-    if tools_json is None and tools_file is None:
-        return None
-    if tools_json is not None and tools_file is not None:
-        raise GumloopError("Pass at most one of --tools-json or --tools-file.")
-
-    import json
-
-    if tools_file is not None:
-        try:
-            raw = Path(tools_file).expanduser().read_text(encoding="utf-8")
-        except OSError as error:
-            raise GumloopError(f"Could not read {tools_file}: {error.strerror or error}") from error
-    else:
-        raw = tools_json or ""
-
-    if not raw.strip():
-        return []
-    try:
-        parsed = json.loads(raw)
-    except json.JSONDecodeError as error:
-        raise GumloopError(f"Could not parse tools JSON: {error.msg} at line {error.lineno}.") from error
-    if not isinstance(parsed, list):
-        raise GumloopError("Tools JSON must be an array at the top level.")
-    return parsed
 
 
 @agents_app.command(
@@ -140,7 +59,26 @@ def list_agents(
         print_json(response)
         return
 
-    _render_agents(response.agents)
+    if not response.agents:
+        console.print("No agents found.")
+    else:
+        table = Table(title="Gumloop Agents")
+        table.add_column("ID", overflow="fold")
+        table.add_column("Name", overflow="fold")
+        table.add_column("Model", overflow="fold")
+        table.add_column("Team", overflow="fold")
+        table.add_column("Active")
+        # Table cells default to markup=True; wrap remote strings in Text.
+        for agent in response.agents:
+            table.add_row(
+                Text(agent.id),
+                Text(agent.name),
+                Text(agent.model_name or ""),
+                Text(agent.team_id or ""),
+                "yes" if agent.is_active else "no",
+            )
+        console.print(table)
+
     if response.next_cursor:
         console.print(f"\n[dim]Next cursor:[/dim] {escape_markup(response.next_cursor)}")
 
@@ -165,7 +103,18 @@ def get_agent(
         print_json(response)
         return
 
-    _render_agent(response.agent)
+    # Header line uses markup=True framing -> escape the server-supplied title.
+    # Data rows use markup=False end-to-end.
+    agent = response.agent
+    title = agent.name or agent.id
+    console.print(f"[bold]{escape_markup(title)}[/bold]")
+    for field in ("id", "model_name", "team_id", "is_active", "folder_id", "description", "created_at"):
+        value = getattr(agent, field, None)
+        if value not in (None, ""):
+            console.print(f"  {field}: {value}", markup=False, highlight=False)
+    if agent.system_prompt:
+        console.print("  system_prompt:", markup=False, highlight=False)
+        console.print(f"    {agent.system_prompt}", markup=False, highlight=False)
 
 
 @agents_app.command(
@@ -210,8 +159,8 @@ def create_agent(
     cli: CliContext = ctx.obj
 
     try:
-        resolved_prompt = _read_prompt(system_prompt, system_prompt_file, "system-prompt")
-        tools = _resolve_tools(tools_json, tools_file)
+        resolved_prompt = read_text_arg(system_prompt, system_prompt_file, "system-prompt")
+        tools = parse_tools_json(tools_json, tools_file)
         response = cli.call_with_refresh(
             lambda client: client.agents.create(
                 name=name,
@@ -278,8 +227,8 @@ def update_agent(
     cli: CliContext = ctx.obj
 
     try:
-        resolved_prompt = _read_prompt(system_prompt, system_prompt_file, "system-prompt")
-        tools = _resolve_tools(tools_json, tools_file)
+        resolved_prompt = read_text_arg(system_prompt, system_prompt_file, "system-prompt")
+        tools = parse_tools_json(tools_json, tools_file)
         response = cli.call_with_refresh(
             lambda client: client.agents.update(
                 agent_id,
