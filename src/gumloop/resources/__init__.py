@@ -6,6 +6,8 @@ from gumloop.resources.agents import AsyncModels
 from gumloop.resources.agents import Models
 from gumloop.resources.artifacts import Artifacts
 from gumloop.resources.artifacts import AsyncArtifacts
+from gumloop.resources.chat import AsyncChat
+from gumloop.resources.chat import Chat
 from gumloop.resources.mcp import MCP
 from gumloop.resources.mcp import AsyncMCP
 from gumloop.resources.sessions import AsyncSessions
@@ -21,11 +23,13 @@ __all__ = [
     "Artifacts",
     "AsyncAgents",
     "AsyncArtifacts",
+    "AsyncChat",
     "AsyncMCP",
     "AsyncModels",
     "AsyncSessions",
     "AsyncSkills",
     "AsyncTeams",
+    "Chat",
     "Models",
     "Sessions",
     "Skills",

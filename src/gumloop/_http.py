@@ -4,14 +4,20 @@ from collections.abc import AsyncIterator
 from collections.abc import Iterator
 from collections.abc import Mapping
 from typing import Any
+from typing import TypeVar
 
 import httpx
 from httpx_sse import EventSource
 from httpx_sse import ServerSentEvent
+from pydantic import BaseModel
+from pydantic import ValidationError
 
 from gumloop.errors import AuthenticationError
 from gumloop.errors import to_api_error
 from gumloop.types import StreamEvent
+
+_DONE_SENTINEL = "[DONE]"
+_T = TypeVar("_T", bound=BaseModel)
 
 
 def _auth_headers(access_token: str | None, user_id: str | None) -> dict[str, str]:
@@ -127,6 +133,39 @@ class HttpClient:
             for event in EventSource(response).iter_sse():
                 yield _decode_sse(event)
 
+    def stream_typed(
+        self,
+        method: str,
+        path: str,
+        response_model: type[_T],
+        *,
+        json: Any = None,
+        params: Mapping[str, Any] | None = None,
+    ) -> Iterator[_T]:
+        # Skips the StreamEvent envelope and honors OpenRouter's `data: [DONE]`
+        # terminator. Unparseable events (keep-alives, comments) are skipped.
+        headers = {**_auth_headers(self.access_token, self.user_id), "Accept": "text/event-stream"}
+        with self._client.stream(
+            method,
+            f"{self._stream_base_url}/{path.lstrip('/')}",
+            headers=headers,
+            timeout=self._stream_timeout,
+            json=json,
+            params=_omit_none_params(params),
+        ) as response:
+            if response.status_code >= 400:
+                response.read()
+                raise to_api_error(response)
+            for event in EventSource(response).iter_sse():
+                if event.data == _DONE_SENTINEL:
+                    return
+                if not event.data:
+                    continue
+                try:
+                    yield response_model.model_validate_json(event.data)
+                except ValidationError:
+                    continue
+
     def _request(self, method: str, path: str, **kwargs: Any) -> Any:
         # Headers are rebuilt per request so ``access_token`` / ``user_id``
         # can be rotated on a live client without reconstructing it.
@@ -215,6 +254,37 @@ class AsyncHttpClient:
                 raise to_api_error(response)
             async for event in EventSource(response).aiter_sse():
                 yield _decode_sse(event)
+
+    async def stream_typed(
+        self,
+        method: str,
+        path: str,
+        response_model: type[_T],
+        *,
+        json: Any = None,
+        params: Mapping[str, Any] | None = None,
+    ) -> AsyncIterator[_T]:
+        headers = {**_auth_headers(self.access_token, self.user_id), "Accept": "text/event-stream"}
+        async with self._client.stream(
+            method,
+            f"{self._stream_base_url}/{path.lstrip('/')}",
+            headers=headers,
+            timeout=self._stream_timeout,
+            json=json,
+            params=_omit_none_params(params),
+        ) as response:
+            if response.status_code >= 400:
+                await response.aread()
+                raise to_api_error(response)
+            async for event in EventSource(response).aiter_sse():
+                if event.data == _DONE_SENTINEL:
+                    return
+                if not event.data:
+                    continue
+                try:
+                    yield response_model.model_validate_json(event.data)
+                except ValidationError:
+                    continue
 
     async def _request(self, method: str, path: str, **kwargs: Any) -> Any:
         headers = _auth_headers(self.access_token, self.user_id)

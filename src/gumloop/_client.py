@@ -15,11 +15,13 @@ from gumloop.resources import Agents
 from gumloop.resources import Artifacts
 from gumloop.resources import AsyncAgents
 from gumloop.resources import AsyncArtifacts
+from gumloop.resources import AsyncChat
 from gumloop.resources import AsyncMCP
 from gumloop.resources import AsyncModels
 from gumloop.resources import AsyncSessions
 from gumloop.resources import AsyncSkills
 from gumloop.resources import AsyncTeams
+from gumloop.resources import Chat
 from gumloop.resources import Models
 from gumloop.resources import Sessions
 from gumloop.resources import Skills
@@ -76,6 +78,7 @@ class Gumloop:
 
         self.agents = Agents(self._http)
         self.sessions = Sessions(self._http)
+        self.chat = Chat(self._http)
         self.models = Models(self._http)
         self.mcp = MCP(self._http)
         self.teams = Teams(self._http)
@@ -126,6 +129,7 @@ class AsyncGumloop:
 
         self.agents = AsyncAgents(self._http)
         self.sessions = AsyncSessions(self._http)
+        self.chat = AsyncChat(self._http)
         self.models = AsyncModels(self._http)
         self.mcp = AsyncMCP(self._http)
         self.teams = AsyncTeams(self._http)
