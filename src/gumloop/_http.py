@@ -110,6 +110,22 @@ class HttpClient:
     def delete(self, path: str) -> Any:
         return self._request("DELETE", path)
 
+    def post_to_stream_host(self, path: str, *, json: Any = None) -> Any:
+        # Endpoints whose streaming variant lives on the stream host (e.g. chat
+        # completions) must accept their unary counterparts at the same host —
+        # the api host has no handler for them.
+        headers = _auth_headers(self.access_token, self.user_id)
+        headers["Content-Type"] = "application/json"
+        response = self._client.post(
+            f"{self._stream_base_url}/{path.lstrip('/')}",
+            headers=headers,
+            timeout=self._stream_timeout,
+            json=json,
+        )
+        if response.status_code >= 400:
+            raise to_api_error(response)
+        return response.json() if response.content else None
+
     def stream(
         self,
         method: str,
@@ -231,6 +247,19 @@ class AsyncHttpClient:
 
     async def delete(self, path: str) -> Any:
         return await self._request("DELETE", path)
+
+    async def post_to_stream_host(self, path: str, *, json: Any = None) -> Any:
+        headers = _auth_headers(self.access_token, self.user_id)
+        headers["Content-Type"] = "application/json"
+        response = await self._client.post(
+            f"{self._stream_base_url}/{path.lstrip('/')}",
+            headers=headers,
+            timeout=self._stream_timeout,
+            json=json,
+        )
+        if response.status_code >= 400:
+            raise to_api_error(response)
+        return response.json() if response.content else None
 
     async def stream(
         self,

@@ -11,7 +11,6 @@ from gumloop import Gumloop
 from gumloop.spec import ChatRequest
 from gumloop.spec import ChatStreamChunk
 from gumloop.spec import ChatUsage
-from tests.sdk.helpers import API_BASE
 from tests.sdk.helpers import request_json
 
 STREAM_BASE = "https://ws.gumloop.com/api/v1"
@@ -24,7 +23,7 @@ STREAM_BASE = "https://ws.gumloop.com/api/v1"
 
 @respx.mock
 def test_chat_create_returns_typed_result(client: Gumloop) -> None:
-    route = respx.post(f"{API_BASE}/chat/completions").mock(
+    route = respx.post(f"{STREAM_BASE}/chat/completions").mock(
         return_value=httpx.Response(
             200,
             json={
@@ -60,7 +59,7 @@ def test_chat_create_returns_typed_result(client: Gumloop) -> None:
 
 @respx.mock
 def test_chat_accepts_chatrequest_instance(client: Gumloop) -> None:
-    route = respx.post(f"{API_BASE}/chat/completions").mock(
+    route = respx.post(f"{STREAM_BASE}/chat/completions").mock(
         return_value=httpx.Response(
             200,
             json={
@@ -94,7 +93,7 @@ def test_chat_accepts_chatrequest_instance(client: Gumloop) -> None:
 
 @respx.mock
 def test_chat_kwargs_override_request_body(client: Gumloop) -> None:
-    route = respx.post(f"{API_BASE}/chat/completions").mock(
+    route = respx.post(f"{STREAM_BASE}/chat/completions").mock(
         return_value=httpx.Response(
             200,
             json={
@@ -224,7 +223,7 @@ def test_chat_stream_skips_done_sentinel(client: Gumloop) -> None:
 
 @respx.mock
 def test_structured_output_serializes_as_json_schema(client: Gumloop) -> None:
-    route = respx.post(f"{API_BASE}/chat/completions").mock(
+    route = respx.post(f"{STREAM_BASE}/chat/completions").mock(
         return_value=httpx.Response(
             200,
             json={
@@ -272,7 +271,7 @@ def test_structured_output_serializes_as_json_schema(client: Gumloop) -> None:
 
 @respx.mock
 def test_image_generation_request_shape(client: Gumloop) -> None:
-    route = respx.post(f"{API_BASE}/chat/completions").mock(
+    route = respx.post(f"{STREAM_BASE}/chat/completions").mock(
         return_value=httpx.Response(
             200,
             json={
@@ -306,7 +305,7 @@ def test_image_generation_request_shape(client: Gumloop) -> None:
 
 @respx.mock
 def test_provider_preferences_passthrough(client: Gumloop) -> None:
-    route = respx.post(f"{API_BASE}/chat/completions").mock(
+    route = respx.post(f"{STREAM_BASE}/chat/completions").mock(
         return_value=httpx.Response(
             200,
             json={
@@ -339,7 +338,7 @@ def test_provider_preferences_passthrough(client: Gumloop) -> None:
 
 @respx.mock
 def test_async_chat_create(async_client: AsyncGumloop) -> None:
-    respx.post(f"{API_BASE}/chat/completions").mock(
+    respx.post(f"{STREAM_BASE}/chat/completions").mock(
         return_value=httpx.Response(
             200,
             json={

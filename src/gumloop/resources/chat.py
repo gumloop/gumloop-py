@@ -62,7 +62,7 @@ class Completions:
         wire = to_wire_dict(body)
         if wire.get("stream") is True:
             return self._client.stream_typed("POST", _PATH, ChatStreamChunk, json=wire)
-        return ChatResult.model_validate(self._client.post(_PATH, json=wire))
+        return ChatResult.model_validate(self._client.post_to_stream_host(_PATH, json=wire))
 
 
 class AsyncCompletions:
@@ -94,7 +94,7 @@ class AsyncCompletions:
         wire = to_wire_dict(body)
         if wire.get("stream") is True:
             return self._client.stream_typed("POST", _PATH, ChatStreamChunk, json=wire)
-        data = await self._client.post(_PATH, json=wire)
+        data = await self._client.post_to_stream_host(_PATH, json=wire)
         return ChatResult.model_validate(data)
 
 
