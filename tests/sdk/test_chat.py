@@ -222,6 +222,39 @@ def test_chat_stream_skips_done_sentinel(client: Gumloop) -> None:
 
 
 @respx.mock
+def test_chat_stream_error_chunk_surfaces_via_chunk_error(client: Gumloop) -> None:
+    # OR-shape mid-stream error: full ChatStreamChunk envelope with top-level
+    # `error` field. Without the envelope shape, the SDK's stream_typed
+    # ValidationError catch would silently drop the chunk.
+    error_chunk = {
+        "id": "chunk-error-deadbeef",
+        "object": "chat.completion.chunk",
+        "created": 1,
+        "model": "m",
+        "choices": [{"index": 0, "delta": {}, "finish_reason": "error"}],
+        "error": {"code": 402, "message": "budget exceeded"},
+    }
+    respx.post(f"{STREAM_BASE}/chat/completions").mock(
+        return_value=httpx.Response(
+            200,
+            text=_sse([error_chunk, "[DONE]"]),
+            headers={"content-type": "text/event-stream"},
+        )
+    )
+
+    received = list(
+        client.chat.completions.create(model="m", messages=[{"role": "user", "content": "x"}], stream=True)
+    )
+
+    assert len(received) == 1
+    chunk = received[0]
+    assert chunk.error is not None
+    assert chunk.error.code == 402
+    assert chunk.error.message == "budget exceeded"
+    assert chunk.choices[0].finish_reason == "error"
+
+
+@respx.mock
 def test_structured_output_serializes_as_json_schema(client: Gumloop) -> None:
     route = respx.post(f"{STREAM_BASE}/chat/completions").mock(
         return_value=httpx.Response(
