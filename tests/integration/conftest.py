@@ -1,5 +1,5 @@
 """Fixtures for live integration tests. Each fixture reads one env var
-and skips its tests if missing."""
+and fails loudly if missing — silent skips hide configuration drift."""
 
 from __future__ import annotations
 
@@ -18,7 +18,11 @@ load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 def _required(name: str) -> str:
     value = os.environ.get(name)
     if not value:
-        pytest.skip(f"set {name} in .env or the shell to run this test")
+        pytest.fail(
+            f"required env var {name} is not set — populate gumloop-py/.env "
+            f"or export it before running live tests",
+            pytrace=False,
+        )
     return value
 
 

@@ -1,24 +1,49 @@
-"""Subclasses re-adding fields Speakeasy 0.9.1 drops from the generated models."""
+"""Subclasses re-adding fields Speakeasy 0.9.1 drops + Gumloop-only extensions.
+
+Subclass field defaults need ``UNSET`` (Speakeasy's sentinel) rather than
+plain ``None`` to be excluded by ``exclude_unset=True``. Pydantic treats
+subclass-declared defaults as "set" during validation; the Speakeasy
+``OptionalNullable[T]`` type carries an ``Unset`` sentinel default that the
+generated parent serializer knows to strip, so we mirror that pattern.
+"""
 
 from __future__ import annotations
 
 from typing import Any
+from typing import Optional
 
+from openrouter.components import ChatStreamChoice as _ChatStreamChoice
 from openrouter.components import ChatStreamChunk as _ChatStreamChunk
+from openrouter.components import ChatStreamDelta as _ChatStreamDelta
 from openrouter.components import ChatUsage as _ChatUsage
-from pydantic import Field
+from openrouter.types import UNSET, OptionalNullable
 
 
 class ChatUsage(_ChatUsage):
     # `cost`, `is_byok`, `cost_details` are in the published OpenAPI but
     # missing from Speakeasy's generated ChatUsage; LLMSession reads them.
-    cost: float | None = Field(default=None)
-    is_byok: bool | None = Field(default=None)
-    cost_details: dict[str, Any] | None = Field(default=None)
+    cost: OptionalNullable[float] = UNSET
+    is_byok: OptionalNullable[bool] = UNSET
+    cost_details: OptionalNullable[dict[str, Any]] = UNSET
+
+
+class ChatStreamDelta(_ChatStreamDelta):
+    # Gumloop-only extension bucket. Today carries `tool_results` for native
+    # providers that emit synthetic tool-result chunks (Gemini grounding
+    # citations, MCP server-executed tool results) that don't fit the
+    # OR/OpenAI Chat Completions wire shape. Consumers can read
+    # `chunk.choices[0].delta.gumloop_extensions["tool_results"]`.
+    gumloop_extensions: OptionalNullable[dict[str, Any]] = UNSET
+
+
+class ChatStreamChoice(_ChatStreamChoice):
+    # Re-annotate so the extended ChatStreamDelta carries through.
+    delta: ChatStreamDelta  # type: ignore[assignment]
 
 
 class ChatStreamChunk(_ChatStreamChunk):
-    # Re-annotate so validation constructs our extended ChatUsage; pydantic
-    # resolves by annotation, not isinstance, so without this the parent's
-    # `usage: _ChatUsage` annotation would drop the added fields.
-    usage: ChatUsage | None = None  # type: ignore[assignment]
+    # Re-annotate so validation constructs our extended ChatUsage and
+    # ChatStreamChoice. Pydantic resolves by annotation, not isinstance —
+    # without this, parent annotations would drop the added fields.
+    usage: Optional[ChatUsage] = None  # type: ignore[assignment]
+    choices: list[ChatStreamChoice]  # type: ignore[assignment]
