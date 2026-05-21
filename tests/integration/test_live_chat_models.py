@@ -158,19 +158,12 @@ _MODEL_MATRIX: tuple[ModelSpec, ...] = (
     _spec("o3-mini", "openai_responses"),
     _spec("o4-mini", "openai_responses"),
 
-    # ---- MorphLLM (MorphLLMModelClient — OpenAI-shape) -----------------
-    # Apply-patch oriented; no json_schema honoring. Local routing needs
-    # MORPHLLM_API_KEY; otherwise every Morph cell will fail with an
-    # OpenAI 400 (fallback). The structured cells assert 400 either way.
-    _spec("morph-v3-large", "morphllm",
-          structured_unary=Expect.ERR_400, structured_stream=Expect.ERR_400),
-    _spec("morph-v3-fast", "morphllm",
-          structured_unary=Expect.ERR_400, structured_stream=Expect.ERR_400),
-
     # ---- OpenRouter (one representative slug) --------------------------
-    # OR speaks the full chat-completions surface natively. Requires
-    # OPENROUTER_API_KEY in backend env to route correctly.
-    _spec("openai/gpt-4o-mini", "openrouter"),
+    # OR routes any slug shaped <provider>/<model>, but the public chat-completions
+    # surface only honors slugs registered in ALL_MODELS. Use a registered Qwen
+    # variant for coverage. (Morph slugs intentionally excluded — MorphLLMModelClient
+    # has plumbing but no registered model entries, so live matrix can't reach it.)
+    _spec("qwen/qwen3.5-397b-a17b", "openrouter"),
 
     # ---- Image-gen: OpenAI (real partial-image streaming) --------------
     _image_spec("gpt-image-2", "openai_responses"),
@@ -228,10 +221,16 @@ def _build_request(slug: str, feature: Feature, *, stream: bool = False) -> Chat
             stream=stream,
         )
     if feature in (Feature.STRUCTURED_UNARY, Feature.STRUCTURED_STREAM):
+        # Reasoning models (gpt-5 in particular) burn significant tokens on
+        # internal reasoning when constrained by a json_schema, leaving none
+        # for output at 512 — the response then terminates with `incomplete`
+        # and zero output_text deltas. 2048 gives enough headroom across the
+        # reasoning-model row without materially changing cost (output JSON
+        # itself stays tiny).
         return ChatRequest(
             model=slug,
             messages=[{"role": "user", "content": _STRUCTURED_PROMPT}],
-            max_completion_tokens=512,
+            max_completion_tokens=2048,
             response_format={
                 "type": "json_schema",
                 "json_schema": {"name": "person", "strict": True, "schema": _STRUCTURED_SCHEMA},
