@@ -370,6 +370,62 @@ def test_provider_preferences_passthrough(client: Gumloop) -> None:
 
 
 @respx.mock
+def test_chat_stream_carries_image_delta_chunks(client: Gumloop) -> None:
+    """delta.images must round-trip through pydantic validation — without the
+    SDK extension, Speakeasy's parent ChatStreamDelta drops the field silently."""
+    chunks = [
+        {
+            "id": "c1",
+            "object": "chat.completion.chunk",
+            "created": 1,
+            "model": "gpt-image-1.5",
+            "choices": [{
+                "index": 0,
+                "delta": {
+                    "role": "assistant",
+                    "images": [{"image_url": {"url": "data:image/png;base64,YWJj"}}],
+                },
+                "finish_reason": None,
+            }],
+        },
+        {
+            "id": "c1",
+            "object": "chat.completion.chunk",
+            "created": 1,
+            "model": "gpt-image-1.5",
+            "choices": [{
+                "index": 0,
+                "delta": {
+                    "images": [{"image_url": {"url": "data:image/png;base64,ZGVm"}}],
+                },
+                "finish_reason": "stop",
+            }],
+        },
+        "[DONE]",
+    ]
+    respx.post(f"{STREAM_BASE}/chat/completions").mock(
+        return_value=httpx.Response(200, text=_sse(chunks), headers={"content-type": "text/event-stream"})
+    )
+
+    received = list(
+        client.chat.completions.create(
+            model="gpt-image-1.5",
+            messages=[{"role": "user", "content": "draw"}],
+            stream=True,
+            modalities=["image", "text"],
+        )
+    )
+
+    assert len(received) == 2
+    assert all(isinstance(c, ChatStreamChunk) for c in received)
+    first_images = received[0].choices[0].delta.images
+    assert first_images and first_images[0].image_url.url == "data:image/png;base64,YWJj"
+    final = received[1].choices[0]
+    assert final.delta.images and final.delta.images[0].image_url.url == "data:image/png;base64,ZGVm"
+    assert final.finish_reason == "stop"
+
+
+@respx.mock
 def test_async_chat_create(async_client: AsyncGumloop) -> None:
     respx.post(f"{STREAM_BASE}/chat/completions").mock(
         return_value=httpx.Response(

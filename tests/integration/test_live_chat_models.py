@@ -180,9 +180,13 @@ _MODEL_MATRIX: tuple[ModelSpec, ...] = (
     # ---- Image-gen: Gemini (simulated single-chunk streaming) ----------
     # The *-flash-image-preview slugs depend on your Gemini API region/project.
     # If they 404, that's catalog drift — update the slug here; don't skip.
+    # Actual slugs returned by client.models.list() against Gumloop's
+    # gemini_free_user_key. Google's Cloud Console quota dashboard labels
+    # these with shortened display names (e.g. "gemini-3.1-flash-image") that
+    # are NOT the slugs the API accepts — always trust client.models.list().
+    _image_spec("gemini-2.5-flash-image", "gemini"),
     _image_spec("gemini-3-pro-image-preview", "gemini"),
     _image_spec("gemini-3.1-flash-image-preview", "gemini"),
-    _image_spec("gemini-2.5-flash-image-preview", "gemini"),
 )
 
 

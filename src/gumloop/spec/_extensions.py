@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any
 from typing import Optional
 
+from openrouter.components import ChatAssistantImages
 from openrouter.components import ChatStreamChoice as _ChatStreamChoice
 from openrouter.components import ChatStreamChunk as _ChatStreamChunk
 from openrouter.components import ChatStreamDelta as _ChatStreamDelta
@@ -34,6 +35,13 @@ class ChatStreamDelta(_ChatStreamDelta):
     # OR/OpenAI Chat Completions wire shape. Consumers can read
     # `chunk.choices[0].delta.gumloop_extensions["tool_results"]`.
     gumloop_extensions: OptionalNullable[dict[str, Any]] = UNSET
+
+    # Streaming counterpart of ChatAssistantMessage.images; carries data-URL
+    # frames for image-generation models (gpt-image-* partial-image events,
+    # gemini-*-image-preview, etc.). The OR spec doesn't declare images on
+    # ChatStreamDelta yet — our backend emits it so partial-image streaming
+    # works on the SDK consumer side.
+    images: OptionalNullable[list[ChatAssistantImages]] = UNSET
 
 
 class ChatStreamChoice(_ChatStreamChoice):
