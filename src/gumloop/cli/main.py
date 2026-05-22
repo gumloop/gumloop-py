@@ -11,6 +11,7 @@ from gumloop.cli.commands.agents import agents_app
 from gumloop.cli.commands.artifacts import artifacts_app
 from gumloop.cli.commands.auth import login as login_command
 from gumloop.cli.commands.auth import logout as logout_command
+from gumloop.cli.commands.chat import chat_app
 from gumloop.cli.commands.mcp import mcp_app
 from gumloop.cli.commands.sessions import sessions_app
 from gumloop.cli.commands.skills import skills_app
@@ -95,6 +96,7 @@ app.add_typer(agents_app, name="agents")
 app.add_typer(sessions_app, name="sessions")
 app.add_typer(skills_app, name="skills")
 app.add_typer(artifacts_app, name="artifacts")
+app.add_typer(chat_app, name="chat")
 
 
 def _require_supported_platform() -> None:

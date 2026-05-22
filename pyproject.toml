@@ -43,6 +43,8 @@ dev = [
     "pre-commit>=2.21.0",
     "pyright>=1.1.409",
     "pytest>=7.4.4",
+    "pytest-timeout>=2.4.0",
+    "pytest-xdist>=3.8.0",
     "python-dotenv>=0.21.1",
     "respx>=0.21.1",
     "ruff>=0.15.12",
@@ -55,6 +57,9 @@ build = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "live: hits the real Gumloop API and upstream providers; opt-in via `-m live`",
+]
 
 [tool.ruff]
 line-length = 120
