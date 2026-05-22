@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator
 from collections.abc import Iterator
 from collections.abc import Mapping
@@ -15,6 +16,8 @@ from pydantic import ValidationError
 from gumloop.errors import AuthenticationError
 from gumloop.errors import to_api_error
 from gumloop.types import StreamEvent
+
+logger = logging.getLogger(__name__)
 
 _DONE_SENTINEL = "[DONE]"
 _T = TypeVar("_T", bound=BaseModel)
@@ -180,6 +183,9 @@ class HttpClient:
                 try:
                     yield response_model.model_validate_json(event.data)
                 except ValidationError:
+                    # Server-side mid-stream error frames or schema-drift events
+                    # land here. 
+                    logger.debug("dropped non-%s SSE: %s", response_model.__name__, event.data)
                     continue
 
     def _request(self, method: str, path: str, **kwargs: Any) -> Any:
@@ -313,6 +319,9 @@ class AsyncHttpClient:
                 try:
                     yield response_model.model_validate_json(event.data)
                 except ValidationError:
+                    # Server-side mid-stream error frames or schema-drift events
+                    # land here. 
+                    logger.debug("dropped non-%s SSE: %s", response_model.__name__, event.data)
                     continue
 
     async def _request(self, method: str, path: str, **kwargs: Any) -> Any:

@@ -9,8 +9,11 @@ from typing import Any
 from typing import Literal
 from typing import overload
 
+from pydantic import ValidationError
+
 from gumloop._http import AsyncHttpClient
 from gumloop._http import HttpClient
+from gumloop.errors import GumloopError
 from gumloop.spec import ChatRequest
 from gumloop.spec import ChatResult
 from gumloop.spec import ChatStreamChunk
@@ -29,8 +32,14 @@ def _build_request(
         base = {}
     else:
         base = dict(request)
+    # Kwargs whose value is None are dropped — they're "leave existing value
+    # alone" hints, not "clear this field" overrides. To clear a field, build
+    # a fresh ChatRequest instead of relying on the overlay.
     base.update({k: v for k, v in kwargs.items() if v is not None})
-    return ChatRequest.model_validate(base)
+    try:
+        return ChatRequest.model_validate(base)
+    except ValidationError as exc:
+        raise GumloopError(f"invalid chat request: {exc}") from exc
 
 
 class Completions:
