@@ -136,6 +136,15 @@ def test_skills_delete_calls_per_skill_endpoint(client: Gumloop) -> None:
 
 
 @respx.mock
+def test_skills_delete_accepts_empty_success_response(client: Gumloop) -> None:
+    respx.delete(f"{API_BASE}/skills/skill_abc").mock(return_value=httpx.Response(204))
+
+    result = client.skills.delete("skill_abc")
+
+    assert result.deleted is True
+
+
+@respx.mock
 def test_async_skills_methods() -> None:
     respx.get(f"{API_BASE}/skills").mock(return_value=httpx.Response(200, json={"skills": [], "next_cursor": None}))
     respx.post(f"{API_BASE}/skills").mock(

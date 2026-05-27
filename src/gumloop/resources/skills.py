@@ -13,6 +13,12 @@ from gumloop.types import SkillResponse
 SkillFile = tuple[str, bytes | str] | tuple[str, bytes | str, str]
 
 
+def _skill_delete_response(data: Any) -> SkillDeleteResponse:
+    if data is None:
+        return SkillDeleteResponse(deleted=True)
+    return SkillDeleteResponse.model_validate(data)
+
+
 def _multipart_files(files: Mapping[str, bytes | str] | list[SkillFile]) -> list[tuple[str, Any]]:
     items = files.items() if isinstance(files, Mapping) else files
     multipart = []
@@ -85,7 +91,7 @@ class Skills:
         )
 
     def delete(self, skill_id: str) -> SkillDeleteResponse:
-        return SkillDeleteResponse.model_validate(self._client.delete(f"skills/{skill_id}"))
+        return _skill_delete_response(self._client.delete(f"skills/{skill_id}"))
 
 
 class AsyncSkills:
@@ -149,4 +155,4 @@ class AsyncSkills:
 
     async def delete(self, skill_id: str) -> SkillDeleteResponse:
         data = await self._client.delete(f"skills/{skill_id}")
-        return SkillDeleteResponse.model_validate(data)
+        return _skill_delete_response(data)
