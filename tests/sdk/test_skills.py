@@ -126,6 +126,25 @@ def test_skills_download_forwards_version_id_query_param(client: Gumloop) -> Non
 
 
 @respx.mock
+def test_skills_delete_calls_per_skill_endpoint(client: Gumloop) -> None:
+    route = respx.delete(f"{API_BASE}/skills/skill_abc").mock(return_value=httpx.Response(200, json={"deleted": True}))
+
+    result = client.skills.delete("skill_abc")
+
+    assert result.deleted is True
+    assert route.called
+
+
+@respx.mock
+def test_skills_delete_accepts_empty_success_response(client: Gumloop) -> None:
+    respx.delete(f"{API_BASE}/skills/skill_abc").mock(return_value=httpx.Response(204))
+
+    result = client.skills.delete("skill_abc")
+
+    assert result.deleted is True
+
+
+@respx.mock
 def test_async_skills_methods() -> None:
     respx.get(f"{API_BASE}/skills").mock(return_value=httpx.Response(200, json={"skills": [], "next_cursor": None}))
     respx.post(f"{API_BASE}/skills").mock(
@@ -149,6 +168,7 @@ def test_async_skills_methods() -> None:
             },
         )
     )
+    respx.delete(f"{API_BASE}/skills/skill_abc").mock(return_value=httpx.Response(200, json={"deleted": True}))
 
     async def run() -> None:
         async with AsyncGumloop(access_token="token") as client:
@@ -159,5 +179,7 @@ def test_async_skills_methods() -> None:
             assert updated.skill.id == "skill_abc"
             downloaded = await client.skills.download("skill_abc", version_id="v_1")
             assert downloaded.download_url == "https://signed.example/skill.zip"
+            deleted = await client.skills.delete("skill_abc")
+            assert deleted.deleted is True
 
     asyncio.run(run())

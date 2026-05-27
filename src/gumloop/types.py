@@ -213,6 +213,10 @@ class SkillResponse(_Model):
     skill: Skill
 
 
+class SkillDeleteResponse(_Model):
+    deleted: bool
+
+
 class SkillDownloadResponse(_Model):
     download_url: str
     filename: str

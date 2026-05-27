@@ -74,6 +74,18 @@ def test_skills_update_posts_to_per_skill_endpoint(cli_runner: CliRunner, tmp_pa
 
 
 @respx.mock
+def test_skills_delete_calls_per_skill_endpoint(cli_runner: CliRunner) -> None:
+    route = respx.delete(f"{API_BASE}/skills/skill_abc").mock(return_value=httpx.Response(200, json={"deleted": True}))
+    save_credentials(Credentials(api_key="key"))
+
+    result = cli_runner.invoke(app, ["skills", "delete", "skill_abc", "--json"])
+
+    assert result.exit_code == 0, result.output
+    assert route.called
+    assert '"deleted": true' in result.output
+
+
+@respx.mock
 def test_skills_download_streams_signed_url_bytes_to_output_path(cli_runner: CliRunner, tmp_path: Path) -> None:
     download_body = b"streamed-skill-bytes"
     respx.get(f"{API_BASE}/skills/skill_abc/download").mock(

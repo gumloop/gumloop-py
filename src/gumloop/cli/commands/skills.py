@@ -183,6 +183,29 @@ def update_skill(
     console.print(f"[green]Updated skill[/green] {skill_id}")
 
 
+@skills_app.command("delete", epilog="Example:\n  gumloop skills delete skill_abc")
+def delete_skill(
+    ctx: typer.Context,
+    skill_id: Annotated[str, typer.Argument(help="ID of the skill to delete.")],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Print the raw SDK response as JSON."),
+    ] = False,
+) -> None:
+    """Delete an existing skill."""
+    cli: CliContext = ctx.obj
+    try:
+        response = cli.call_with_refresh(lambda client: client.skills.delete(skill_id))
+    except GumloopError as error:
+        exit_with_error(error, json_output=json_output)
+
+    if json_output:
+        print_json(response)
+        return
+
+    console.print(f"[green]Deleted skill[/green] {escape_markup(skill_id)}")
+
+
 @skills_app.command(
     "download",
     epilog=(

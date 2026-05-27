@@ -5,11 +5,18 @@ from typing import Any
 
 from gumloop._http import AsyncHttpClient
 from gumloop._http import HttpClient
+from gumloop.types import SkillDeleteResponse
 from gumloop.types import SkillDownloadResponse
 from gumloop.types import SkillListResponse
 from gumloop.types import SkillResponse
 
 SkillFile = tuple[str, bytes | str] | tuple[str, bytes | str, str]
+
+
+def _skill_delete_response(data: Any) -> SkillDeleteResponse:
+    if data is None:
+        return SkillDeleteResponse(deleted=True)
+    return SkillDeleteResponse.model_validate(data)
 
 
 def _multipart_files(files: Mapping[str, bytes | str] | list[SkillFile]) -> list[tuple[str, Any]]:
@@ -83,6 +90,9 @@ class Skills:
             self._client.get(f"skills/{skill_id}/download", params={"version_id": version_id, **kwargs})
         )
 
+    def delete(self, skill_id: str) -> SkillDeleteResponse:
+        return _skill_delete_response(self._client.delete(f"skills/{skill_id}"))
+
 
 class AsyncSkills:
     def __init__(self, client: AsyncHttpClient) -> None:
@@ -142,3 +152,7 @@ class AsyncSkills:
     async def download(self, skill_id: str, *, version_id: str | None = None, **kwargs: Any) -> SkillDownloadResponse:
         data = await self._client.get(f"skills/{skill_id}/download", params={"version_id": version_id, **kwargs})
         return SkillDownloadResponse.model_validate(data)
+
+    async def delete(self, skill_id: str) -> SkillDeleteResponse:
+        data = await self._client.delete(f"skills/{skill_id}")
+        return _skill_delete_response(data)
