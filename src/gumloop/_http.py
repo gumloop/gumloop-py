@@ -1,17 +1,26 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator
 from collections.abc import Iterator
 from collections.abc import Mapping
 from typing import Any
+from typing import TypeVar
 
 import httpx
 from httpx_sse import EventSource
 from httpx_sse import ServerSentEvent
+from pydantic import BaseModel
+from pydantic import ValidationError
 
 from gumloop.errors import AuthenticationError
 from gumloop.errors import to_api_error
 from gumloop.types import StreamEvent
+
+logger = logging.getLogger(__name__)
+
+_DONE_SENTINEL = "[DONE]"
+_T = TypeVar("_T", bound=BaseModel)
 
 
 def _auth_headers(access_token: str | None, user_id: str | None) -> dict[str, str]:
@@ -104,6 +113,22 @@ class HttpClient:
     def delete(self, path: str) -> Any:
         return self._request("DELETE", path)
 
+    def post_to_stream_host(self, path: str, *, json: Any = None) -> Any:
+        # Endpoints whose streaming variant lives on the stream host (e.g. chat
+        # completions) must accept their unary counterparts at the same host —
+        # the api host has no handler for them.
+        headers = _auth_headers(self.access_token, self.user_id)
+        headers["Content-Type"] = "application/json"
+        response = self._client.post(
+            f"{self._stream_base_url}/{path.lstrip('/')}",
+            headers=headers,
+            timeout=self._stream_timeout,
+            json=json,
+        )
+        if response.status_code >= 400:
+            raise to_api_error(response)
+        return response.json() if response.content else None
+
     def stream(
         self,
         method: str,
@@ -126,6 +151,42 @@ class HttpClient:
                 raise to_api_error(response)
             for event in EventSource(response).iter_sse():
                 yield _decode_sse(event)
+
+    def stream_typed(
+        self,
+        method: str,
+        path: str,
+        response_model: type[_T],
+        *,
+        json: Any = None,
+        params: Mapping[str, Any] | None = None,
+    ) -> Iterator[_T]:
+        # Skips the StreamEvent envelope and honors OpenRouter's `data: [DONE]`
+        # terminator. Unparseable events (keep-alives, comments) are skipped.
+        headers = {**_auth_headers(self.access_token, self.user_id), "Accept": "text/event-stream"}
+        with self._client.stream(
+            method,
+            f"{self._stream_base_url}/{path.lstrip('/')}",
+            headers=headers,
+            timeout=self._stream_timeout,
+            json=json,
+            params=_omit_none_params(params),
+        ) as response:
+            if response.status_code >= 400:
+                response.read()
+                raise to_api_error(response)
+            for event in EventSource(response).iter_sse():
+                if event.data == _DONE_SENTINEL:
+                    return
+                if not event.data:
+                    continue
+                try:
+                    yield response_model.model_validate_json(event.data)
+                except ValidationError:
+                    # Server-side mid-stream error frames or schema-drift events
+                    # land here. 
+                    logger.debug("dropped non-%s SSE: %s", response_model.__name__, event.data)
+                    continue
 
     def _request(self, method: str, path: str, **kwargs: Any) -> Any:
         # Headers are rebuilt per request so ``access_token`` / ``user_id``
@@ -193,6 +254,19 @@ class AsyncHttpClient:
     async def delete(self, path: str) -> Any:
         return await self._request("DELETE", path)
 
+    async def post_to_stream_host(self, path: str, *, json: Any = None) -> Any:
+        headers = _auth_headers(self.access_token, self.user_id)
+        headers["Content-Type"] = "application/json"
+        response = await self._client.post(
+            f"{self._stream_base_url}/{path.lstrip('/')}",
+            headers=headers,
+            timeout=self._stream_timeout,
+            json=json,
+        )
+        if response.status_code >= 400:
+            raise to_api_error(response)
+        return response.json() if response.content else None
+
     async def stream(
         self,
         method: str,
@@ -215,6 +289,40 @@ class AsyncHttpClient:
                 raise to_api_error(response)
             async for event in EventSource(response).aiter_sse():
                 yield _decode_sse(event)
+
+    async def stream_typed(
+        self,
+        method: str,
+        path: str,
+        response_model: type[_T],
+        *,
+        json: Any = None,
+        params: Mapping[str, Any] | None = None,
+    ) -> AsyncIterator[_T]:
+        headers = {**_auth_headers(self.access_token, self.user_id), "Accept": "text/event-stream"}
+        async with self._client.stream(
+            method,
+            f"{self._stream_base_url}/{path.lstrip('/')}",
+            headers=headers,
+            timeout=self._stream_timeout,
+            json=json,
+            params=_omit_none_params(params),
+        ) as response:
+            if response.status_code >= 400:
+                await response.aread()
+                raise to_api_error(response)
+            async for event in EventSource(response).aiter_sse():
+                if event.data == _DONE_SENTINEL:
+                    return
+                if not event.data:
+                    continue
+                try:
+                    yield response_model.model_validate_json(event.data)
+                except ValidationError:
+                    # Server-side mid-stream error frames or schema-drift events
+                    # land here. 
+                    logger.debug("dropped non-%s SSE: %s", response_model.__name__, event.data)
+                    continue
 
     async def _request(self, method: str, path: str, **kwargs: Any) -> Any:
         headers = _auth_headers(self.access_token, self.user_id)
