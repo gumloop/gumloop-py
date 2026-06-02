@@ -6,6 +6,10 @@ from typing import Any
 from gumloop._http import AsyncHttpClient
 from gumloop._http import HttpClient
 from gumloop.types import McpExecuteResponse
+from gumloop.types import McpPromptResponse
+from gumloop.types import McpPromptsResponse
+from gumloop.types import McpResourceReadResponse
+from gumloop.types import McpResourcesResponse
 from gumloop.types import McpServerResponse
 from gumloop.types import McpServersResponse
 from gumloop.types import McpToolCallRequest
@@ -41,6 +45,44 @@ class MCP:
         return McpToolsResponse.model_validate(
             self._client.get(f"mcp/servers/{server_id}/tools", params={"team_id": team_id, **kwargs})
         )
+
+    def list_resources(
+        self, server_id: str, *, cursor: str | None = None, team_id: str | None = None, **kwargs: Any
+    ) -> McpResourcesResponse:
+        return McpResourcesResponse.model_validate(
+            self._client.get(
+                f"mcp/servers/{server_id}/resources",
+                params={"cursor": cursor, "team_id": team_id, **kwargs},
+            )
+        )
+
+    def get_resource(
+        self, server_id: str, uri: str, *, team_id: str | None = None, **kwargs: Any
+    ) -> McpResourceReadResponse:
+        return McpResourceReadResponse.model_validate(
+            self._client.get(
+                f"mcp/servers/{server_id}/resources/read",
+                params={"uri": uri, "team_id": team_id, **kwargs},
+            )
+        )
+
+    def list_prompts(self, server_id: str, *, team_id: str | None = None, **kwargs: Any) -> McpPromptsResponse:
+        return McpPromptsResponse.model_validate(
+            self._client.get(f"mcp/servers/{server_id}/prompts", params={"team_id": team_id, **kwargs})
+        )
+
+    def get_prompt(
+        self,
+        server_id: str,
+        name: str,
+        arguments: dict[str, Any] | None = None,
+        *,
+        team_id: str | None = None,
+    ) -> McpPromptResponse:
+        body: dict[str, Any] = {"name": name, "arguments": arguments or {}}
+        if team_id is not None:
+            body["team_id"] = team_id
+        return McpPromptResponse.model_validate(self._client.post(f"mcp/servers/{server_id}/prompts/get", json=body))
 
     def execute(
         self,
@@ -83,6 +125,42 @@ class AsyncMCP:
     async def list_tools(self, server_id: str, *, team_id: str | None = None, **kwargs: Any) -> McpToolsResponse:
         data = await self._client.get(f"mcp/servers/{server_id}/tools", params={"team_id": team_id, **kwargs})
         return McpToolsResponse.model_validate(data)
+
+    async def list_resources(
+        self, server_id: str, *, cursor: str | None = None, team_id: str | None = None, **kwargs: Any
+    ) -> McpResourcesResponse:
+        data = await self._client.get(
+            f"mcp/servers/{server_id}/resources",
+            params={"cursor": cursor, "team_id": team_id, **kwargs},
+        )
+        return McpResourcesResponse.model_validate(data)
+
+    async def get_resource(
+        self, server_id: str, uri: str, *, team_id: str | None = None, **kwargs: Any
+    ) -> McpResourceReadResponse:
+        data = await self._client.get(
+            f"mcp/servers/{server_id}/resources/read",
+            params={"uri": uri, "team_id": team_id, **kwargs},
+        )
+        return McpResourceReadResponse.model_validate(data)
+
+    async def list_prompts(self, server_id: str, *, team_id: str | None = None, **kwargs: Any) -> McpPromptsResponse:
+        data = await self._client.get(f"mcp/servers/{server_id}/prompts", params={"team_id": team_id, **kwargs})
+        return McpPromptsResponse.model_validate(data)
+
+    async def get_prompt(
+        self,
+        server_id: str,
+        name: str,
+        arguments: dict[str, Any] | None = None,
+        *,
+        team_id: str | None = None,
+    ) -> McpPromptResponse:
+        body: dict[str, Any] = {"name": name, "arguments": arguments or {}}
+        if team_id is not None:
+            body["team_id"] = team_id
+        data = await self._client.post(f"mcp/servers/{server_id}/prompts/get", json=body)
+        return McpPromptResponse.model_validate(data)
 
     async def execute(
         self,
