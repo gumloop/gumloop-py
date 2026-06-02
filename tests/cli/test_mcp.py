@@ -163,3 +163,101 @@ def test_mcp_call_rejects_multiple_args_input_modes(cli_runner: CliRunner, tmp_p
     )
 
     assert result.exit_code == 1
+
+
+@respx.mock
+def test_mcp_resources_lists_rich_fields(cli_runner: CliRunner) -> None:
+    payload = {
+        "server_id": "gmail",
+        "status": "connected",
+        "resources": [
+            {"uri": "gmail://label/INBOX", "name": "Inbox", "mime_type": "application/json", "description": "Primary"}
+        ],
+    }
+    respx.get(f"{API_BASE}/mcp/servers/gmail/resources").mock(return_value=httpx.Response(200, json=payload))
+    save_credentials(Credentials(api_key="key"))
+
+    result = cli_runner.invoke(app, ["mcp", "resources", "gmail"])
+
+    assert result.exit_code == 0
+    assert "gmail://label/INBOX" in result.output
+    assert "application/json" in result.output
+
+
+@respx.mock
+def test_mcp_resources_shows_auth_url_when_not_connected(cli_runner: CliRunner) -> None:
+    payload = {
+        "server_id": "gmail",
+        "status": "unauthenticated",
+        "gumloop_auth_url": "https://example.com/settings/profile/apps?server=gmail",
+        "resources": [],
+    }
+    respx.get(f"{API_BASE}/mcp/servers/gmail/resources").mock(return_value=httpx.Response(200, json=payload))
+    save_credentials(Credentials(api_key="key"))
+
+    result = cli_runner.invoke(app, ["mcp", "resources", "gmail"])
+
+    assert result.exit_code == 0
+    assert "not connected" in result.output
+    assert "https://example.com/settings/profile/apps?server=gmail" in result.output
+
+
+@respx.mock
+def test_mcp_resource_prints_text_content(cli_runner: CliRunner) -> None:
+    payload = {
+        "server_id": "gmail",
+        "uri": "gmail://label/INBOX",
+        "contents": [{"mime_type": "text/plain", "text": "hello world"}],
+    }
+    route = respx.get(f"{API_BASE}/mcp/servers/gmail/resources/read").mock(
+        return_value=httpx.Response(200, json=payload)
+    )
+    save_credentials(Credentials(api_key="key"))
+
+    result = cli_runner.invoke(app, ["mcp", "resource", "gmail", "gmail://label/INBOX"])
+
+    assert result.exit_code == 0
+    assert "hello world" in result.output
+    assert route.calls[0].request.url.params["uri"] == "gmail://label/INBOX"
+
+
+@respx.mock
+def test_mcp_prompts_lists_arguments(cli_runner: CliRunner) -> None:
+    payload = {
+        "server_id": "gmail",
+        "status": "connected",
+        "prompts": [
+            {
+                "name": "summarize",
+                "description": "Summarize a thread",
+                "arguments": [{"name": "thread_id", "required": True}],
+            }
+        ],
+    }
+    respx.get(f"{API_BASE}/mcp/servers/gmail/prompts").mock(return_value=httpx.Response(200, json=payload))
+    save_credentials(Credentials(api_key="key"))
+
+    result = cli_runner.invoke(app, ["mcp", "prompts", "gmail"])
+
+    assert result.exit_code == 0
+    assert "summarize" in result.output
+    assert "thread_id*" in result.output  # trailing * marks a required argument
+
+
+@respx.mock
+def test_mcp_prompt_posts_args_and_prints_messages(cli_runner: CliRunner) -> None:
+    payload = {
+        "server_id": "gmail",
+        "name": "summarize",
+        "description": "Summarize a thread",
+        "messages": [{"role": "user", "content": {"type": "text", "text": "Please summarize"}}],
+    }
+    route = respx.post(f"{API_BASE}/mcp/servers/gmail/prompts/get").mock(return_value=httpx.Response(200, json=payload))
+    save_credentials(Credentials(api_key="key"))
+
+    result = cli_runner.invoke(app, ["mcp", "prompt", "gmail", "summarize", "--args-json", '{"thread_id": "abc"}'])
+
+    assert result.exit_code == 0
+    assert "Please summarize" in result.output
+    sent = route.calls[0].request.content
+    assert b'"thread_id": "abc"' in sent or b'"thread_id":"abc"' in sent

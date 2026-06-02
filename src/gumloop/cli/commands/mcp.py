@@ -140,7 +140,7 @@ def call_tool(
     ] = None,
     json_output: Annotated[
         bool,
-        typer.Option("--json", help="Print the raw SDK response as JSON."),
+        typer.Option("--json", help="Print the tool response as JSON, decoding JSON text content when possible."),
     ] = False,
 ) -> None:
     """Execute an MCP tool on a server."""
@@ -160,7 +160,7 @@ def call_tool(
         exit_with_error(error, json_output=json_output)
 
     if json_output:
-        print_json(response)
+        print_json(response.model_dump_decoded_content())
         return
 
     # markup=False on remote fields stops MCP server output from rendering
@@ -176,10 +176,183 @@ def call_tool(
         console.print(f"  status: {result.status}", markup=False, highlight=False)
         if result.error:
             console.print(f"  error: {result.error}", markup=False, highlight=False)
-        content = result.content
+        content = result.decoded_content
         if not content:
             continue
         if isinstance(content, str):
             console.print(content, markup=False, highlight=False)
         else:
             print_json(content)
+
+
+@mcp_app.command("resources", epilog="Example:\n  gumloop mcp resources gmail")
+def list_resources(
+    ctx: typer.Context,
+    server: Annotated[str, typer.Argument(help="MCP server id whose resources should be listed.")],
+    cursor: Annotated[str | None, typer.Option("--cursor", help="Pagination cursor from a previous page.")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Print the raw SDK response as JSON.")] = False,
+) -> None:
+    """List the resources a connected MCP server exposes."""
+    cli: CliContext = ctx.obj
+    try:
+        response = cli.call_with_refresh(
+            lambda client: client.mcp.list_resources(server, cursor=cursor, team_id=cli.effective_team_id)
+        )
+    except GumloopError as error:
+        exit_with_error(error, json_output=json_output)
+
+    if json_output:
+        print_json(response)
+        return
+
+    if response.status and response.status != "connected":
+        status_text = escape_markup(response.status)
+        console.print(f"Server [bold]{escape_markup(server)}[/bold] is not connected ({status_text}).")
+        if response.gumloop_auth_url:
+            console.print(f"Connect here: {response.gumloop_auth_url}", markup=False, highlight=False)
+        return
+
+    if not response.resources:
+        console.print("No resources found.")
+        return
+
+    console.print("URI", "NAME", "MIME_TYPE", "DESCRIPTION", sep="\t", soft_wrap=True)
+    for resource in response.resources:
+        console.print(
+            resource.uri,
+            resource.name or "",
+            resource.mime_type or "",
+            resource.description or "",
+            sep="\t",
+            soft_wrap=True,
+        )
+    if response.next_cursor:
+        console.print(
+            f"\nMore results — next page: --cursor {response.next_cursor}",
+            markup=False,
+            highlight=False,
+        )
+
+
+@mcp_app.command("resource", epilog='Example:\n  gumloop mcp resource gmail "gmail://label/INBOX"')
+def read_resource(
+    ctx: typer.Context,
+    server: Annotated[str, typer.Argument(help="MCP server id (for example 'gmail').")],
+    uri: Annotated[str, typer.Argument(help="Resource URI to read (for example 'gmail://label/INBOX').")],
+    json_output: Annotated[bool, typer.Option("--json", help="Print the raw SDK response as JSON.")] = False,
+) -> None:
+    """Read a single MCP resource by URI."""
+    cli: CliContext = ctx.obj
+    try:
+        response = cli.call_with_refresh(
+            lambda client: client.mcp.get_resource(server, uri, team_id=cli.effective_team_id)
+        )
+    except GumloopError as error:
+        exit_with_error(error, json_output=json_output)
+
+    if json_output:
+        print_json(response)
+        return
+
+    text = response.text
+    if text is not None:
+        console.print(text, markup=False, highlight=False)
+        return
+    # Binary or empty contents: fall back to the structured payload.
+    if not response.contents:
+        console.print("(no content)")
+        return
+    print_json(response)
+
+
+@mcp_app.command("prompts", epilog="Example:\n  gumloop mcp prompts gmail")
+def list_prompts(
+    ctx: typer.Context,
+    server: Annotated[str, typer.Argument(help="MCP server id whose prompts should be listed.")],
+    json_output: Annotated[bool, typer.Option("--json", help="Print the raw SDK response as JSON.")] = False,
+) -> None:
+    """List the prompts a connected MCP server exposes."""
+    cli: CliContext = ctx.obj
+    try:
+        response = cli.call_with_refresh(lambda client: client.mcp.list_prompts(server, team_id=cli.effective_team_id))
+    except GumloopError as error:
+        exit_with_error(error, json_output=json_output)
+
+    if json_output:
+        print_json(response)
+        return
+
+    if response.status and response.status != "connected":
+        status_text = escape_markup(response.status)
+        console.print(f"Server [bold]{escape_markup(server)}[/bold] is not connected ({status_text}).")
+        if response.gumloop_auth_url:
+            console.print(f"Connect here: {response.gumloop_auth_url}", markup=False, highlight=False)
+        return
+
+    if not response.prompts:
+        console.print("No prompts found.")
+        return
+
+    console.print("NAME", "ARGUMENTS", "DESCRIPTION", sep="\t", soft_wrap=True)
+    for prompt in response.prompts:
+        # A trailing * marks a required argument.
+        args = ", ".join(f"{arg.name}*" if arg.required else arg.name for arg in prompt.arguments)
+        console.print(prompt.name, args, prompt.description or "", sep="\t", soft_wrap=True)
+
+
+@mcp_app.command(
+    "prompt",
+    epilog=(
+        "Examples:\n"
+        '  gumloop mcp prompt gmail summarize_thread --args-json \'{"thread_id": "abc"}\'\n'
+        "  gumloop mcp prompt gmail summarize_thread --args-file ./args.json"
+    ),
+)
+def get_prompt(
+    ctx: typer.Context,
+    server: Annotated[str, typer.Argument(help="MCP server id (for example 'gmail').")],
+    name: Annotated[str, typer.Argument(help="Prompt name on that server.")],
+    args_json: Annotated[
+        str | None,
+        typer.Option("--args-json", help="Inline JSON object of prompt arguments."),
+    ] = None,
+    args_file: Annotated[
+        str | None,
+        typer.Option("--args-file", help="Path to a file containing the JSON arguments."),
+    ] = None,
+    args_stdin: Annotated[
+        str | None,
+        typer.Option("--args", help="Use '-' to read JSON arguments from stdin.", metavar="-"),
+    ] = None,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Print the prompt response as JSON."),
+    ] = False,
+) -> None:
+    """Get (render) an MCP prompt with arguments."""
+    cli: CliContext = ctx.obj
+    try:
+        arguments = resolve_json_args(inline=args_json, file_path=args_file, stdin_marker=args_stdin)
+        response = cli.call_with_refresh(
+            lambda client: client.mcp.get_prompt(server, name, arguments, team_id=cli.effective_team_id)
+        )
+    except GumloopError as error:
+        exit_with_error(error, json_output=json_output)
+
+    if json_output:
+        print_json(response)
+        return
+
+    if response.description:
+        console.print(response.description, markup=False, highlight=False)
+    if not response.messages:
+        console.print("(no messages)")
+        return
+    for message in response.messages:
+        role = message.role or ""
+        console.print(f"[bold]{escape_markup(role)}[/bold]", markup=True, highlight=False)
+        text = message.content.get("text") if isinstance(message.content, dict) else None
+        if text:
+            console.print(text, markup=False, highlight=False)
+        else:
+            print_json(message.content)
