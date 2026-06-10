@@ -7,6 +7,7 @@ from typing import Any
 
 import httpx
 
+from gumloop._http import DEFAULT_MAX_RETRIES
 from gumloop._http import AsyncHttpClient
 from gumloop._http import HttpClient
 from gumloop.oauth import OAuth
@@ -55,6 +56,7 @@ class Gumloop:
         stream_base_url: str | None = None,
         timeout: float = DEFAULT_TIMEOUT,
         stream_timeout: float | None = DEFAULT_STREAM_TIMEOUT,
+        max_retries: int = DEFAULT_MAX_RETRIES,
     ) -> None:
         self.api_key = api_key
         self.access_token = access_token or api_key or os.environ.get("GUMLOOP_ACCESS_TOKEN")
@@ -67,6 +69,7 @@ class Gumloop:
         self.stream_base_url = (stream_base_url or _derive_stream_base_url(self.base_url)).rstrip("/")
         self.timeout = timeout
         self.stream_timeout = stream_timeout
+        self.max_retries = max_retries
 
         self._http = HttpClient(
             base_url=self.base_url,
@@ -75,6 +78,7 @@ class Gumloop:
             user_id=self.user_id,
             timeout=self.timeout,
             stream_timeout=self.stream_timeout,
+            max_retries=self.max_retries,
         )
 
         self.agents = Agents(self._http)
@@ -110,6 +114,7 @@ class AsyncGumloop:
         stream_base_url: str | None = None,
         timeout: float = DEFAULT_TIMEOUT,
         stream_timeout: float | None = DEFAULT_STREAM_TIMEOUT,
+        max_retries: int = DEFAULT_MAX_RETRIES,
     ) -> None:
         self.api_key = api_key
         self.access_token = access_token or api_key or os.environ.get("GUMLOOP_ACCESS_TOKEN")
@@ -119,6 +124,7 @@ class AsyncGumloop:
         self.stream_base_url = (stream_base_url or _derive_stream_base_url(self.base_url)).rstrip("/")
         self.timeout = timeout
         self.stream_timeout = stream_timeout
+        self.max_retries = max_retries
 
         self._http = AsyncHttpClient(
             base_url=self.base_url,
@@ -127,6 +133,7 @@ class AsyncGumloop:
             user_id=self.user_id,
             timeout=self.timeout,
             stream_timeout=self.stream_timeout,
+            max_retries=self.max_retries,
         )
 
         self.agents = AsyncAgents(self._http)
