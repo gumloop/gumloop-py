@@ -7,6 +7,7 @@ from typing import Any
 
 import typer
 from rich.markup import escape as escape_markup
+from rich.table import Table
 
 from gumloop import GumloopError
 from gumloop.cli.console import console
@@ -61,17 +62,22 @@ def list_agents(
     if not response.agents:
         console.print("No agents found.")
     else:
-        console.print("ID", "NAME", "MODEL", "TEAM", "ACTIVE", sep="\t", soft_wrap=True)
+        table = Table(show_header=True, header_style="bold", box=None, pad_edge=False)
+        table.add_column("ID", style="dim", no_wrap=True)
+        table.add_column("NAME")
+        table.add_column("MODEL")
+        table.add_column("TEAM", style="dim")
+        table.add_column("ACTIVE", justify="center")
         for agent in response.agents:
-            console.print(
-                agent.id,
-                agent.name,
-                agent.model_name or "",
-                agent.team_id or "",
-                "yes" if agent.is_active else "no",
-                sep="\t",
-                soft_wrap=True,
+            active = "[green]yes[/green]" if agent.is_active else "[dim]no[/dim]"
+            table.add_row(
+                escape_markup(agent.id or ""),
+                escape_markup(agent.name or ""),
+                escape_markup(agent.model_name or ""),
+                escape_markup(agent.team_id or ""),
+                active,
             )
+        console.print(table)
 
     if response.next_cursor:
         console.print(f"\n[dim]Next cursor:[/dim] {escape_markup(response.next_cursor)}")
