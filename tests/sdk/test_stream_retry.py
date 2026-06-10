@@ -40,19 +40,39 @@ def test_stream_retries_on_429_then_yields_events(monkeypatch: pytest.MonkeyPatc
 
 
 @respx.mock
-def test_stream_retries_on_500_then_yields_events(monkeypatch: pytest.MonkeyPatch, client: Gumloop) -> None:
+def test_stream_retries_on_500_then_yields_events_for_get(monkeypatch: pytest.MonkeyPatch, client: Gumloop) -> None:
+    # Only idempotent methods (GET, DELETE, …) retry on 5xx; POST does not.
     monkeypatch.setattr(time, "sleep", lambda _: None)
 
     session_id = "sess_abc"
-    respx.post(f"{_STREAM_BASE}/sessions/{session_id}/stream").mock(
+    respx.get(f"{_STREAM_BASE}/sessions/{session_id}/stream").mock(
         side_effect=[
             httpx.Response(500, json={}),
             httpx.Response(200, content=_sse('{"type": "done"}'), headers={"content-type": "text/event-stream"}),
         ]
     )
 
-    events = list(client._http.stream("POST", f"sessions/{session_id}/stream"))
+    events = list(client._http.stream("GET", f"sessions/{session_id}/stream"))
     assert len(events) == 1
+
+
+@respx.mock
+def test_stream_post_does_not_retry_on_500(monkeypatch: pytest.MonkeyPatch, client: Gumloop) -> None:
+    # POST is non-idempotent: a 5xx may arrive after the server already acted,
+    # so we raise immediately rather than risk duplicating the side-effect.
+    monkeypatch.setattr(time, "sleep", lambda _: None)
+
+    route = respx.post(f"{_STREAM_BASE}/sessions/sess_abc/stream").mock(
+        side_effect=[
+            httpx.Response(500, json={}),
+            httpx.Response(200, content=_sse('{"type": "done"}'), headers={"content-type": "text/event-stream"}),
+        ]
+    )
+
+    with pytest.raises(ServerError):
+        list(client._http.stream("POST", "sessions/sess_abc/stream"))
+
+    assert route.call_count == 1  # raised on first attempt, never retried
 
 
 @respx.mock
@@ -97,31 +117,26 @@ def test_stream_max_retries_zero_raises_immediately(monkeypatch: pytest.MonkeyPa
 
 
 @respx.mock
-def test_async_stream_retries_on_429_then_yields_events() -> None:
+def test_async_stream_retries_on_429_then_yields_events(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def _noop_sleep(_: float) -> None:
+        pass
+
+    monkeypatch.setattr(asyncio, "sleep", _noop_sleep)
+
+    respx.post(f"{_STREAM_BASE}/sessions/sess_abc/stream").mock(
+        side_effect=[
+            httpx.Response(429, headers={"retry-after": "0"}, json={}),
+            httpx.Response(
+                200,
+                content=_sse('{"type": "message"}'),
+                headers={"content-type": "text/event-stream"},
+            ),
+        ]
+    )
+
     async def run() -> None:
-        import asyncio as _asyncio
-
-        slept: list[float] = []
-
-        async def _noop_sleep(s: float) -> None:
-            slept.append(s)
-
-        _asyncio.sleep = _noop_sleep  # type: ignore[assignment]
-
-        respx.post(f"{_STREAM_BASE}/sessions/sess_abc/stream").mock(
-            side_effect=[
-                httpx.Response(429, headers={"retry-after": "0"}, json={}),
-                httpx.Response(
-                    200,
-                    content=_sse('{"type": "message"}'),
-                    headers={"content-type": "text/event-stream"},
-                ),
-            ]
-        )
-
         async with AsyncGumloop(access_token="token") as client:
             events = [e async for e in client._http.stream("POST", "sessions/sess_abc/stream")]
-
         assert len(events) == 1
 
     asyncio.run(run())

@@ -30,8 +30,8 @@ _T = TypeVar("_T", bound=BaseModel)
 DEFAULT_MAX_RETRIES = 2
 _RETRY_BASE_DELAY = 0.5
 _RETRY_MAX_DELAY = 60.0
-# Streaming connections are always GET-like: the caller hasn't mutated state,
-# so it is safe to retry on any transient server error, not just 429.
+# Same retry rules as _request(): idempotent methods retry on both 429 and 5xx;
+# POST/PATCH only retry on 429 (server guarantees the request was not processed).
 _IDEMPOTENT_METHODS = frozenset({"GET", "HEAD", "DELETE", "OPTIONS", "PUT"})
 
 
