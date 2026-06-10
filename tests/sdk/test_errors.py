@@ -76,7 +76,9 @@ def test_api_status_error_is_catchable_as_base_class() -> None:
 
 
 @respx.mock
-def test_retries_on_500_then_succeeds(client: Gumloop) -> None:
+def test_retries_on_500_then_succeeds(monkeypatch: pytest.MonkeyPatch, client: Gumloop) -> None:
+    monkeypatch.setattr(time, "sleep", lambda _: None)
+
     route = respx.get(f"{API_BASE}/agents").mock(
         side_effect=[
             httpx.Response(500, json={"error": {"message": "internal error"}}),
@@ -144,6 +146,59 @@ def test_no_retry_client_zero_max_retries() -> None:
         client.agents.list()
 
     assert route.call_count == 1
+
+
+@respx.mock
+def test_retry_after_http_date_is_parsed(monkeypatch: pytest.MonkeyPatch, client: Gumloop) -> None:
+    slept: list[float] = []
+    monkeypatch.setattr(time, "sleep", lambda s: slept.append(s))
+
+    # Use a date far in the future so the computed delta is clearly > 0.
+    future_date = "Wed, 01 Jan 2099 00:00:00 GMT"
+    respx.get(f"{API_BASE}/agents").mock(
+        side_effect=[
+            httpx.Response(429, headers={"retry-after": future_date}, json={}),
+            httpx.Response(200, json={"agents": []}),
+        ]
+    )
+
+    client.agents.list()
+
+    assert len(slept) == 1
+    assert slept[0] > 0  # parsed as a positive delay, not silently dropped
+
+
+@respx.mock
+def test_post_does_not_retry_on_5xx(monkeypatch: pytest.MonkeyPatch, client: Gumloop) -> None:
+    # POST is non-idempotent; a 5xx after a commit would duplicate the write.
+    monkeypatch.setattr(time, "sleep", lambda _: None)
+
+    route = respx.post(f"{API_BASE}/agents").mock(
+        return_value=httpx.Response(500, json={"error": {"message": "upstream error"}})
+    )
+
+    with pytest.raises(ServerError):
+        client.agents.create(name="Test", model_name="auto")
+
+    assert route.call_count == 1  # no retries
+
+
+@respx.mock
+def test_post_does_retry_on_429(monkeypatch: pytest.MonkeyPatch, client: Gumloop) -> None:
+    # 429 is safe to retry even for POST — the server rejected it before processing.
+    monkeypatch.setattr(time, "sleep", lambda _: None)
+
+    route = respx.post(f"{API_BASE}/agents").mock(
+        side_effect=[
+            httpx.Response(429, json={}),
+            httpx.Response(201, json={"agent": {"id": "a1", "name": "Test"}}),
+        ]
+    )
+
+    result = client.agents.create(name="Test", model_name="auto")
+
+    assert result.agent.id == "a1"
+    assert route.call_count == 2
 
 
 # ---------------------------------------------------------------------------

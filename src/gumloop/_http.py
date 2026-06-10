@@ -52,9 +52,20 @@ def _omit_none_params(params: Mapping[str, Any] | None) -> dict[str, Any] | None
     return {k: v for k, v in params.items() if v is not None}
 
 
-def _should_retry(exc: APIStatusError) -> bool:
-    # Retry on rate-limit and transient server errors; never retry client errors.
-    return isinstance(exc, (RateLimitError, ServerError))
+_IDEMPOTENT_METHODS = frozenset({"GET", "HEAD", "DELETE", "OPTIONS", "PUT"})
+
+
+def _should_retry(exc: APIStatusError, method: str) -> bool:
+    # Never retry client errors.
+    if not isinstance(exc, (RateLimitError, ServerError)):
+        return False
+    # POST/PATCH are non-idempotent: a 5xx may arrive after the server already
+    # committed the write, so retrying would duplicate the mutation. Only retry
+    # them on 429 (rate-limit), where the server explicitly guarantees the
+    # request was not processed.
+    if method.upper() not in _IDEMPOTENT_METHODS and isinstance(exc, ServerError):
+        return False
+    return True
 
 
 def _retry_delay(attempt: int, retry_after: float | None) -> float:
@@ -70,12 +81,23 @@ def _retry_delay(attempt: int, retry_after: float | None) -> float:
 
 
 def _parse_retry_after(response: httpx.Response) -> float | None:
+    import email.utils
+
     raw = response.headers.get("retry-after")
     if raw is None:
         return None
     try:
         return float(raw)
     except ValueError:
+        pass
+    # RFC 7231 also allows an HTTP-date: "Retry-After: Wed, 21 Oct 2015 07:28:00 GMT"
+    try:
+        dt = email.utils.parsedate_to_datetime(raw)
+        import datetime
+
+        delta = (dt - datetime.datetime.now(tz=datetime.timezone.utc)).total_seconds()
+        return max(delta, 0.0)
+    except Exception:
         return None
 
 
@@ -165,7 +187,7 @@ class HttpClient:
             if response.status_code < 400:
                 return response.json() if response.content else None
             exc = to_api_error(response)
-            if attempt < self._max_retries and _should_retry(exc):
+            if attempt < self._max_retries and _should_retry(exc, "POST"):
                 delay = _retry_delay(attempt, _parse_retry_after(response))
                 logger.debug("retrying stream-host request (attempt %d, delay %.2fs)", attempt + 1, delay)
                 time.sleep(delay)
@@ -242,7 +264,7 @@ class HttpClient:
             if response.status_code < 400:
                 return response.json() if response.content else None
             exc = to_api_error(response)
-            if attempt < self._max_retries and _should_retry(exc):
+            if attempt < self._max_retries and _should_retry(exc, method):
                 delay = _retry_delay(attempt, _parse_retry_after(response))
                 logger.debug("retrying %s %s (attempt %d, delay %.2fs)", method, path, attempt + 1, delay)
                 time.sleep(delay)
@@ -315,7 +337,7 @@ class AsyncHttpClient:
             if response.status_code < 400:
                 return response.json() if response.content else None
             exc = to_api_error(response)
-            if attempt < self._max_retries and _should_retry(exc):
+            if attempt < self._max_retries and _should_retry(exc, "POST"):
                 delay = _retry_delay(attempt, _parse_retry_after(response))
                 logger.debug("retrying stream-host request (attempt %d, delay %.2fs)", attempt + 1, delay)
                 await asyncio.sleep(delay)
@@ -388,7 +410,7 @@ class AsyncHttpClient:
             if response.status_code < 400:
                 return response.json() if response.content else None
             exc = to_api_error(response)
-            if attempt < self._max_retries and _should_retry(exc):
+            if attempt < self._max_retries and _should_retry(exc, method):
                 delay = _retry_delay(attempt, _parse_retry_after(response))
                 logger.debug("retrying %s %s (attempt %d, delay %.2fs)", method, path, attempt + 1, delay)
                 await asyncio.sleep(delay)
