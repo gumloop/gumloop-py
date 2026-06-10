@@ -27,9 +27,43 @@ class APIStatusError(GumloopError):
         self.details = self.error.get("details", {}) if isinstance(self.error, dict) else {}
 
 
+class BadRequestError(APIStatusError):
+    """HTTP 400 — the request was malformed or contained invalid parameters."""
+
+
+class PermissionDeniedError(APIStatusError):
+    """HTTP 403 — the caller does not have permission to perform this action."""
+
+
+class NotFoundError(APIStatusError):
+    """HTTP 404 — the requested resource does not exist."""
+
+
+class UnprocessableEntityError(APIStatusError):
+    """HTTP 422 — the request was well-formed but semantically invalid."""
+
+
+class RateLimitError(APIStatusError):
+    """HTTP 429 — too many requests; back off and retry."""
+
+
+class ServerError(APIStatusError):
+    """HTTP 5xx — an unexpected error occurred on the Gumloop server."""
+
+
+_STATUS_MAP: dict[int, type[APIStatusError]] = {
+    400: BadRequestError,
+    403: PermissionDeniedError,
+    404: NotFoundError,
+    422: UnprocessableEntityError,
+    429: RateLimitError,
+}
+
+
 def to_api_error(response: httpx.Response) -> APIStatusError:
-    """Translate a non-success ``httpx.Response`` into :class:`APIStatusError`,
-    extracting the backend error envelope's ``message`` when present."""
+    """Translate a non-success ``httpx.Response`` into the most specific
+    :class:`APIStatusError` subclass available, extracting the backend error
+    envelope's ``message`` when present."""
     try:
         body: Any = response.json()
     except ValueError:
@@ -40,4 +74,11 @@ def to_api_error(response: httpx.Response) -> APIStatusError:
         if isinstance(error, dict)
         else f"Gumloop API returned HTTP {response.status_code}"
     )
-    return APIStatusError(message, status_code=response.status_code, body=body)
+    cls: type[APIStatusError]
+    if response.status_code in _STATUS_MAP:
+        cls = _STATUS_MAP[response.status_code]
+    elif response.status_code >= 500:
+        cls = ServerError
+    else:
+        cls = APIStatusError
+    return cls(message, status_code=response.status_code, body=body)
