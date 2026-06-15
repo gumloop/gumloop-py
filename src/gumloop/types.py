@@ -4,6 +4,7 @@ import json
 from typing import Any
 from typing import Literal
 
+from pydantic import AliasChoices
 from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
@@ -468,7 +469,7 @@ class EvaluationConfigUpdateRequest(_Model):
 
 class EvaluationResult(_Model):
     evaluation_id: str
-    interaction_id: str
+    session_id: str = Field(validation_alias=AliasChoices("interaction_id", "session_id"))
     agent_id: str
     created_ts: str | None = None
     # "completed" | "failed"; grade/call_successful are null when failed.
