@@ -184,7 +184,7 @@ class HttpClient:
                     yield response_model.model_validate_json(event.data)
                 except ValidationError:
                     # Server-side mid-stream error frames or schema-drift events
-                    # land here. 
+                    # land here.
                     logger.debug("dropped non-%s SSE: %s", response_model.__name__, event.data)
                     continue
 
@@ -320,7 +320,7 @@ class AsyncHttpClient:
                     yield response_model.model_validate_json(event.data)
                 except ValidationError:
                     # Server-side mid-stream error frames or schema-drift events
-                    # land here. 
+                    # land here.
                     logger.debug("dropped non-%s SSE: %s", response_model.__name__, event.data)
                     continue
 

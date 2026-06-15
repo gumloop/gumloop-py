@@ -101,6 +101,104 @@ def test_models_list(client: Gumloop) -> None:
 
 
 @respx.mock
+def test_agents_get_evaluation_config(client: Gumloop) -> None:
+    respx.get(f"{API_BASE}/agents/agent_123/evaluation-config").mock(
+        return_value=httpx.Response(200, json={"config": {"agent_id": "agent_123", "enabled": False}})
+    )
+
+    result = client.agents.get_evaluation_config("agent_123")
+
+    assert result.config.agent_id == "agent_123"
+    assert result.config.enabled is False
+
+
+@respx.mock
+def test_agents_update_evaluation_config_patches_only_sent_fields(client: Gumloop) -> None:
+    route = respx.patch(f"{API_BASE}/agents/agent_123/evaluation-config").mock(
+        return_value=httpx.Response(200, json={"config": {"agent_id": "agent_123", "enabled": True}})
+    )
+
+    result = client.agents.update_evaluation_config("agent_123", enabled=True)
+
+    assert result.config.enabled is True
+    # PATCH merge: only the field we set goes on the wire — omitted fields aren't
+    # cleared client-side (the backend preserves them).
+    assert request_json(route.calls[0].request) == {"enabled": True}
+
+
+@respx.mock
+def test_agents_list_evaluations_sends_filters(client: Gumloop) -> None:
+    route = respx.get(f"{API_BASE}/agents/agent_123/evaluations").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "evaluations": [{"evaluation_id": "eval_1", "interaction_id": "i1", "agent_id": "agent_123"}],
+                "next_cursor": "cursor_2",
+            },
+        )
+    )
+
+    result = client.agents.list_evaluations("agent_123", grade="needs_review", page_size=10, cursor="cursor_1")
+
+    assert result.evaluations[0].evaluation_id == "eval_1"
+    assert result.next_cursor == "cursor_2"
+    params = route.calls[0].request.url.params
+    assert params["grade"] == "needs_review"
+    assert params["page_size"] == "10"
+    assert params["cursor"] == "cursor_1"
+
+
+@respx.mock
+def test_agents_get_evaluation(client: Gumloop) -> None:
+    respx.get(f"{API_BASE}/agents/agent_123/evaluations/eval_1").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "evaluation": {
+                    "evaluation_id": "eval_1",
+                    "interaction_id": "i1",
+                    "agent_id": "agent_123",
+                    "grade": "pass",
+                }
+            },
+        )
+    )
+
+    result = client.agents.get_evaluation("agent_123", "eval_1")
+
+    assert result.evaluation is not None
+    assert result.evaluation.evaluation_id == "eval_1"
+    assert result.evaluation.grade == "pass"
+
+
+@respx.mock
+def test_async_agents_evaluation_methods() -> None:
+    respx.get(f"{API_BASE}/agents/agent_123/evaluation-config").mock(
+        return_value=httpx.Response(200, json={"config": {"agent_id": "agent_123"}})
+    )
+    respx.patch(f"{API_BASE}/agents/agent_123/evaluation-config").mock(
+        return_value=httpx.Response(200, json={"config": {"agent_id": "agent_123", "enabled": True}})
+    )
+    respx.get(f"{API_BASE}/agents/agent_123/evaluations").mock(
+        return_value=httpx.Response(200, json={"evaluations": []})
+    )
+    respx.get(f"{API_BASE}/agents/agent_123/evaluations/eval_1").mock(
+        return_value=httpx.Response(
+            200, json={"evaluation": {"evaluation_id": "eval_1", "interaction_id": "i1", "agent_id": "agent_123"}}
+        )
+    )
+
+    async def run() -> None:
+        async with AsyncGumloop(access_token="token") as client:
+            assert (await client.agents.get_evaluation_config("agent_123")).config.agent_id == "agent_123"
+            assert (await client.agents.update_evaluation_config("agent_123", enabled=True)).config.enabled is True
+            assert (await client.agents.list_evaluations("agent_123")).evaluations == []
+            assert (await client.agents.get_evaluation("agent_123", "eval_1")).evaluation.evaluation_id == "eval_1"
+
+    asyncio.run(run())
+
+
+@respx.mock
 def test_async_agents_models_and_user_methods() -> None:
     respx.get(f"{API_BASE}/agents").mock(return_value=httpx.Response(200, json={"agents": []}))
     respx.post(f"{API_BASE}/agents").mock(
