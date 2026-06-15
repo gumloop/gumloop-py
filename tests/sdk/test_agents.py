@@ -158,6 +158,7 @@ def test_agents_get_evaluation(client: Gumloop) -> None:
                     "evaluation_id": "eval_1",
                     "interaction_id": "i1",
                     "agent_id": "agent_123",
+                    "status": "completed",
                     "grade": "pass",
                 }
             },
@@ -168,6 +169,7 @@ def test_agents_get_evaluation(client: Gumloop) -> None:
 
     assert result.evaluation is not None
     assert result.evaluation.evaluation_id == "eval_1"
+    assert result.evaluation.status == "completed"
     assert result.evaluation.grade == "pass"
 
 

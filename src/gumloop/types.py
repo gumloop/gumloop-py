@@ -471,6 +471,8 @@ class EvaluationResult(_Model):
     interaction_id: str
     agent_id: str
     created_ts: str | None = None
+    # "completed" | "failed"; grade/call_successful are null when failed.
+    status: str | None = None
     grade: str | None = None
     call_successful: str | None = None
     sentiment: str | None = None
