@@ -4,6 +4,7 @@ import json
 from typing import Any
 from typing import Literal
 
+from pydantic import AliasChoices
 from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
@@ -426,3 +427,66 @@ class McpPromptResponse(_Model):
     name: str | None = None
     description: str | None = None
     messages: list[McpPromptMessage] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Evaluation types
+# ---------------------------------------------------------------------------
+
+
+class EvaluationConfig(_Model):
+    agent_id: str
+    enabled: bool = False
+    is_active: bool = True
+    model_name: str | None = None
+    frequency: str | None = None
+    language: str | None = None
+    include_auto_tags: bool = False
+    interaction_types: list[Any] = Field(default_factory=list)
+    criteria: list[Any] = Field(default_factory=list)
+    tags: list[Any] = Field(default_factory=list)
+    data_points: list[Any] = Field(default_factory=list)
+    sentiment: dict[str, Any] | None = None
+    updated_ts: str | None = None
+
+
+class EvaluationConfigResponse(_Model):
+    config: EvaluationConfig
+
+
+class EvaluationConfigUpdateRequest(_Model):
+    enabled: bool | None = None
+    model_name: str | None = None
+    frequency: str | None = None
+    language: str | None = None
+    include_auto_tags: bool | None = None
+    interaction_types: list[Any] | None = None
+    criteria: list[Any] | None = None
+    tags: list[Any] | None = None
+    data_points: list[Any] | None = None
+    sentiment: dict[str, Any] | None = None
+
+
+class EvaluationResult(_Model):
+    evaluation_id: str
+    session_id: str = Field(validation_alias=AliasChoices("interaction_id", "session_id"))
+    agent_id: str
+    created_ts: str | None = None
+    # "completed" | "failed"; grade/call_successful are null when failed.
+    status: str | None = None
+    grade: str | None = None
+    call_successful: str | None = None
+    sentiment: str | None = None
+    summary: str | None = None
+    criteria_results: list[Any] = Field(default_factory=list)
+    data_results: list[Any] = Field(default_factory=list)
+    applied_tags: list[Any] = Field(default_factory=list)
+
+
+class EvaluationResultResponse(_Model):
+    evaluation: EvaluationResult | None = None
+
+
+class EvaluationResultListResponse(_Model):
+    evaluations: list[EvaluationResult] = Field(default_factory=list)
+    next_cursor: str | None = None
