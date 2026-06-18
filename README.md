@@ -32,6 +32,45 @@ output = client.run_flow(
 print(output)
 ```
 
+## Run a Flow with Tweet Data
+
+Gumloop flow inputs can include lists and nested objects. This example loads a
+[TweetClaw](https://github.com/Xquik-dev/tweetclaw) JSON export and passes the
+tweet text into a flow for enrichment, routing, or review:
+
+```python
+import json
+from pathlib import Path
+
+from gumloop import GumloopClient
+
+
+def load_tweet_text(path: str) -> list[str]:
+    records = json.loads(Path(path).read_text(encoding="utf-8"))
+    tweets = records.get("tweets", records) if isinstance(records, dict) else records
+    return [
+        item["text"]
+        for item in tweets
+        if isinstance(item, dict) and isinstance(item.get("text"), str)
+    ]
+
+
+client = GumloopClient(
+    api_key="your_api_key",
+    user_id="your_user_id",
+)
+
+output = client.run_flow(
+    flow_id="your_flow_id",
+    inputs={
+        "tweets": load_tweet_text("tweetclaw-export.json"),
+        "source": "TweetClaw",
+    },
+)
+
+print(output)
+```
+
 ## Chat with an agent (streaming)
 
 ```python
