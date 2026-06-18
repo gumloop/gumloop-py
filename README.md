@@ -47,7 +47,14 @@ from gumloop import GumloopClient
 
 def load_tweet_text(path: str) -> list[str]:
     records = json.loads(Path(path).read_text(encoding="utf-8"))
-    tweets = records.get("tweets", records) if isinstance(records, dict) else records
+    if isinstance(records, dict):
+        tweets = records.get("tweets") or records.get("data") or records.get("results") or [records]
+    else:
+        tweets = records
+
+    if not isinstance(tweets, list):
+        return []
+
     return [
         item["text"]
         for item in tweets
