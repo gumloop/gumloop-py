@@ -153,6 +153,8 @@ class MessagePayload(_Model):
 class Session(_Model):
     id: str
     agent_id: str
+    name: str | None = None
+    type: str | None = None
     state: str | None = None
     messages: list[MessagePayload] = Field(default_factory=list)
     created_at: str | None = None
@@ -168,6 +170,11 @@ class Session(_Model):
 class SessionResponse(_Model):
     session: Session
     queue_position: int | None = None
+
+
+class SessionListResponse(_Model):
+    sessions: list[Session] = Field(default_factory=list)
+    next_cursor: str | None = None
 
 
 class StreamEvent(_Model):

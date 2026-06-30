@@ -82,6 +82,44 @@ def test_sessions_retrieve_send_and_cancel_routes(client: Gumloop) -> None:
     assert request_json(cancel_route.calls[0].request) == {}
 
 
+@respx.mock
+def test_sessions_list_forwards_filters_and_returns_envelope(client: Gumloop) -> None:
+    route = respx.get(f"{API_BASE}/agents/agent_123/sessions").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "sessions": [
+                    {"id": "session_123", "agent_id": "agent_123", "name": "Run", "type": "api", "state": "completed"}
+                ],
+                "next_cursor": "next",
+            },
+        )
+    )
+
+    result = client.sessions.list(
+        "agent_123",
+        search="invoice",
+        state="completed",
+        type="api",
+        sort_order="oldest",
+        page_size=10,
+        cursor="prev",
+    )
+
+    assert [s.id for s in result.sessions] == ["session_123"]
+    assert result.sessions[0].type == "api"
+    assert result.next_cursor == "next"
+    params = route.calls[0].request.url.params
+    assert params["search"] == "invoice"
+    assert params["state"] == "completed"
+    assert params["type"] == "api"
+    assert params["sort_order"] == "oldest"
+    assert params["page_size"] == "10"
+    assert params["cursor"] == "prev"
+    assert "creator_user_id" not in params
+    assert "trigger_id" not in params
+
+
 def test_sessions_send_requires_input_or_message() -> None:
     client = Gumloop(access_token="token")
 
@@ -163,6 +201,9 @@ def test_async_sessions_methods() -> None:
             200, json={"session": {"id": "session_123", "agent_id": "agent_123", "state": "cancelled"}}
         )
     )
+    respx.get(f"{API_BASE}/agents/agent_123/sessions").mock(
+        return_value=httpx.Response(200, json={"sessions": [{"id": "session_123", "agent_id": "agent_123"}]})
+    )
 
     async def run() -> None:
         async with AsyncGumloop(access_token="token") as client:
@@ -170,6 +211,8 @@ def test_async_sessions_methods() -> None:
             assert (await client.sessions.retrieve("session_123")).session.id == "session_123"
             assert (await client.sessions.send("session_123", input="Hello")).session.id == "session_123"
             assert (await client.sessions.cancel("session_123")).session.id == "session_123"
+            listed = await client.sessions.list("agent_123", state="completed")
+            assert [s.id for s in listed.sessions] == ["session_123"]
 
     asyncio.run(run())
 

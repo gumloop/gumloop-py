@@ -93,6 +93,99 @@ def create_session(
             console.print(f"  [{m.role or ''}] {content[:200]}", markup=False, highlight=False)
 
 
+@sessions_app.command(
+    "list",
+    epilog=(
+        "Examples:\n"
+        "  gumloop sessions list agent_abc --state completed --limit 50 --json\n"
+        "  gumloop sessions list agent_abc --search 'invoice' --sort oldest\n"
+        "  gumloop sessions list agent_abc --type api --creator user_123"
+    ),
+)
+def list_sessions(
+    ctx: typer.Context,
+    agent_id: Annotated[str, typer.Argument(help="Agent id whose sessions should be listed.")],
+    search: Annotated[
+        str | None,
+        typer.Option("--search", help="Search session name and content."),
+    ] = None,
+    state: Annotated[
+        str | None,
+        typer.Option("--state", help="Filter by state (e.g. completed, failed, processing, idle)."),
+    ] = None,
+    type_filter: Annotated[
+        str | None,
+        typer.Option("--type", help="Filter by session type (e.g. api, chat, slack)."),
+    ] = None,
+    creator: Annotated[
+        str | None,
+        typer.Option("--creator", help="Filter by creator user id."),
+    ] = None,
+    trigger_id: Annotated[
+        str | None,
+        typer.Option("--trigger-id", help="Filter by originating trigger id."),
+    ] = None,
+    sort_order: Annotated[
+        str | None,
+        typer.Option("--sort", help="Sort order (e.g. newest, oldest, credits_desc, name_asc)."),
+    ] = None,
+    limit: Annotated[
+        int | None,
+        typer.Option("--limit", help="Maximum number of sessions to return."),
+    ] = None,
+    cursor: Annotated[
+        str | None,
+        typer.Option("--cursor", help="Pagination cursor from a previous list call."),
+    ] = None,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Print the raw SDK response as JSON."),
+    ] = False,
+) -> None:
+    """List an agent's sessions with search, filters, and sort."""
+    cli: CliContext = ctx.obj
+    try:
+        response = cli.call_with_refresh(
+            lambda client: client.sessions.list(
+                agent_id,
+                search=search,
+                state=state,
+                type=type_filter,
+                creator_user_id=creator,
+                trigger_id=trigger_id,
+                sort_order=sort_order,
+                page_size=limit,
+                cursor=cursor,
+            )
+        )
+    except GumloopError as error:
+        exit_with_error(error, json_output=json_output)
+
+    if json_output:
+        print_json(response)
+        return
+
+    if not response.sessions:
+        console.print("No sessions found.")
+    else:
+        console.print("ID", "STATE", "TYPE", "NAME", "CREATED", sep="\t", soft_wrap=True)
+        for session in response.sessions:
+            console.print(
+                session.id,
+                session.state or "",
+                session.type or "",
+                session.name or "",
+                session.created_at or "",
+                sep="\t",
+                soft_wrap=True,
+                markup=False,
+                highlight=False,
+            )
+
+    if response.next_cursor:
+        console.print(f"\n[dim]Next cursor:[/dim] {escape_markup(response.next_cursor)}")
+
+
 @sessions_app.command("get", epilog="Example:\n  gumloop sessions get session_abc --json")
 def get_session(
     ctx: typer.Context,

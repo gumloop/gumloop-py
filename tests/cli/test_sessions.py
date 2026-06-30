@@ -60,6 +60,33 @@ def test_sessions_create_rejects_both_input_and_input_stdin(cli_runner: CliRunne
 
 
 @respx.mock
+def test_sessions_list_forwards_filters(cli_runner: CliRunner) -> None:
+    route = respx.get(f"{API_BASE}/agents/agent_abc/sessions").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "sessions": [{"id": "session_xyz", "agent_id": "agent_abc", "state": "completed"}],
+                "next_cursor": None,
+            },
+        )
+    )
+    save_credentials(Credentials(api_key="key"))
+
+    result = cli_runner.invoke(
+        app,
+        ["sessions", "list", "agent_abc", "--state", "completed", "--search", "x", "--sort", "oldest", "--limit", "5"],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "session_xyz" in result.output
+    params = route.calls[0].request.url.params
+    assert params["state"] == "completed"
+    assert params["search"] == "x"
+    assert params["sort_order"] == "oldest"
+    assert params["page_size"] == "5"
+
+
+@respx.mock
 def test_sessions_get_calls_per_session_endpoint(cli_runner: CliRunner) -> None:
     respx.get(f"{API_BASE}/sessions/session_xyz").mock(
         return_value=httpx.Response(
