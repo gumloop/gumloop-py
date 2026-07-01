@@ -11,6 +11,7 @@ from gumloop._http import AsyncHttpClient
 from gumloop._http import HttpClient
 from gumloop.types import SessionContinueRequest
 from gumloop.types import SessionCreateRequest
+from gumloop.types import SessionListResponse
 from gumloop.types import SessionResponse
 from gumloop.types import StreamEvent
 
@@ -18,6 +19,37 @@ from gumloop.types import StreamEvent
 class Sessions:
     def __init__(self, client: HttpClient) -> None:
         self._client = client
+
+    def list(
+        self,
+        agent_id: str,
+        *,
+        search: str | None = None,
+        state: str | None = None,
+        type: str | None = None,
+        creator_user_id: str | None = None,
+        trigger_id: str | None = None,
+        sort_order: str | None = None,
+        page_size: int | None = None,
+        cursor: str | None = None,
+        **kwargs: Any,
+    ) -> SessionListResponse:
+        return SessionListResponse.model_validate(
+            self._client.get(
+                f"agents/{agent_id}/sessions",
+                params={
+                    "search": search,
+                    "state": state,
+                    "type": type,
+                    "creator_user_id": creator_user_id,
+                    "trigger_id": trigger_id,
+                    "sort_order": sort_order,
+                    "page_size": page_size,
+                    "cursor": cursor,
+                    **kwargs,
+                },
+            )
+        )
 
     @overload
     def create(
@@ -116,6 +148,36 @@ class Sessions:
 class AsyncSessions:
     def __init__(self, client: AsyncHttpClient) -> None:
         self._client = client
+
+    async def list(
+        self,
+        agent_id: str,
+        *,
+        search: str | None = None,
+        state: str | None = None,
+        type: str | None = None,
+        creator_user_id: str | None = None,
+        trigger_id: str | None = None,
+        sort_order: str | None = None,
+        page_size: int | None = None,
+        cursor: str | None = None,
+        **kwargs: Any,
+    ) -> SessionListResponse:
+        data = await self._client.get(
+            f"agents/{agent_id}/sessions",
+            params={
+                "search": search,
+                "state": state,
+                "type": type,
+                "creator_user_id": creator_user_id,
+                "trigger_id": trigger_id,
+                "sort_order": sort_order,
+                "page_size": page_size,
+                "cursor": cursor,
+                **kwargs,
+            },
+        )
+        return SessionListResponse.model_validate(data)
 
     @overload
     async def create(
