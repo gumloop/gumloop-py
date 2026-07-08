@@ -237,6 +237,39 @@ class SkillDownloadResponse(_Model):
 
 
 # ---------------------------------------------------------------------------
+# Brain types
+# ---------------------------------------------------------------------------
+
+
+class BrainSearchRequest(_Model):
+    query: str
+    limit: int | None = None
+    source_type: list[str] | None = None
+
+
+class BrainSearchResult(_Model):
+    chunk_id: str | None = None
+    document_id: str | None = None
+    source: str | None = None
+    title: str | None = None
+    content: str | None = None
+    expanded_content: str | None = None
+    url: str | None = None
+    score: float | None = None
+    chunk_index: int | None = None
+    updated_at: str | None = None
+    owner_name: str | None = None
+    owner_email: str | None = None
+    parent_title: str | None = None
+    connector_id: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class BrainSearchResponse(_Model):
+    results: list[BrainSearchResult] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
 # Artifact types
 # ---------------------------------------------------------------------------
 
