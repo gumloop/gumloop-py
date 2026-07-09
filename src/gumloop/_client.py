@@ -15,12 +15,14 @@ from gumloop.resources import Agents
 from gumloop.resources import Artifacts
 from gumloop.resources import AsyncAgents
 from gumloop.resources import AsyncArtifacts
+from gumloop.resources import AsyncBrain
 from gumloop.resources import AsyncChat
 from gumloop.resources import AsyncMCP
 from gumloop.resources import AsyncModels
 from gumloop.resources import AsyncSessions
 from gumloop.resources import AsyncSkills
 from gumloop.resources import AsyncTeams
+from gumloop.resources import Brain
 from gumloop.resources import Chat
 from gumloop.resources import Models
 from gumloop.resources import Sessions
@@ -41,9 +43,9 @@ def _derive_stream_base_url(base_url: str) -> str:
 class Gumloop:
     """Sync Gumloop SDK client. Composes an :class:`HttpClient` with the
     resource classes (``agents``, ``sessions``, ``mcp``, ``teams``,
-    ``skills``, ``artifacts``, ``models``). The :attr:`oauth` attribute
-    holds OAuth helpers — kept off the transport because it bootstraps the
-    bearer token rather than consuming one."""
+    ``skills``, ``artifacts``, ``brain``, ``models``). The :attr:`oauth`
+    attribute holds OAuth helpers — kept off the transport because it
+    bootstraps the bearer token rather than consuming one."""
 
     def __init__(
         self,
@@ -85,6 +87,7 @@ class Gumloop:
         self.teams = Teams(self._http)
         self.skills = Skills(self._http)
         self.artifacts = Artifacts(self._http)
+        self.brain = Brain(self._http)
         self.oauth = OAuth(base_url=self.base_url, timeout=self.timeout)
 
     def close(self) -> None:
@@ -137,6 +140,7 @@ class AsyncGumloop:
         self.teams = AsyncTeams(self._http)
         self.skills = AsyncSkills(self._http)
         self.artifacts = AsyncArtifacts(self._http)
+        self.brain = AsyncBrain(self._http)
         self.oauth = OAuth(base_url=self.base_url, timeout=self.timeout)
 
     async def __aenter__(self) -> AsyncGumloop:
