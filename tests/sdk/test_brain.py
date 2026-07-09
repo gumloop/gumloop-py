@@ -3,7 +3,9 @@ from __future__ import annotations
 import asyncio
 
 import httpx
+import pytest
 import respx
+from pydantic import ValidationError
 
 from gumloop import AsyncGumloop
 from gumloop import Gumloop
@@ -11,7 +13,6 @@ from tests.sdk.helpers import API_BASE
 from tests.sdk.helpers import request_json
 
 _RESULT = {
-    "chunk_id": "conn_1:doc_1:0",
     "document_id": "notion:doc_1",
     "source": "notion",
     "title": "Onboarding",
@@ -20,7 +21,6 @@ _RESULT = {
     "score": 0.87,
     "updated_at": "2026-01-02T03:04:05+00:00",
     "owner_name": "Ada",
-    "connector_id": "conn_1",
 }
 
 
@@ -49,6 +49,11 @@ def test_brain_search_forwards_limit_and_source_type(client: Gumloop) -> None:
         "source_type": ["notion", "slack"],
     }
     assert result.results == []
+
+
+def test_brain_search_rejects_empty_source_type(client: Gumloop) -> None:
+    with pytest.raises(ValidationError):
+        client.brain.search("pricing", source_type=[])
 
 
 @respx.mock

@@ -12,7 +12,6 @@ from gumloop.cli.main import app
 from tests.sdk.helpers import API_BASE
 
 _RESULT = {
-    "chunk_id": "conn_1:doc_1:0",
     "document_id": "notion:doc_1",
     "source": "notion",
     "title": "Onboarding",
@@ -70,7 +69,7 @@ def test_brain_search_surfaces_api_errors(cli_runner: CliRunner) -> None:
                 "error": {
                     "code": "credit_limit_exceeded",
                     "message": "Credit limit exceeded.",
-                    "type": "invalid_request_error",
+                    "type": "payment_required_error",
                 }
             },
         )
