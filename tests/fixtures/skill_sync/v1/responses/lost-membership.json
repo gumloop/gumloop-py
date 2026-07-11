@@ -1,0 +1,9 @@
+{
+  "error": {
+    "code": "insufficient_organization_permissions",
+    "details": {},
+    "message": "You no longer belong to this organization.",
+    "param": null,
+    "type": "permission_error"
+  }
+}

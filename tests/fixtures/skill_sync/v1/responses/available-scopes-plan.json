@@ -1,0 +1,45 @@
+{
+  "available_scopes": {
+    "all": {
+      "skill_count": 2
+    },
+    "org_wide": {
+      "skill_count": 1
+    },
+    "teams": [
+      {
+        "skill_count": 1,
+        "team_id": "team_engineering",
+        "team_name": "Engineering"
+      }
+    ]
+  },
+  "limits": {
+    "bundle_transfer_bytes": 104857600,
+    "bytes_per_file": 26214400,
+    "files_per_skill": 1000,
+    "total_uncompressed_bytes": 209715200
+  },
+  "manifest": {
+    "algorithm": "sha256",
+    "format_version": 1,
+    "hash": "9e13c221a12284faed9dd0010ee3ae36840c4599ed88726dbe964bbe32cd67e6",
+    "skill_count": 1
+  },
+  "organization": {
+    "organization_id": "org_fixture",
+    "organization_name": "Fixture Organization"
+  },
+  "skill_count": 1,
+  "subscription": {
+    "mode": "selected",
+    "org_wide": true,
+    "team_ids": [
+      "team_engineering",
+      "team_former"
+    ]
+  },
+  "unavailable_team_ids": [
+    "team_former"
+  ]
+}

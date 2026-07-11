@@ -1,12 +1,21 @@
 from __future__ import annotations
 
 from collections.abc import Generator
+from datetime import datetime
+from datetime import timezone
+from pathlib import Path
 
 import keyring
 import keyring.backend
 import keyring.errors
 import pytest
+import respx
 from typer.testing import CliRunner
+
+from tests.cli.sync_test_fakes import DeterministicClock
+from tests.cli.sync_test_fakes import FakeAdvisoryLock
+from tests.cli.sync_test_fakes import FakeScheduler
+from tests.cli.sync_test_fakes import SyncCliTestEnvironment
 
 
 class _InMemoryKeyring(keyring.backend.KeyringBackend):
@@ -31,8 +40,11 @@ class _InMemoryKeyring(keyring.backend.KeyringBackend):
 
 
 @pytest.fixture(autouse=True)
-def _isolated_cli_env(monkeypatch: pytest.MonkeyPatch) -> Generator[None, None, None]:
-    """Sandbox every CLI test: no inherited env, in-memory keyring."""
+def _isolated_cli_env(
+    monkeypatch: pytest.MonkeyPatch,
+    fake_executable_path: Path,
+) -> Generator[None, None, None]:
+    """Sandbox every CLI test: temporary home, no inherited env, in-memory keyring."""
     for var in (
         "GUMLOOP_ACCESS_TOKEN",
         "GUMLOOP_API_KEY",
@@ -48,6 +60,43 @@ def _isolated_cli_env(monkeypatch: pytest.MonkeyPatch) -> Generator[None, None, 
         yield
     finally:
         keyring.set_keyring(previous)
+
+
+@pytest.fixture
+def temporary_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    home = tmp_path / "home"
+    home.mkdir(mode=0o700)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    return home
+
+
+@pytest.fixture
+def fake_executable_path(temporary_home: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    executable_path = temporary_home / "bin"
+    executable_path.mkdir()
+    monkeypatch.setenv("PATH", str(executable_path))
+    return executable_path
+
+
+@pytest.fixture
+def sync_cli_environment(
+    temporary_home: Path,
+    fake_executable_path: Path,
+    tmp_path: Path,
+    respx_mock: respx.MockRouter,
+) -> SyncCliTestEnvironment:
+    target_root = tmp_path / "targets"
+    target_root.mkdir()
+    return SyncCliTestEnvironment(
+        home=temporary_home,
+        executable_path=fake_executable_path,
+        target_root=target_root,
+        scheduler=FakeScheduler(),
+        clock=DeterministicClock(datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc)),
+        lock=FakeAdvisoryLock(),
+        http=respx_mock,
+    )
 
 
 @pytest.fixture

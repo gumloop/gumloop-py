@@ -1,0 +1,229 @@
+{
+  "format_version": 1,
+  "length_encoding": "uint64-big-endian",
+  "path_encoding": "utf-8",
+  "separator_normalization": "backslash-to-forward-slash",
+  "vectors": [
+    {
+      "expected_sha256": "4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a",
+      "files": [],
+      "framing_hex": "01",
+      "id": "empty-file-map",
+      "normalized_files": []
+    },
+    {
+      "expected_sha256": "c9b522ee88221082de201e05c9d28a488de64351be798a02144f9febff1d6d57",
+      "files": [
+        {
+          "content_base64": "aGVsbG8K",
+          "path": "SKILL.md"
+        }
+      ],
+      "framing_hex": "010000000000000008534b494c4c2e6d64000000000000000668656c6c6f0a",
+      "id": "one-file",
+      "normalized_files": [
+        {
+          "content_base64": "aGVsbG8K",
+          "path": "SKILL.md"
+        }
+      ]
+    },
+    {
+      "expected_sha256": "3eeb5d25a612f4a6e1f8ea37650350e419375f080d94b3b2e999977f42e34d6b",
+      "files": [
+        {
+          "content_base64": "IyBTZXR1cAo=",
+          "path": "docs/setup.md"
+        },
+        {
+          "content_base64": "LS0tCm5hbWU6IGZpeHR1cmUKZGVzY3JpcHRpb246IGZpeHR1cmUgc2tpbGwKLS0tCg==",
+          "path": "SKILL.md"
+        }
+      ],
+      "framing_hex": "010000000000000008534b494c4c2e6d6400000000000000312d2d2d0a6e616d653a20666978747572650a6465736372697074696f6e3a206669787475726520736b696c6c0a2d2d2d0a000000000000000d646f63732f73657475702e6d640000000000000008232053657475700a",
+      "id": "several-unsorted-paths",
+      "normalized_files": [
+        {
+          "content_base64": "LS0tCm5hbWU6IGZpeHR1cmUKZGVzY3JpcHRpb246IGZpeHR1cmUgc2tpbGwKLS0tCg==",
+          "path": "SKILL.md"
+        },
+        {
+          "content_base64": "IyBTZXR1cAo=",
+          "path": "docs/setup.md"
+        }
+      ]
+    },
+    {
+      "expected_sha256": "3466a6a93449bd4e7fc720443fe18a26632363475bf7db87396d342ffa6be975",
+      "files": [
+        {
+          "content_base64": "Y29mZmVl",
+          "path": "docs/caf\u00e9.md"
+        }
+      ],
+      "framing_hex": "01000000000000000d646f63732f636166c3a92e6d640000000000000006636f66666565",
+      "id": "utf8-path",
+      "normalized_files": [
+        {
+          "content_base64": "Y29mZmVl",
+          "path": "docs/caf\u00e9.md"
+        }
+      ]
+    },
+    {
+      "expected_sha256": "f12232470af9e198f14332a48c5a769d0e47400f991872e204c2b5f7dbe14ab5",
+      "files": [
+        {
+          "content_base64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
+          "path": "data.bin"
+        }
+      ],
+      "framing_hex": "010000000000000008646174612e62696e0000000000000100000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+      "id": "binary-content",
+      "normalized_files": [
+        {
+          "content_base64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
+          "path": "data.bin"
+        }
+      ]
+    },
+    {
+      "expected_sha256": "b611bdb853823024ba09eb49eb606854e71a2a02502e5254b25e4e401617bc24",
+      "files": [
+        {
+          "content_base64": "YmM=",
+          "path": "a"
+        }
+      ],
+      "framing_hex": "0100000000000000016100000000000000026263",
+      "id": "prefix-ambiguity-a",
+      "normalized_files": [
+        {
+          "content_base64": "YmM=",
+          "path": "a"
+        }
+      ]
+    },
+    {
+      "expected_sha256": "32f20ce494bad9d43949b1e71782116e024950ee44109d747203c0a20faf18b9",
+      "files": [
+        {
+          "content_base64": "Yw==",
+          "path": "ab"
+        }
+      ],
+      "framing_hex": "0100000000000000026162000000000000000163",
+      "id": "prefix-ambiguity-b",
+      "normalized_files": [
+        {
+          "content_base64": "Yw==",
+          "path": "ab"
+        }
+      ]
+    },
+    {
+      "equivalence_group": "separator",
+      "expected_sha256": "3eeb5d25a612f4a6e1f8ea37650350e419375f080d94b3b2e999977f42e34d6b",
+      "files": [
+        {
+          "content_base64": "LS0tCm5hbWU6IGZpeHR1cmUKZGVzY3JpcHRpb246IGZpeHR1cmUgc2tpbGwKLS0tCg==",
+          "path": "SKILL.md"
+        },
+        {
+          "content_base64": "IyBTZXR1cAo=",
+          "path": "docs/setup.md"
+        }
+      ],
+      "framing_hex": "010000000000000008534b494c4c2e6d6400000000000000312d2d2d0a6e616d653a20666978747572650a6465736372697074696f6e3a206669787475726520736b696c6c0a2d2d2d0a000000000000000d646f63732f73657475702e6d640000000000000008232053657475700a",
+      "id": "separator-forward-slash",
+      "normalized_files": [
+        {
+          "content_base64": "LS0tCm5hbWU6IGZpeHR1cmUKZGVzY3JpcHRpb246IGZpeHR1cmUgc2tpbGwKLS0tCg==",
+          "path": "SKILL.md"
+        },
+        {
+          "content_base64": "IyBTZXR1cAo=",
+          "path": "docs/setup.md"
+        }
+      ]
+    },
+    {
+      "equivalence_group": "separator",
+      "expected_sha256": "3eeb5d25a612f4a6e1f8ea37650350e419375f080d94b3b2e999977f42e34d6b",
+      "files": [
+        {
+          "content_base64": "LS0tCm5hbWU6IGZpeHR1cmUKZGVzY3JpcHRpb246IGZpeHR1cmUgc2tpbGwKLS0tCg==",
+          "path": "SKILL.md"
+        },
+        {
+          "content_base64": "IyBTZXR1cAo=",
+          "path": "docs\\setup.md"
+        }
+      ],
+      "framing_hex": "010000000000000008534b494c4c2e6d6400000000000000312d2d2d0a6e616d653a20666978747572650a6465736372697074696f6e3a206669787475726520736b696c6c0a2d2d2d0a000000000000000d646f63732f73657475702e6d640000000000000008232053657475700a",
+      "id": "separator-backslash",
+      "normalized_files": [
+        {
+          "content_base64": "LS0tCm5hbWU6IGZpeHR1cmUKZGVzY3JpcHRpb246IGZpeHR1cmUgc2tpbGwKLS0tCg==",
+          "path": "SKILL.md"
+        },
+        {
+          "content_base64": "IyBTZXR1cAo=",
+          "path": "docs/setup.md"
+        }
+      ]
+    },
+    {
+      "archive_compression": "stored",
+      "expected_sha256": "3eeb5d25a612f4a6e1f8ea37650350e419375f080d94b3b2e999977f42e34d6b",
+      "files": [
+        {
+          "content_base64": "LS0tCm5hbWU6IGZpeHR1cmUKZGVzY3JpcHRpb246IGZpeHR1cmUgc2tpbGwKLS0tCg==",
+          "path": "SKILL.md"
+        },
+        {
+          "content_base64": "IyBTZXR1cAo=",
+          "path": "docs/setup.md"
+        }
+      ],
+      "framing_hex": "010000000000000008534b494c4c2e6d6400000000000000312d2d2d0a6e616d653a20666978747572650a6465736372697074696f6e3a206669787475726520736b696c6c0a2d2d2d0a000000000000000d646f63732f73657475702e6d640000000000000008232053657475700a",
+      "id": "compression-stored",
+      "normalized_files": [
+        {
+          "content_base64": "LS0tCm5hbWU6IGZpeHR1cmUKZGVzY3JpcHRpb246IGZpeHR1cmUgc2tpbGwKLS0tCg==",
+          "path": "SKILL.md"
+        },
+        {
+          "content_base64": "IyBTZXR1cAo=",
+          "path": "docs/setup.md"
+        }
+      ]
+    },
+    {
+      "archive_compression": "deflated",
+      "expected_sha256": "3eeb5d25a612f4a6e1f8ea37650350e419375f080d94b3b2e999977f42e34d6b",
+      "files": [
+        {
+          "content_base64": "LS0tCm5hbWU6IGZpeHR1cmUKZGVzY3JpcHRpb246IGZpeHR1cmUgc2tpbGwKLS0tCg==",
+          "path": "SKILL.md"
+        },
+        {
+          "content_base64": "IyBTZXR1cAo=",
+          "path": "docs/setup.md"
+        }
+      ],
+      "framing_hex": "010000000000000008534b494c4c2e6d6400000000000000312d2d2d0a6e616d653a20666978747572650a6465736372697074696f6e3a206669787475726520736b696c6c0a2d2d2d0a000000000000000d646f63732f73657475702e6d640000000000000008232053657475700a",
+      "id": "compression-deflated",
+      "normalized_files": [
+        {
+          "content_base64": "LS0tCm5hbWU6IGZpeHR1cmUKZGVzY3JpcHRpb246IGZpeHR1cmUgc2tpbGwKLS0tCg==",
+          "path": "SKILL.md"
+        },
+        {
+          "content_base64": "IyBTZXR1cAo=",
+          "path": "docs/setup.md"
+        }
+      ]
+    }
+  ]
+}

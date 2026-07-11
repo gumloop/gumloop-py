@@ -1,0 +1,30 @@
+{
+  "limits": {
+    "bundle_transfer_bytes": 104857600,
+    "bytes_per_file": 26214400,
+    "files_per_skill": 1000,
+    "total_uncompressed_bytes": 209715200
+  },
+  "manifest": {
+    "algorithm": "sha256",
+    "format_version": 1,
+    "hash": "28fd26b3be2adeca75dee82be1e13c3cb282fab8fb277c11172408ae57952b1f",
+    "skill_count": 1
+  },
+  "organization": {
+    "organization_id": "org_fixture",
+    "organization_name": "Fixture Organization"
+  },
+  "skills": [
+    {
+      "content_hash": "e2a424776a2fde99b4ca96a1c639d47014dffb3c9a2d706fbb0b27d9fb6bba3e",
+      "install_name": "acme-api-conventions",
+      "published_version_id": "version_fixture_2",
+      "skill_id": "skill_fixture_1"
+    }
+  ],
+  "subscription": {
+    "mode": "all"
+  },
+  "unavailable_team_ids": []
+}

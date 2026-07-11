@@ -1,0 +1,7 @@
+{
+  "body_fixture": "responses/normal-plan.json",
+  "headers": {
+    "Content-Type": "application/json",
+    "X-Gumloop-Sync-Contract-Version": "2"
+  }
+}

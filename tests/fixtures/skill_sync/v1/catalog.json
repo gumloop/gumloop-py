@@ -1,0 +1,191 @@
+{
+  "archives": [
+    {
+      "expected": "valid",
+      "kind": "zip",
+      "path": "archives/valid-single-skill.zip"
+    },
+    {
+      "expected": "valid",
+      "kind": "zip",
+      "path": "archives/valid-single-skill-stored.zip"
+    },
+    {
+      "case": "parent traversal",
+      "expected": "invalid_sync_bundle",
+      "kind": "zip",
+      "path": "archives/invalid-parent-traversal.zip"
+    },
+    {
+      "case": "absolute path",
+      "expected": "invalid_sync_bundle",
+      "kind": "zip",
+      "path": "archives/invalid-absolute-path.zip"
+    },
+    {
+      "case": "Windows drive prefix",
+      "expected": "invalid_sync_bundle",
+      "kind": "zip",
+      "path": "archives/invalid-windows-drive-prefix.zip"
+    },
+    {
+      "case": "symlink entry",
+      "expected": "invalid_sync_bundle",
+      "kind": "zip",
+      "path": "archives/invalid-symlink.zip"
+    },
+    {
+      "case": "FIFO entry",
+      "expected": "invalid_sync_bundle",
+      "kind": "zip",
+      "path": "archives/invalid-fifo.zip"
+    },
+    {
+      "case": "socket entry",
+      "expected": "invalid_sync_bundle",
+      "kind": "zip",
+      "path": "archives/invalid-socket.zip"
+    },
+    {
+      "case": "device entry",
+      "expected": "invalid_sync_bundle",
+      "kind": "zip",
+      "path": "archives/invalid-device.zip"
+    },
+    {
+      "case": "reserved marker",
+      "expected": "invalid_sync_bundle",
+      "kind": "zip",
+      "path": "archives/invalid-reserved-marker.zip"
+    },
+    {
+      "case": "duplicate archive entry",
+      "expected": "invalid_sync_bundle",
+      "kind": "zip",
+      "path": "archives/invalid-duplicate-entry.zip"
+    },
+    {
+      "case": "NUL byte in archive name",
+      "expected": "invalid_sync_bundle",
+      "kind": "zip",
+      "path": "archives/invalid-nul-name.zip"
+    },
+    {
+      "case": "bytes per file limit exceeded",
+      "expected": "invalid_sync_bundle",
+      "kind": "zip",
+      "path": "archives/invalid-bytes-per-file-limit.zip"
+    },
+    {
+      "case": "files per skill limit exceeded",
+      "expected": "invalid_sync_bundle",
+      "kind": "zip",
+      "path": "archives/invalid-files-per-skill-limit.zip"
+    },
+    {
+      "case": "total uncompressed limit exceeded",
+      "expected": "invalid_sync_bundle",
+      "kind": "zip",
+      "path": "archives/invalid-total-uncompressed-limit.zip"
+    },
+    {
+      "case": "bundle transfer byte limit exceeded",
+      "expected": "invalid_sync_bundle",
+      "kind": "generated_recipe",
+      "path": "archives/generated-bundle-transfer-limit.json"
+    }
+  ],
+  "bundles": [
+    {
+      "expected_extracted_content_hashes": {
+        "acme-api-conventions": "78ebce909b2a71a5bd38f75f0389e83346f7f6fc3aec125ad1029e34afdfb204"
+      },
+      "expected_manifest_hash": "9e13c221a12284faed9dd0010ee3ae36840c4599ed88726dbe964bbe32cd67e6",
+      "expected_skill_order": [
+        "skill_fixture_1"
+      ],
+      "manifest": "manifests/normal-bundle.json",
+      "path": "bundles/normal.zip",
+      "relationship": "matches normal plan",
+      "tuple_framing_hex": "01000000000000000f736b696c6c5f666978747572655f31000000000000001176657273696f6e5f666978747572655f31000000000000004037386562636539303962326137316135626433386637356630333839653833333436663766366663336165633132356164313032396533346166646662323034"
+    },
+    {
+      "expected_extracted_content_hashes": {
+        "acme-api-conventions": "e2a424776a2fde99b4ca96a1c639d47014dffb3c9a2d706fbb0b27d9fb6bba3e"
+      },
+      "expected_manifest_hash": "28fd26b3be2adeca75dee82be1e13c3cb282fab8fb277c11172408ae57952b1f",
+      "expected_skill_order": [
+        "skill_fixture_1"
+      ],
+      "manifest": "manifests/newer-than-plan.json",
+      "path": "bundles/newer-than-plan.zip",
+      "relationship": "newer than normal plan",
+      "tuple_framing_hex": "01000000000000000f736b696c6c5f666978747572655f31000000000000001176657273696f6e5f666978747572655f32000000000000004065326134323437373661326664653939623463613936613163363339643437303134646666623363396132643730366662623062323764396662366262613365"
+    }
+  ],
+  "contract_version": 1,
+  "hash_vectors": {
+    "content": "hashes/content-v1.json",
+    "manifest": "hashes/manifest-v1.json"
+  },
+  "manifests": [
+    {
+      "expected": "valid",
+      "path": "manifests/normal-bundle.json"
+    },
+    {
+      "expected": "valid",
+      "path": "manifests/newer-than-plan.json"
+    },
+    {
+      "expected": "invalid_sync_bundle",
+      "path": "manifests/invalid-duplicate-install-name.json"
+    },
+    {
+      "expected": "invalid_sync_bundle",
+      "path": "manifests/invalid-duplicate-identity.json"
+    },
+    {
+      "expected": "invalid_sync_bundle",
+      "path": "manifests/invalid-manifest-hash.json"
+    }
+  ],
+  "responses": [
+    {
+      "expected_http_status": 200,
+      "kind": "plan",
+      "path": "responses/normal-plan.json"
+    },
+    {
+      "expected_http_status": 200,
+      "kind": "plan",
+      "path": "responses/normal-empty-plan.json"
+    },
+    {
+      "expected_http_status": 200,
+      "kind": "plan",
+      "path": "responses/available-scopes-plan.json"
+    },
+    {
+      "expected_http_status": 403,
+      "kind": "error",
+      "path": "responses/lost-membership.json"
+    },
+    {
+      "expected_http_status": 403,
+      "kind": "error",
+      "path": "responses/below-pro.json"
+    },
+    {
+      "expected_http_status": 426,
+      "kind": "error",
+      "path": "responses/cli-upgrade-required.json"
+    },
+    {
+      "expected_client_error": "unsupported_version",
+      "expected_http_status": 200,
+      "kind": "transport",
+      "path": "responses/unsupported-response-version.json"
+    }
+  ]
+}

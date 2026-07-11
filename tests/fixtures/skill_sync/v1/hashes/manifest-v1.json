@@ -1,0 +1,130 @@
+{
+  "empty_manifest_sha256": "4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a",
+  "format_version": 1,
+  "length_encoding": "uint64-big-endian",
+  "string_encoding": "utf-8",
+  "tuple_fields": [
+    "skill_id",
+    "published_version_id",
+    "content_hash"
+  ],
+  "vectors": [
+    {
+      "expected_sha256": "4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a",
+      "framing_hex": "01",
+      "id": "empty",
+      "skills": []
+    },
+    {
+      "expected_sha256": "15321e500d3ffbe16f1e2949f0b116d642e7b6ea0e2dbdc4be60fb661f726dfe",
+      "framing_hex": "010000000000000007736b696c6c5f31000000000000000976657273696f6e5f31000000000000004061616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161",
+      "id": "one-skill",
+      "skills": [
+        {
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "published_version_id": "version_1",
+          "skill_id": "skill_1"
+        }
+      ]
+    },
+    {
+      "expected_sha256": "3a1233c787826fc5bdf8d8acdb3904e11f767329fba4a2e9218280844dc22900",
+      "framing_hex": "010000000000000007736b696c6c5f31000000000000000976657273696f6e5f310000000000000040616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161610000000000000007736b696c6c5f32000000000000000976657273696f6e5f32000000000000004062626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262",
+      "id": "sort-by-skill-id",
+      "skills": [
+        {
+          "content_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "published_version_id": "version_2",
+          "skill_id": "skill_2"
+        },
+        {
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "published_version_id": "version_1",
+          "skill_id": "skill_1"
+        }
+      ]
+    },
+    {
+      "expected_sha256": "fc23d7e09f12155af37b1a15973e534a1ade1276f3411d20ac6990d6bd18c46c",
+      "framing_hex": "0100000000000000016100000000000000026263000000000000004061616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161",
+      "id": "prefix-ambiguity-a",
+      "skills": [
+        {
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "published_version_id": "bc",
+          "skill_id": "a"
+        }
+      ]
+    },
+    {
+      "expected_sha256": "9f79a9ad52232f49a8dd3ba4b5998271037514f0bf8a45e19016ab3c03cc9190",
+      "framing_hex": "0100000000000000026162000000000000000163000000000000004061616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161",
+      "id": "prefix-ambiguity-b",
+      "skills": [
+        {
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "published_version_id": "c",
+          "skill_id": "ab"
+        }
+      ]
+    },
+    {
+      "equivalence_group": "ignored-fields",
+      "expected_sha256": "15321e500d3ffbe16f1e2949f0b116d642e7b6ea0e2dbdc4be60fb661f726dfe",
+      "framing_hex": "010000000000000007736b696c6c5f31000000000000000976657273696f6e5f31000000000000004061616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161",
+      "id": "ignored-name-and-delivery-path-a",
+      "ignored_fields": {
+        "delivery_path": "old-name/",
+        "name": "old-name"
+      },
+      "skills": [
+        {
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "published_version_id": "version_1",
+          "skill_id": "skill_1"
+        }
+      ]
+    },
+    {
+      "equivalence_group": "ignored-fields",
+      "expected_sha256": "15321e500d3ffbe16f1e2949f0b116d642e7b6ea0e2dbdc4be60fb661f726dfe",
+      "framing_hex": "010000000000000007736b696c6c5f31000000000000000976657273696f6e5f31000000000000004061616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161",
+      "id": "ignored-name-and-delivery-path-b",
+      "ignored_fields": {
+        "delivery_path": "new-name/",
+        "name": "new-name"
+      },
+      "skills": [
+        {
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "published_version_id": "version_1",
+          "skill_id": "skill_1"
+        }
+      ]
+    },
+    {
+      "expected_sha256": "be1550bed360f222f5ee7cbd476ba5bae3707e2e0828e46fb233c9023424cf9b",
+      "framing_hex": "010000000000000007736b696c6c5f31000000000000000976657273696f6e5f32000000000000004061616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161",
+      "id": "published-version-changed",
+      "skills": [
+        {
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "published_version_id": "version_2",
+          "skill_id": "skill_1"
+        }
+      ]
+    },
+    {
+      "expected_sha256": "d6a66155ad7c74726b4bd4c66d512e73dea0dc485c28ae47b5ea233e5969a005",
+      "framing_hex": "010000000000000007736b696c6c5f31000000000000000976657273696f6e5f31000000000000004062626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262",
+      "id": "content-hash-changed",
+      "skills": [
+        {
+          "content_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "published_version_id": "version_1",
+          "skill_id": "skill_1"
+        }
+      ]
+    }
+  ]
+}
