@@ -17,6 +17,13 @@ from gumloop.cli.errors import exit_with_error
 agents_app = typer.Typer(help="Manage Gumloop agents.", no_args_is_help=True, rich_markup_mode="rich")
 
 
+def _parse_skill_ids(raw: str | None) -> list[str] | None:
+    """None = flag not passed (leave unchanged); '' = explicit empty set (detach all)."""
+    if raw is None:
+        return None
+    return [skill_id.strip() for skill_id in raw.split(",") if skill_id.strip()]
+
+
 @agents_app.command(
     "list",
     epilog=("Examples:\n  gumloop agents list\n  gumloop agents list --search support --json"),
@@ -144,6 +151,10 @@ def create_agent(
         str | None,
         typer.Option("--tools-file", help="Path to a JSON file containing the tools array."),
     ] = None,
+    skill_ids: Annotated[
+        str | None,
+        typer.Option("--skill-ids", help="Comma-separated ids of existing skills to attach."),
+    ] = None,
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Print the raw SDK response as JSON."),
@@ -186,6 +197,8 @@ def create_agent(
                     raise GumloopError("Tools JSON must be an array at the top level.")
                 tools = parsed
 
+        parsed_skill_ids = _parse_skill_ids(skill_ids)
+
         response = cli.call_with_refresh(
             lambda client: client.agents.create(
                 name=name,
@@ -193,6 +206,7 @@ def create_agent(
                 description=description,
                 system_prompt=resolved_prompt,
                 tools=tools,
+                skill_ids=parsed_skill_ids,
                 team_id=cli.effective_team_id,
             )
         )
@@ -239,6 +253,13 @@ def update_agent(
         str | None,
         typer.Option("--tools-file", help="Path to a JSON file containing the tools array."),
     ] = None,
+    skill_ids: Annotated[
+        str | None,
+        typer.Option(
+            "--skill-ids",
+            help="Comma-separated skill ids replacing the attached set. Pass '' to detach all.",
+        ),
+    ] = None,
     is_active: Annotated[
         bool | None,
         typer.Option("--is-active/--inactive", help="Mark the agent as active or inactive."),
@@ -283,6 +304,8 @@ def update_agent(
                     raise GumloopError("Tools JSON must be an array at the top level.")
                 tools = parsed
 
+        parsed_skill_ids = _parse_skill_ids(skill_ids)
+
         response = cli.call_with_refresh(
             lambda client: client.agents.update(
                 agent_id,
@@ -291,6 +314,7 @@ def update_agent(
                 description=description,
                 system_prompt=resolved_prompt,
                 tools=tools,
+                skill_ids=parsed_skill_ids,
                 is_active=is_active,
                 team_id=cli.effective_team_id,
             )

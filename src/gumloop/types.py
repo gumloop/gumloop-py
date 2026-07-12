@@ -53,6 +53,8 @@ class AgentCreateRequest(_Model):
     system_prompt: str | None = None
     tools: list[dict[str, Any]] = Field(default_factory=list)
     resources: list[dict[str, Any]] = Field(default_factory=list)
+    #: Ids of existing skills to attach. Omit = unchanged, list = replace, [] = detach all.
+    skill_ids: list[str] | None = None
     metadata: dict[str, Any] | None = None
     folder_id: str | None = None
     is_active: bool = True
@@ -67,6 +69,7 @@ class AgentUpdateRequest(_Model):
     system_prompt: str | None = None
     tools: list[dict[str, Any]] | None = None
     resources: list[dict[str, Any]] | None = None
+    skill_ids: list[str] | None = None
     metadata: dict[str, Any] | None = None
     is_active: bool | None = None
     team_id: str | None = None
@@ -80,6 +83,8 @@ class Agent(_Model):
     is_active: bool = False
     tools: list[dict[str, Any]] = Field(default_factory=list)
     resources: list[dict[str, Any]] = Field(default_factory=list)
+    #: None = surface doesn't include them (list endpoint, use-only); [] = none attached.
+    skill_ids: list[str] | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
     model_name: str | None = None
     system_prompt: str | None = None
