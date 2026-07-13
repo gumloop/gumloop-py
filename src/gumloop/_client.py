@@ -36,7 +36,8 @@ DEFAULT_STREAM_TIMEOUT = 3600.0
 
 def _derive_stream_base_url(base_url: str) -> str:
     # Prod: api.gumloop.com -> ws.gumloop.com. Local dev: :8080 -> :9093.
-    # Other backends should pass ``stream_base_url=`` explicitly.
+    # Unknown hosts (tunnels/relays) can't be derived -- pass ``stream_base_url=``
+    # or set GUMLOOP_STREAM_URL.
     return base_url.replace("api.gumloop.com", "ws.gumloop.com").replace("localhost:8080", "localhost:9093")
 
 
@@ -66,7 +67,9 @@ class Gumloop:
         self.user_id = user_id or os.environ.get("GUMLOOP_USER_ID")
         # Defaults to production; GUMLOOP_BASE_URL is an optional override.
         self.base_url = (base_url or os.environ.get("GUMLOOP_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
-        self.stream_base_url = (stream_base_url or _derive_stream_base_url(self.base_url)).rstrip("/")
+        self.stream_base_url = (
+            stream_base_url or os.environ.get("GUMLOOP_STREAM_URL") or _derive_stream_base_url(self.base_url)
+        ).rstrip("/")
         self.timeout = timeout
         self.stream_timeout = stream_timeout
 
@@ -119,7 +122,9 @@ class AsyncGumloop:
         self.user_id = user_id or os.environ.get("GUMLOOP_USER_ID")
         # Defaults to production; GUMLOOP_BASE_URL is an optional override.
         self.base_url = (base_url or os.environ.get("GUMLOOP_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
-        self.stream_base_url = (stream_base_url or _derive_stream_base_url(self.base_url)).rstrip("/")
+        self.stream_base_url = (
+            stream_base_url or os.environ.get("GUMLOOP_STREAM_URL") or _derive_stream_base_url(self.base_url)
+        ).rstrip("/")
         self.timeout = timeout
         self.stream_timeout = stream_timeout
 
