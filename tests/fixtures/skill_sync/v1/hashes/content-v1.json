@@ -1,7 +1,31 @@
 {
   "format_version": 1,
+  "invalid_paths": [
+    {
+      "error": "invalid_skill_file_path",
+      "id": "absolute-path",
+      "path": "/SKILL.md"
+    },
+    {
+      "error": "invalid_skill_file_path",
+      "id": "parent-escape",
+      "path": "../SKILL.md"
+    },
+    {
+      "error": "invalid_skill_file_path",
+      "id": "windows-absolute-path",
+      "path": "C:/SKILL.md"
+    }
+  ],
   "length_encoding": "uint64-big-endian",
   "path_encoding": "utf-8",
+  "path_normalization": {
+    "absolute_paths": "reject",
+    "dot_segments": "collapse",
+    "empty_segments": "collapse",
+    "parent_segments": "resolve-inside-root-reject-escape",
+    "separators": "backslash-to-forward-slash"
+  },
   "separator_normalization": "backslash-to-forward-slash",
   "vectors": [
     {
@@ -162,6 +186,84 @@
       ],
       "framing_hex": "010000000000000008534b494c4c2e6d6400000000000000312d2d2d0a6e616d653a20666978747572650a6465736372697074696f6e3a206669787475726520736b696c6c0a2d2d2d0a000000000000000d646f63732f73657475702e6d640000000000000008232053657475700a",
       "id": "separator-backslash",
+      "normalized_files": [
+        {
+          "content_base64": "LS0tCm5hbWU6IGZpeHR1cmUKZGVzY3JpcHRpb246IGZpeHR1cmUgc2tpbGwKLS0tCg==",
+          "path": "SKILL.md"
+        },
+        {
+          "content_base64": "IyBTZXR1cAo=",
+          "path": "docs/setup.md"
+        }
+      ]
+    },
+    {
+      "equivalence_group": "path-normalization",
+      "expected_sha256": "3eeb5d25a612f4a6e1f8ea37650350e419375f080d94b3b2e999977f42e34d6b",
+      "files": [
+        {
+          "content_base64": "LS0tCm5hbWU6IGZpeHR1cmUKZGVzY3JpcHRpb246IGZpeHR1cmUgc2tpbGwKLS0tCg==",
+          "path": "SKILL.md"
+        },
+        {
+          "content_base64": "IyBTZXR1cAo=",
+          "path": "docs/./setup.md"
+        }
+      ],
+      "framing_hex": "010000000000000008534b494c4c2e6d6400000000000000312d2d2d0a6e616d653a20666978747572650a6465736372697074696f6e3a206669787475726520736b696c6c0a2d2d2d0a000000000000000d646f63732f73657475702e6d640000000000000008232053657475700a",
+      "id": "dot-segment",
+      "normalized_files": [
+        {
+          "content_base64": "LS0tCm5hbWU6IGZpeHR1cmUKZGVzY3JpcHRpb246IGZpeHR1cmUgc2tpbGwKLS0tCg==",
+          "path": "SKILL.md"
+        },
+        {
+          "content_base64": "IyBTZXR1cAo=",
+          "path": "docs/setup.md"
+        }
+      ]
+    },
+    {
+      "equivalence_group": "path-normalization",
+      "expected_sha256": "3eeb5d25a612f4a6e1f8ea37650350e419375f080d94b3b2e999977f42e34d6b",
+      "files": [
+        {
+          "content_base64": "LS0tCm5hbWU6IGZpeHR1cmUKZGVzY3JpcHRpb246IGZpeHR1cmUgc2tpbGwKLS0tCg==",
+          "path": "SKILL.md"
+        },
+        {
+          "content_base64": "IyBTZXR1cAo=",
+          "path": "docs//setup.md"
+        }
+      ],
+      "framing_hex": "010000000000000008534b494c4c2e6d6400000000000000312d2d2d0a6e616d653a20666978747572650a6465736372697074696f6e3a206669787475726520736b696c6c0a2d2d2d0a000000000000000d646f63732f73657475702e6d640000000000000008232053657475700a",
+      "id": "repeated-separator",
+      "normalized_files": [
+        {
+          "content_base64": "LS0tCm5hbWU6IGZpeHR1cmUKZGVzY3JpcHRpb246IGZpeHR1cmUgc2tpbGwKLS0tCg==",
+          "path": "SKILL.md"
+        },
+        {
+          "content_base64": "IyBTZXR1cAo=",
+          "path": "docs/setup.md"
+        }
+      ]
+    },
+    {
+      "equivalence_group": "path-normalization",
+      "expected_sha256": "3eeb5d25a612f4a6e1f8ea37650350e419375f080d94b3b2e999977f42e34d6b",
+      "files": [
+        {
+          "content_base64": "LS0tCm5hbWU6IGZpeHR1cmUKZGVzY3JpcHRpb246IGZpeHR1cmUgc2tpbGwKLS0tCg==",
+          "path": "SKILL.md"
+        },
+        {
+          "content_base64": "IyBTZXR1cAo=",
+          "path": "docs/archive/../setup.md"
+        }
+      ],
+      "framing_hex": "010000000000000008534b494c4c2e6d6400000000000000312d2d2d0a6e616d653a20666978747572650a6465736372697074696f6e3a206669787475726520736b696c6c0a2d2d2d0a000000000000000d646f63732f73657475702e6d640000000000000008232053657475700a",
+      "id": "parent-segment",
       "normalized_files": [
         {
           "content_base64": "LS0tCm5hbWU6IGZpeHR1cmUKZGVzY3JpcHRpb246IGZpeHR1cmUgc2tpbGwKLS0tCg==",
