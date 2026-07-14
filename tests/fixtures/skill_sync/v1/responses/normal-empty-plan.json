@@ -15,9 +15,5 @@
     "organization_id": "org_fixture",
     "organization_name": "Fixture Organization"
   },
-  "skill_count": 0,
-  "subscription": {
-    "mode": "all"
-  },
-  "unavailable_team_ids": []
+  "skill_count": 0
 }

@@ -28,9 +28,5 @@
       "published_version_id": "version_fixture_other",
       "skill_id": "skill_fixture_1"
     }
-  ],
-  "subscription": {
-    "mode": "all"
-  },
-  "unavailable_team_ids": []
+  ]
 }

@@ -162,11 +162,6 @@
       "path": "responses/normal-empty-plan.json"
     },
     {
-      "expected_http_status": 200,
-      "kind": "plan",
-      "path": "responses/available-scopes-plan.json"
-    },
-    {
       "expected_http_status": 403,
       "kind": "error",
       "path": "responses/lost-membership.json"

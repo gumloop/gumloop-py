@@ -15,7 +15,6 @@ from tests.skill_sync_fixtures import load_json
 PLAN_CASES = [
     pytest.param("responses/normal-plan.json", 1, id="normal"),
     pytest.param("responses/normal-empty-plan.json", 0, id="normal-empty"),
-    pytest.param("responses/available-scopes-plan.json", 1, id="available-scopes"),
 ]
 ERROR_CASES = [
     pytest.param(
@@ -53,48 +52,6 @@ INVALID_NESTED_CASES = [
     ),
     pytest.param(
         "responses/normal-plan.json",
-        ("subscription", "org_wide"),
-        True,
-        id="all-forbids-org-wide",
-    ),
-    pytest.param(
-        "responses/normal-plan.json",
-        ("subscription", "team_ids"),
-        [],
-        id="all-forbids-team-ids",
-    ),
-    pytest.param(
-        "responses/available-scopes-plan.json",
-        ("subscription", "org_wide"),
-        DELETE_FIELD,
-        id="selected-requires-org-wide",
-    ),
-    pytest.param(
-        "responses/available-scopes-plan.json",
-        ("subscription", "team_ids"),
-        DELETE_FIELD,
-        id="selected-requires-team-ids",
-    ),
-    pytest.param(
-        "responses/available-scopes-plan.json",
-        ("subscription", "team_ids"),
-        ["team_engineering", "team_engineering"],
-        id="selected-rejects-duplicate-teams",
-    ),
-    pytest.param(
-        "responses/available-scopes-plan.json",
-        ("subscription", "team_ids"),
-        ["team_former", "team_engineering"],
-        id="selected-rejects-unsorted-teams",
-    ),
-    pytest.param(
-        "responses/normal-plan.json",
-        ("subscription", "mode"),
-        "future",
-        id="invalid-subscription-mode",
-    ),
-    pytest.param(
-        "responses/normal-plan.json",
         ("manifest", "algorithm"),
         "sha512",
         id="invalid-manifest-algorithm",
@@ -110,24 +67,6 @@ INVALID_NESTED_CASES = [
         ("manifest", "skill_count"),
         -1,
         id="negative-manifest-count",
-    ),
-    pytest.param(
-        "responses/available-scopes-plan.json",
-        ("available_scopes", "all", "skill_count"),
-        -1,
-        id="negative-all-scope-count",
-    ),
-    pytest.param(
-        "responses/available-scopes-plan.json",
-        ("available_scopes", "org_wide", "skill_count"),
-        -1,
-        id="negative-org-wide-scope-count",
-    ),
-    pytest.param(
-        "responses/available-scopes-plan.json",
-        ("available_scopes", "teams", 0, "skill_count"),
-        -1,
-        id="negative-team-scope-count",
     ),
     pytest.param(
         "responses/normal-plan.json",
@@ -225,7 +164,7 @@ def test_cli_rejects_invalid_nested_contract_field(
     field_path: tuple[str | int, ...],
     invalid_value: object,
 ) -> None:
-    """Each invalid nested subscription, count, version, or limit is rejected."""
+    """Each invalid nested count, version, or limit is rejected."""
     payload = load_json(fixture_path)
     _mutate_nested_field(payload, field_path, invalid_value)
 

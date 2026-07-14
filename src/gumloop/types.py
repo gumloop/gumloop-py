@@ -276,27 +276,6 @@ class CliSyncOrganization(_Model):
     organization_name: str
 
 
-class CliSyncSubscription(_Model):
-    mode: Literal["all", "selected"]
-    org_wide: bool | None = None
-    team_ids: list[str] | None = None
-
-    @model_validator(mode="after")
-    def validate_mode_fields(self) -> CliSyncSubscription:
-        if self.mode == "all":
-            if self.org_wide is not None or self.team_ids is not None:
-                raise ValueError("org_wide and team_ids are forbidden in all mode")
-            return self
-
-        if self.org_wide is None or self.team_ids is None:
-            raise ValueError("org_wide and team_ids are required in selected mode")
-        if len(self.team_ids) != len(set(self.team_ids)):
-            raise ValueError("team_ids must be unique")
-        if self.team_ids != sorted(self.team_ids):
-            raise ValueError("team_ids must be sorted")
-        return self
-
-
 class CliSyncManifest(_Model):
     algorithm: Literal["sha256"]
     format_version: Literal[1]
@@ -311,29 +290,11 @@ class CliSyncLimits(_Model):
     total_uncompressed_bytes: Literal[209715200]
 
 
-class CliSyncScopeCount(_Model):
-    skill_count: int = Field(ge=0)
-
-
-class CliSyncTeamScope(CliSyncScopeCount):
-    team_id: str
-    team_name: str
-
-
-class CliSyncAvailableScopes(_Model):
-    all: CliSyncScopeCount
-    org_wide: CliSyncScopeCount
-    teams: list[CliSyncTeamScope]
-
-
 class CliSyncPlanResponse(_Model):
     organization: CliSyncOrganization
-    subscription: CliSyncSubscription
-    unavailable_team_ids: list[str]
     manifest: CliSyncManifest
     limits: CliSyncLimits
     skill_count: int = Field(ge=0)
-    available_scopes: CliSyncAvailableScopes | None = None
 
     @model_validator(mode="after")
     def validate_skill_counts(self) -> CliSyncPlanResponse:

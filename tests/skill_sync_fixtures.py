@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 FIXTURE_ROOT = Path(__file__).resolve().parent / "fixtures/skill_sync/v1"
-EXPECTED_CORPUS_SHA256 = "866f28e182e2d71f89a9e36b29d61019398dff0089d159092fd0ee7caed9b3a0"
+EXPECTED_CORPUS_SHA256 = "c16a998c394d5e69cd20d70da5d78df2baae4a060d5c86a3ba2522d5fc4a9974"
 
 
 def load_json(relative_path: str) -> Any:
