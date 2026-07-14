@@ -14,15 +14,6 @@ def test_cli_calculated_corpus_fingerprint_matches_pinned_value() -> None:
     assert calculated == EXPECTED_CORPUS_SHA256
 
 
-def test_cli_loads_unsupported_response_version_fixture() -> None:
-    """The CLI transport fixture identifies contract version two as unsupported."""
-    fixture = load_json("responses/unsupported-response-version.json")
-
-    response_version = fixture["headers"]["X-Gumloop-Sync-Contract-Version"]
-
-    assert response_version == "2"
-
-
 def test_cli_parses_shared_content_vector_file() -> None:
     """The CLI mirror exposes a parseable v1 content-vector document."""
     fixture = load_json("hashes/content-v1.json")

@@ -88,8 +88,16 @@ class HttpClient:
         json: Any = None,
         data: Mapping[str, Any] | None = None,
         files: list[tuple[str, Any]] | None = None,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> Any:
-        return self._request("POST", path, json=json, data=_omit_none_params(data), files=files)
+        return self._request(
+            "POST",
+            path,
+            json=json,
+            data=_omit_none_params(data),
+            files=files,
+            extra_headers=extra_headers,
+        )
 
     def patch(
         self,
@@ -182,12 +190,21 @@ class HttpClient:
                     logger.debug("dropped non-%s SSE: %s", response_model.__name__, event.data)
                     continue
 
-    def _request(self, method: str, path: str, **kwargs: Any) -> Any:
+    def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        extra_headers: Mapping[str, str] | None = None,
+        **kwargs: Any,
+    ) -> Any:
         # Headers are rebuilt per request so ``access_token`` / ``user_id``
         # can be rotated on a live client without reconstructing it.
         headers = auth_headers(self.access_token, self.user_id)
         if not kwargs.get("files"):
             headers["Content-Type"] = "application/json"
+        if extra_headers:
+            headers.update(extra_headers)
         response = self._client.request(method, path, headers=headers, **kwargs)
         if response.status_code >= 400:
             raise to_api_error(response)

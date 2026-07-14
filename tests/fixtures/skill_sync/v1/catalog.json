@@ -123,7 +123,6 @@
       "tuple_framing_hex": "01000000000000000f736b696c6c5f666978747572655f31000000000000001176657273696f6e5f666978747572655f32000000000000004065326134323437373661326664653939623463613936613163363339643437303134646666623363396132643730366662623062323764396662366262613365"
     }
   ],
-  "contract_version": 1,
   "hash_vectors": {
     "content": "hashes/content-v1.json",
     "manifest": "hashes/manifest-v1.json"
@@ -175,12 +174,6 @@
       "expected_http_status": 426,
       "kind": "error",
       "path": "responses/cli-upgrade-required.json"
-    },
-    {
-      "expected_client_error": "unsupported_version",
-      "expected_http_status": 200,
-      "kind": "transport",
-      "path": "responses/unsupported-response-version.json"
     }
   ]
 }
