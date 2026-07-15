@@ -52,3 +52,38 @@ def dev_client(api_key: str, user_id: str) -> Gumloop:
     # prod yet, so blindly hitting the default URL would be all 404s.
     base_url = _required("GUMLOOP_BASE_URL")
     return Gumloop(api_key=api_key, user_id=user_id, base_url=base_url)
+
+
+_SKILL_MD = "---\nname: live-test-skill\ndescription: live test skill\n---\n\n# Live\nDo nothing."
+
+
+@pytest.fixture
+def make_skill(dev_client: Gumloop):
+    """Factory for live skills; deletes everything it created on teardown."""
+    created: list[str] = []
+
+    def _make(name: str = "live-skill"):
+        skill = dev_client.skills.create({"SKILL.md": _SKILL_MD}, name=name).skill
+        created.append(skill.id)
+        return skill
+
+    yield _make
+    for skill_id in created:
+        dev_client.skills.delete(skill_id)
+
+
+@pytest.fixture
+def make_agent(dev_client: Gumloop):
+    """Factory for live agents; deactivates everything it created on teardown."""
+    created: list[str] = []
+
+    def _make(**kwargs):
+        kwargs.setdefault("name", "Live Verb Agent")
+        kwargs.setdefault("model_name", "auto")
+        agent = dev_client.agents.create(**kwargs).agent
+        created.append(agent.id)
+        return agent
+
+    yield _make
+    for agent_id in created:
+        dev_client.agents.update(agent_id, is_active=False)
