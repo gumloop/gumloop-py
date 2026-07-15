@@ -247,17 +247,22 @@ def update_agent(
     ] = None,
     tools_json: Annotated[
         str | None,
-        typer.Option("--tools-json", help="Inline JSON array of tool config objects."),
+        typer.Option(
+            "--tools-json",
+            help=(
+                "Inline JSON array of tool config objects."
+                " (legacy: replaces the entire tools list; prefer attach-mcp-server/detach-mcp-server)"
+            ),
+        ),
     ] = None,
     tools_file: Annotated[
         str | None,
-        typer.Option("--tools-file", help="Path to a JSON file containing the tools array."),
-    ] = None,
-    skill_ids: Annotated[
-        str | None,
         typer.Option(
-            "--skill-ids",
-            help="Comma-separated skill ids replacing the attached set. Pass '' to detach all.",
+            "--tools-file",
+            help=(
+                "Path to a JSON file containing the tools array."
+                " (legacy: replaces the entire tools list; prefer attach-mcp-server/detach-mcp-server)"
+            ),
         ),
     ] = None,
     is_active: Annotated[
@@ -304,8 +309,6 @@ def update_agent(
                     raise GumloopError("Tools JSON must be an array at the top level.")
                 tools = parsed
 
-        parsed_skill_ids = _parse_skill_ids(skill_ids)
-
         response = cli.call_with_refresh(
             lambda client: client.agents.update(
                 agent_id,
@@ -314,7 +317,6 @@ def update_agent(
                 description=description,
                 system_prompt=resolved_prompt,
                 tools=tools,
-                skill_ids=parsed_skill_ids,
                 is_active=is_active,
                 team_id=cli.effective_team_id,
             )
@@ -327,3 +329,125 @@ def update_agent(
         return
 
     console.print(f"[green]Updated agent[/green] {agent_id}")
+
+
+@agents_app.command(
+    "attach-skills",
+    epilog="Example:\n  gumloop agents attach-skills agent_abc skill_1 skill_2",
+)
+def attach_skills(
+    ctx: typer.Context,
+    agent_id: Annotated[str, typer.Argument(help="ID of the agent to attach skills to.")],
+    skill_ids: Annotated[list[str], typer.Argument(help="One or more skill ids to attach.")],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Print the raw SDK response as JSON."),
+    ] = False,
+) -> None:
+    """Attach one or more skills to an agent (idempotent)."""
+    cli: CliContext = ctx.obj
+    try:
+        response = cli.call_with_refresh(lambda client: client.agents.attach_skills(agent_id, skill_ids))
+    except GumloopError as error:
+        exit_with_error(error, json_output=json_output)
+
+    if json_output:
+        print_json(response)
+        return
+
+    console.print(f"[green]Attached[/green] {len(response.attached)} skill(s) to {agent_id}")
+    if response.already_attached:
+        console.print(f"  Already attached: {', '.join(response.already_attached)}", markup=False, highlight=False)
+
+
+@agents_app.command(
+    "detach-skills",
+    epilog="Example:\n  gumloop agents detach-skills agent_abc skill_1 skill_2",
+)
+def detach_skills(
+    ctx: typer.Context,
+    agent_id: Annotated[str, typer.Argument(help="ID of the agent to detach skills from.")],
+    skill_ids: Annotated[list[str], typer.Argument(help="One or more skill ids to detach.")],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Print the raw SDK response as JSON."),
+    ] = False,
+) -> None:
+    """Detach one or more skills from an agent (idempotent)."""
+    cli: CliContext = ctx.obj
+    try:
+        response = cli.call_with_refresh(lambda client: client.agents.detach_skills(agent_id, skill_ids))
+    except GumloopError as error:
+        exit_with_error(error, json_output=json_output)
+
+    if json_output:
+        print_json(response)
+        return
+
+    console.print(f"[green]Detached[/green] {len(response.detached)} skill(s) from {agent_id}")
+    if response.already_detached:
+        console.print(f"  Already detached: {', '.join(response.already_detached)}", markup=False, highlight=False)
+
+
+@agents_app.command(
+    "attach-mcp-server",
+    epilog="Example:\n  gumloop agents attach-mcp-server agent_abc gmail --approval-mode off",
+)
+def attach_mcp_server(
+    ctx: typer.Context,
+    agent_id: Annotated[str, typer.Argument(help="ID of the agent to attach the MCP server to.")],
+    server_id: Annotated[str, typer.Argument(help="ID of the MCP server to attach.")],
+    approval_mode: Annotated[
+        str | None,
+        typer.Option("--approval-mode", help="Tool-call approval mode for this server."),
+    ] = None,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Print the raw SDK response as JSON."),
+    ] = False,
+) -> None:
+    """Attach an MCP server to an agent, or update its config (idempotent upsert)."""
+    cli: CliContext = ctx.obj
+    try:
+        response = cli.call_with_refresh(
+            lambda client: client.agents.attach_mcp_server(agent_id, server_id, approval_mode=approval_mode)
+        )
+    except GumloopError as error:
+        exit_with_error(error, json_output=json_output)
+
+    if json_output:
+        print_json(response)
+        return
+
+    verb = "Attached" if response.created else "Updated"
+    console.print(f"[green]{verb}[/green] MCP server {escape_markup(server_id)} on {agent_id}")
+    if response.auth_status:
+        console.print(f"  Auth status: {response.auth_status}", markup=False, highlight=False)
+
+
+@agents_app.command(
+    "detach-mcp-server",
+    epilog="Example:\n  gumloop agents detach-mcp-server agent_abc gmail",
+)
+def detach_mcp_server(
+    ctx: typer.Context,
+    agent_id: Annotated[str, typer.Argument(help="ID of the agent to detach the MCP server from.")],
+    server_id: Annotated[str, typer.Argument(help="ID of the MCP server to detach.")],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Print the raw SDK response as JSON."),
+    ] = False,
+) -> None:
+    """Detach an MCP server from an agent (idempotent)."""
+    cli: CliContext = ctx.obj
+    try:
+        response = cli.call_with_refresh(lambda client: client.agents.detach_mcp_server(agent_id, server_id))
+    except GumloopError as error:
+        exit_with_error(error, json_output=json_output)
+
+    if json_output:
+        print_json(response)
+        return
+
+    console.print(f"[green]Detached[/green] MCP server {escape_markup(server_id)} from {agent_id}")
+    console.print(f"  detached: {'true' if response.detached else 'false'}", markup=False, highlight=False)
