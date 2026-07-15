@@ -53,7 +53,6 @@ class AgentCreateRequest(_Model):
     system_prompt: str | None = None
     tools: list[dict[str, Any]] = Field(default_factory=list)
     resources: list[dict[str, Any]] = Field(default_factory=list)
-    #: Ids of existing skills to attach. Omit = unchanged, list = replace, [] = detach all.
     skill_ids: list[str] | None = None
     metadata: dict[str, Any] | None = None
     folder_id: str | None = None
@@ -82,7 +81,6 @@ class Agent(_Model):
     is_active: bool = False
     tools: list[dict[str, Any]] = Field(default_factory=list)
     resources: list[dict[str, Any]] = Field(default_factory=list)
-    #: None = surface doesn't include them (list endpoint, use-only); [] = none attached.
     skill_ids: list[str] | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
     model_name: str | None = None
@@ -95,8 +93,6 @@ class Agent(_Model):
 
 
 class AgentSkillsResponse(_Model):
-    #: ``skill_ids`` is the resulting attached set; the other lists report what
-    #: this call changed vs. what was already in that state (idempotent).
     agent_id: str
     skill_ids: list[str] = Field(default_factory=list)
     attached: list[str] = Field(default_factory=list)
@@ -106,7 +102,6 @@ class AgentSkillsResponse(_Model):
 
 
 class AgentMcpServerResponse(_Model):
-    #: ``created`` is True on first attach, False when an existing config was updated.
     agent_id: str
     mcp_server: dict[str, Any] = Field(default_factory=dict)
     created: bool = False
