@@ -16,6 +16,7 @@ from gumloop.resources.sessions import AsyncSessions
 from gumloop.resources.sessions import Sessions
 from gumloop.resources.skills import AsyncSkills
 from gumloop.resources.skills import Skills
+from gumloop.resources.sync import Sync
 from gumloop.resources.teams import AsyncTeams
 from gumloop.resources.teams import Teams
 
@@ -37,5 +38,6 @@ __all__ = [
     "Models",
     "Sessions",
     "Skills",
+    "Sync",
     "Teams",
 ]

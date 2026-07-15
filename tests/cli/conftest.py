@@ -85,7 +85,10 @@ def sync_cli_environment(
     fake_executable_path: Path,
     tmp_path: Path,
     respx_mock: respx.MockRouter,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> SyncCliTestEnvironment:
+    # Isolate from the host machine's Cursor.app install.
+    monkeypatch.setattr("gumloop.sync.targets._default_cursor_app_exists", lambda: False)
     target_root = tmp_path / "targets"
     target_root.mkdir()
     return SyncCliTestEnvironment(

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gumloop"
-version = "0.3.5"
+version = "0.4.0"
 description = "Python client for the Gumloop API"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -60,6 +60,7 @@ build = [
 testpaths = ["tests"]
 markers = [
     "live: hits the real Gumloop API and upstream providers; opt-in via `-m live`",
+    "implementation: asserts internals or invariants beyond the public contract",
 ]
 
 [tool.ruff]

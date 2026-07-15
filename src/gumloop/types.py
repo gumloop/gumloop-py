@@ -272,8 +272,8 @@ class SkillDownloadResponse(_Model):
 
 
 class CliSyncOrganization(_Model):
-    organization_id: str
-    organization_name: str
+    organization_id: str = Field(min_length=1)
+    organization_name: str = Field(min_length=1)
 
 
 class CliSyncManifest(_Model):
@@ -300,6 +300,35 @@ class CliSyncPlanResponse(_Model):
     def validate_skill_counts(self) -> CliSyncPlanResponse:
         if self.skill_count != self.manifest.skill_count:
             raise ValueError("skill_count must match manifest.skill_count")
+        return self
+
+
+class CliSyncBundleSkill(_Model):
+    skill_id: str = Field(min_length=1)
+    install_name: str = Field(min_length=1)
+    published_version_id: str = Field(min_length=1)
+    content_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class CliSyncBundleManifest(_Model):
+    organization: CliSyncOrganization
+    manifest: CliSyncManifest
+    limits: CliSyncLimits
+    skills: list[CliSyncBundleSkill]
+
+    @model_validator(mode="after")
+    def validate_skill_inventory(self) -> CliSyncBundleManifest:
+        if self.manifest.skill_count != len(self.skills):
+            raise ValueError("manifest.skill_count must match skills")
+        if self.skills != sorted(self.skills, key=lambda skill: skill.skill_id):
+            raise ValueError("skills must be sorted by skill_id")
+
+        skill_ids = [skill.skill_id for skill in self.skills]
+        install_names = [skill.install_name for skill in self.skills]
+        if len(skill_ids) != len(set(skill_ids)):
+            raise ValueError("skill identities must be unique")
+        if len(install_names) != len(set(install_names)):
+            raise ValueError("install names must be unique")
         return self
 
 

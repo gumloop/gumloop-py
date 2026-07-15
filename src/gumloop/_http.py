@@ -23,6 +23,10 @@ _DONE_SENTINEL = "[DONE]"
 _T = TypeVar("_T", bound=BaseModel)
 
 
+class ResponseSizeExceededError(Exception):
+    """Raised when a streamed response body exceeds the caller's byte limit."""
+
+
 def _omit_none_params(params: Mapping[str, Any] | None) -> dict[str, Any] | None:
     # Backend treats absent ``?foo`` and ``?foo=`` as different signals
     # ("not provided" vs "empty string"); drop None values so the wire URL
@@ -114,6 +118,31 @@ class HttpClient:
 
     def delete(self, path: str) -> Any:
         return self._request("DELETE", path)
+
+    def post_bytes(
+        self,
+        path: str,
+        *,
+        json: Any = None,
+        extra_headers: Mapping[str, str] | None = None,
+        max_bytes: int,
+    ) -> tuple[bytes, httpx.Headers]:
+        headers = auth_headers(self.access_token, self.user_id)
+        headers["Content-Type"] = "application/json"
+        if extra_headers:
+            headers.update(extra_headers)
+        with self._client.stream("POST", path, headers=headers, json=json) as response:
+            if response.status_code >= 400:
+                response.read()
+                raise to_api_error(response)
+            chunks: list[bytes] = []
+            total = 0
+            for chunk in response.iter_bytes():
+                total += len(chunk)
+                if total > max_bytes:
+                    raise ResponseSizeExceededError(f"response body exceeds {max_bytes} bytes")
+                chunks.append(chunk)
+            return b"".join(chunks), response.headers
 
     def post_to_stream_host(self, path: str, *, json: Any = None) -> Any:
         # Endpoints whose streaming variant lives on the stream host (e.g. chat
