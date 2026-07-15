@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shutil
 import tempfile
+from collections.abc import Callable
 from datetime import datetime
 from datetime import timezone
 from pathlib import Path
@@ -39,6 +40,12 @@ if TYPE_CHECKING:
 
 _CONTEXT_CHANGE_RETRIES = 3
 
+BeforeTargetWrites = Callable[
+    [CliSyncPlanResponse, tuple[PhysicalTarget, ...]],
+    SyncConfig,
+]
+DepartureCleanup = Callable[[], None]
+
 
 def run_sync(
     *,
@@ -47,11 +54,16 @@ def run_sync(
     config: SyncConfig | None,
     now: datetime | None = None,
     on_progress: SyncProgressCallback | None = None,
+    before_target_writes: BeforeTargetWrites | None = None,
+    on_departure: DepartureCleanup | None = None,
+    background: dict[str, object] | None = None,
 ) -> SyncExecution:
     attempted_at = now or datetime.now(timezone.utc)
     targets = detect_targets(home=home)
     organization_id = config.organization_id if config is not None else None
     previous_state = load_state(home) if config is not None else None
+    active_config = config
+    persistent = config is not None or before_target_writes is not None
 
     try:
         for attempt in range(_CONTEXT_CHANGE_RETRIES):
@@ -72,6 +84,8 @@ def run_sync(
                 attempted_at=attempted_at,
                 previous_state=previous_state,
                 on_progress=on_progress,
+                background=background,
+                on_departure=on_departure,
             )
             if isinstance(plan_outcome, SyncExecution):
                 return plan_outcome
@@ -91,15 +105,18 @@ def run_sync(
             )
 
             if plan.skill_count == 0:
+                if before_target_writes is not None:
+                    active_config = before_target_writes(plan, targets)
                 return _reconcile_plan(
                     plan=plan,
                     bundle=None,
                     targets=targets,
                     home=home,
-                    configured=config is not None,
+                    configured=active_config is not None,
                     attempted_at=attempted_at,
                     previous_state=previous_state,
                     on_progress=on_progress,
+                    background=background,
                 )
             unchanged_changes = _unchanged_changes_if_current(
                 plan=plan,
@@ -123,8 +140,9 @@ def run_sync(
                     attempted_at=attempted_at,
                     previous_state=previous_state,
                     changes=unchanged_changes,
+                    background=background,
                 )
-            if not targets and config is None:
+            if not targets and not persistent:
                 raise SyncError(
                     "no_targets",
                     "No coding agents detected. Skills were not written. Install an agent or check PATH, then retry.",
@@ -162,58 +180,65 @@ def run_sync(
                         skill_count=len(bundle.manifest.skills),
                     ),
                 )
+                if before_target_writes is not None:
+                    active_config = before_target_writes(plan, targets)
                 return _reconcile_plan(
                     plan=plan,
                     bundle=bundle,
                     targets=targets,
                     home=home,
-                    configured=config is not None,
+                    configured=active_config is not None,
                     attempted_at=attempted_at,
                     previous_state=previous_state,
                     on_progress=on_progress,
+                    background=background,
                 )
         raise SyncError("download_failed", "The sync context kept changing. Retry the sync.")
     except APIStatusError as error:
         translated = _translate_api_error(error)
         record_failure_if_configured(
             error=translated,
-            config=config,
+            config=active_config,
             targets=targets,
             home=home,
             attempted_at=attempted_at,
             previous_state=previous_state,
+            background=background,
         )
         raise translated from error
     except AuthenticationError as error:
         translated = SyncError("auth_required", "Not authenticated. Run `gumloop login` to sign in.")
         record_failure_if_configured(
             error=translated,
-            config=config,
+            config=active_config,
             targets=targets,
             home=home,
             attempted_at=attempted_at,
             previous_state=previous_state,
+            background=background,
         )
         raise translated from error
     except httpx.HTTPError as error:
         translated = SyncError("download_failed", f"Skill sync could not reach Gumloop: {error}")
         record_failure_if_configured(
             error=translated,
-            config=config,
+            config=active_config,
             targets=targets,
             home=home,
             attempted_at=attempted_at,
             previous_state=previous_state,
+            background=background,
         )
         raise translated from error
     except SyncError as error:
         record_failure_if_configured(
             error=error,
-            config=config,
+            config=active_config,
             targets=targets,
             home=home,
             attempted_at=attempted_at,
             previous_state=previous_state,
+            background=background,
         )
         raise
 
@@ -228,6 +253,8 @@ def _fetch_plan(
     attempted_at: datetime,
     previous_state: SyncState | None,
     on_progress: SyncProgressCallback | None = None,
+    background: dict[str, object] | None = None,
+    on_departure: DepartureCleanup | None = None,
 ) -> CliSyncPlanResponse | SyncExecution:
     try:
         return cli.call_with_refresh(
@@ -244,6 +271,7 @@ def _fetch_plan(
                 convergence="none",
                 blocked_reason="organization_sync_requires_pro",
                 changes=(),
+                background=background,
             )
             write_configured_state(
                 home=home,
@@ -263,6 +291,8 @@ def _fetch_plan(
                 attempted_at=attempted_at,
                 previous_state=previous_state,
                 on_progress=on_progress,
+                background=background,
+                on_departure=on_departure,
             )
         raise
 
@@ -329,6 +359,7 @@ def _reconcile_plan(
     attempted_at: datetime,
     previous_state: SyncState | None,
     on_progress: SyncProgressCallback | None = None,
+    background: dict[str, object] | None = None,
 ) -> SyncExecution:
     organization_id = plan.organization.organization_id
     manifest_hash = bundle.manifest.manifest.hash if bundle is not None else plan.manifest.hash
@@ -350,6 +381,7 @@ def _reconcile_plan(
         blocked_reason=None,
         changes=changes,
         outcomes=outcomes,
+        background=background,
     )
     status: Literal["ok", "partial"] = "partial" if failed else "ok"
     if configured:
@@ -373,6 +405,7 @@ def _record_unchanged_plan(
     attempted_at: datetime,
     previous_state: SyncState | None,
     changes: tuple[SyncChange, ...],
+    background: dict[str, object] | None = None,
 ) -> SyncExecution:
     result = build_result(
         organization_id=plan.organization.organization_id,
@@ -381,6 +414,7 @@ def _record_unchanged_plan(
         convergence="full",
         blocked_reason=None,
         changes=changes,
+        background=background,
     )
     write_configured_state(
         home=home,
@@ -402,6 +436,8 @@ def _departure_cleanup(
     attempted_at: datetime,
     previous_state: SyncState | None,
     on_progress: SyncProgressCallback | None = None,
+    background: dict[str, object] | None = None,
+    on_departure: DepartureCleanup | None = None,
 ) -> SyncExecution:
     backups = backup_root(home)
     outcomes = _reconcile_targets(
@@ -414,6 +450,8 @@ def _departure_cleanup(
     )
     failed = any(outcome.error is not None for outcome in outcomes)
     changes = tuple(change for outcome in outcomes for change in outcome.changes)
+    if not failed and on_departure is not None:
+        on_departure()
     result = build_result(
         organization_id=organization_id,
         manifest_hash=None,
@@ -422,6 +460,7 @@ def _departure_cleanup(
         blocked_reason=None,
         changes=changes,
         outcomes=outcomes,
+        background=background,
     )
     result["departure_cleanup"] = True
     write_configured_state(

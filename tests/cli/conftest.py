@@ -75,6 +75,9 @@ def temporary_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def fake_executable_path(temporary_home: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     executable_path = temporary_home / "bin"
     executable_path.mkdir()
+    gumloop_executable = executable_path / "gumloop"
+    gumloop_executable.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    gumloop_executable.chmod(0o700)
     monkeypatch.setenv("PATH", str(executable_path))
     return executable_path
 
@@ -91,15 +94,21 @@ def sync_cli_environment(
     monkeypatch.setattr("gumloop.sync.targets._default_cursor_app_exists", lambda: False)
     target_root = tmp_path / "targets"
     target_root.mkdir()
-    return SyncCliTestEnvironment(
+    scheduler = FakeScheduler()
+    environment = SyncCliTestEnvironment(
         home=temporary_home,
         executable_path=fake_executable_path,
         target_root=target_root,
-        scheduler=FakeScheduler(),
+        scheduler=scheduler,
         clock=DeterministicClock(datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc)),
         lock=FakeAdvisoryLock(),
         http=respx_mock,
     )
+    monkeypatch.setattr(
+        "gumloop.cli.commands.sync.scheduler_for_current_platform",
+        lambda *, home: scheduler,
+    )
+    return environment
 
 
 @pytest.fixture

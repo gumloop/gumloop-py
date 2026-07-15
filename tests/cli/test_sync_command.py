@@ -99,7 +99,7 @@ class TestHumanReadableSyncOutput:
         assert "✓ Found 1 Skill for 1 agent" in result.stdout
         assert "✓ Downloaded and verified Skill bundle" in result.stdout
         assert "✓ agent-skills — 1 installed" in result.stdout
-        assert "Sync complete: 1 installed, 0 adopted, 0 replaced, 0 updated, 0 removed, 0 failed." in summary
+        assert "Sync complete: 1 installed, 0 failed across 1 agent." in summary
         assert "Changes:" not in result.stdout
         assert "~/.agents/skills" not in result.stdout
 
@@ -148,7 +148,7 @@ class TestHumanReadableSyncOutput:
         assert result.exit_code == 0
         assert "1 adopted" in result.stdout
         assert "no changes" not in result.stdout
-        assert "Sync complete: 0 installed, 1 adopted, 0 replaced, 0 updated, 0 removed, 0 failed." in summary
+        assert "Sync complete: 1 adopted, 0 failed across 1 agent." in summary
 
     def test_default_output_lists_critical_changes_and_backup_paths(
         self,
@@ -225,7 +225,7 @@ class TestHumanReadableSyncOutput:
         summary = " ".join(result.stdout.split())
         assert result.exit_code == 0
         assert "✓ agent-skills — 1 removed" in result.stdout
-        assert "Sync complete: 0 installed, 0 adopted, 0 replaced, 0 updated, 1 removed, 0 failed." in summary
+        assert "Sync complete: 1 removed, 0 failed across 1 agent." in summary
 
     def test_partial_target_preparation_failure_summary_reports_failed(
         self,

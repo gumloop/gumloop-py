@@ -32,6 +32,7 @@ def build_result(
     blocked_reason: str | None,
     changes: tuple[SyncChange, ...],
     outcomes: tuple[TargetOutcome, ...] = (),
+    background: dict[str, object] | None = None,
 ) -> dict[str, object]:
     counts = {action: sum(change.action == action for change in changes) for action in _ACTIONS}
     counts["overwritten"] = counts["overwritten_collision"] + counts["overwritten_local_edit"]
@@ -39,7 +40,7 @@ def build_result(
         outcome.target: ({"code": outcome.error_code, "message": outcome.error} if outcome.error is not None else None)
         for outcome in outcomes
     }
-    return {
+    result: dict[str, object] = {
         "blocked_reason": blocked_reason,
         "changes": [change.to_dict() for change in changes],
         "convergence": convergence,
@@ -56,6 +57,9 @@ def build_result(
             for target in targets
         ],
     }
+    if background is not None:
+        result["background"] = background
+    return result
 
 
 def write_configured_state(
@@ -99,6 +103,7 @@ def record_failure_if_configured(
     home: Path,
     attempted_at: datetime,
     previous_state: SyncState | None,
+    background: dict[str, object] | None = None,
 ) -> None:
     if config is None:
         return
@@ -110,6 +115,7 @@ def record_failure_if_configured(
         convergence="none",
         blocked_reason=None,
         changes=(),
+        background=background,
     )
     result["error"] = {
         "code": error.code,

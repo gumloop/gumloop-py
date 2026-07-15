@@ -1,8 +1,4 @@
-"""Test-only CLI fakes that do not define production interfaces.
-
-Later CLI phases must adapt these helpers to approved scheduler, clock, and
-locking protocols before production code consumes them.
-"""
+"""Test-only adapters for isolated Skill Sync command scenarios."""
 
 from __future__ import annotations
 
@@ -13,22 +9,36 @@ from pathlib import Path
 
 import respx
 
+from gumloop.sync.errors import SyncError
+
 
 @dataclass
 class FakeScheduler:
-    installed_command: list[str] | None = None
-    interval: timedelta | None = None
+    installed_executable: Path | None = None
+    available: bool = True
+    install_error: SyncError | None = None
+    install_count: int = 0
+    remove_count: int = 0
 
-    def install(self, command: list[str], interval: timedelta) -> None:
-        self.installed_command = list(command)
-        self.interval = interval
+    def validate(self, executable_path: Path) -> None:
+        if not self.available:
+            raise SyncError(
+                "scheduler_unavailable",
+                "Background scheduling is unavailable.",
+            )
+
+    def install(self, executable_path: Path) -> None:
+        if self.install_error is not None:
+            raise self.install_error
+        self.installed_executable = executable_path
+        self.install_count += 1
 
     def remove(self) -> None:
-        self.installed_command = None
-        self.interval = None
+        self.installed_executable = None
+        self.remove_count += 1
 
-    def is_installed(self) -> bool:
-        return self.installed_command is not None
+    def is_current(self, executable_path: Path) -> bool:
+        return self.installed_executable == executable_path
 
 
 class FakeAdvisoryLock:

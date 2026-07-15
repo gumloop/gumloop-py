@@ -49,7 +49,7 @@ def load_config(home: Path | None = None) -> SyncConfig:
     if not path.exists():
         raise SyncError(
             "not_configured",
-            "Skill sync is not configured. Use `gumloop sync --once --non-interactive` for a stateless sync.",
+            "Skill sync is not configured. Run `gumloop sync` to enroll this machine.",
             details={"path": str(path)},
         )
     try:
@@ -73,16 +73,44 @@ def load_state(home: Path | None = None) -> SyncState | None:
         return None
 
 
+def write_config(config: SyncConfig, home: Path | None = None) -> Path:
+    root = _ensure_sync_root(home)
+    destination = root / "config.json"
+    _atomic_json_write(
+        destination,
+        config.model_dump(mode="json"),
+        description="sync configuration",
+    )
+    return destination
+
+
+def remove_config(home: Path | None = None) -> None:
+    destination = sync_root(home) / "config.json"
+    try:
+        destination.unlink(missing_ok=True)
+    except OSError as error:
+        raise SyncError(
+            "target_failed",
+            f"Could not remove sync configuration: {destination}",
+            details={"path": str(destination), "reason": str(error)},
+        ) from error
+
+
 def write_state(payload: dict[str, Any], home: Path | None = None) -> Path:
+    root = _ensure_sync_root(home)
+    destination = root / "state.json"
+    _atomic_json_write(destination, payload, description="local sync state")
+    return destination
+
+
+def _ensure_sync_root(home: Path | None = None) -> Path:
     root = sync_root(home)
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
     try:
         root.chmod(0o700)
     except OSError:
         pass
-    destination = root / "state.json"
-    _atomic_json_write(destination, payload)
-    return destination
+    return root
 
 
 def backup_root(home: Path | None = None) -> Path:
@@ -95,7 +123,12 @@ def backup_root(home: Path | None = None) -> Path:
     return root
 
 
-def _atomic_json_write(destination: Path, payload: dict[str, Any]) -> None:
+def _atomic_json_write(
+    destination: Path,
+    payload: dict[str, Any],
+    *,
+    description: str,
+) -> None:
     temporary_path: Path | None = None
     try:
         with tempfile.NamedTemporaryFile(
@@ -120,7 +153,7 @@ def _atomic_json_write(destination: Path, payload: dict[str, Any]) -> None:
     except OSError as error:
         raise SyncError(
             "target_failed",
-            f"Could not write local sync state: {destination}",
+            f"Could not write {description}: {destination}",
             details={"path": str(destination), "reason": str(error)},
         ) from error
     finally:
