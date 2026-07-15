@@ -17,13 +17,6 @@ from gumloop.cli.errors import exit_with_error
 agents_app = typer.Typer(help="Manage Gumloop agents.", no_args_is_help=True, rich_markup_mode="rich")
 
 
-def _parse_skill_ids(raw: str | None) -> list[str] | None:
-    """None = flag not passed (leave unchanged); '' = explicit empty set (detach all)."""
-    if raw is None:
-        return None
-    return [skill_id.strip() for skill_id in raw.split(",") if skill_id.strip()]
-
-
 @agents_app.command(
     "list",
     epilog=("Examples:\n  gumloop agents list\n  gumloop agents list --search support --json"),
@@ -197,7 +190,11 @@ def create_agent(
                     raise GumloopError("Tools JSON must be an array at the top level.")
                 tools = parsed
 
-        parsed_skill_ids = _parse_skill_ids(skill_ids)
+        parsed_skill_ids = (
+            [skill_id.strip() for skill_id in skill_ids.split(",") if skill_id.strip()]
+            if skill_ids is not None
+            else None
+        )
 
         response = cli.call_with_refresh(
             lambda client: client.agents.create(
