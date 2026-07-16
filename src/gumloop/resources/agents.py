@@ -1,19 +1,29 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from collections.abc import Sequence
 from typing import Any
 
 from gumloop._http import AsyncHttpClient
 from gumloop._http import HttpClient
 from gumloop.types import AgentCreateRequest
 from gumloop.types import AgentListResponse
+from gumloop.types import AgentMcpServerDetachResponse
+from gumloop.types import AgentMcpServerResponse
+from gumloop.types import AgentMcpServersResponse
 from gumloop.types import AgentResponse
+from gumloop.types import AgentSkillsResponse
 from gumloop.types import AgentUpdateRequest
 from gumloop.types import EvaluationConfigResponse
 from gumloop.types import EvaluationConfigUpdateRequest
 from gumloop.types import EvaluationResultListResponse
 from gumloop.types import EvaluationResultResponse
 from gumloop.types import ModelListResponse
+from gumloop.types import SkillListResponse
+
+
+def _skill_id_list(skill_ids: str | Sequence[str]) -> list[str]:
+    return [skill_ids] if isinstance(skill_ids, str) else list(skill_ids)
 
 
 class Agents:
@@ -49,9 +59,47 @@ class Agents:
         request: AgentUpdateRequest | Mapping[str, Any] | None = None,
         **kwargs: Any,
     ) -> AgentResponse:
+        """``tools`` replaces the entire list when provided (legacy bulk path); prefer
+        attach_mcp_server/detach_mcp_server for individual MCP servers and
+        attach_skills/detach_skills for skills."""
         return AgentResponse.model_validate(
             self._client.patch(f"agents/{agent_id}", json=AgentUpdateRequest.build(request, **kwargs))
         )
+
+    def attach_skills(self, agent_id: str, skill_ids: str | Sequence[str]) -> AgentSkillsResponse:
+        """Attach skills to an agent. Idempotent: safe to retry, already-attached ids are reported."""
+        return AgentSkillsResponse.model_validate(
+            self._client.patch(f"agents/{agent_id}/skills", json={"attach": _skill_id_list(skill_ids)})
+        )
+
+    def detach_skills(self, agent_id: str, skill_ids: str | Sequence[str]) -> AgentSkillsResponse:
+        """Detach skills from an agent. Idempotent: safe to retry, already-detached ids are reported."""
+        return AgentSkillsResponse.model_validate(
+            self._client.patch(f"agents/{agent_id}/skills", json={"detach": _skill_id_list(skill_ids)})
+        )
+
+    def list_skills(self, agent_id: str, **kwargs: Any) -> SkillListResponse:
+        return SkillListResponse.model_validate(
+            self._client.get("skills", params={"agent_id": agent_id, **kwargs})
+        )
+
+    def attach_mcp_server(self, agent_id: str, server_id: str, **config: Any) -> AgentMcpServerResponse:
+        """Attach an MCP server, or update its config if already attached (idempotent upsert)."""
+        return AgentMcpServerResponse.model_validate(
+            self._client.put(
+                f"agents/{agent_id}/mcp-servers/{server_id}",
+                json={k: v for k, v in config.items() if v is not None},
+            )
+        )
+
+    def detach_mcp_server(self, agent_id: str, server_id: str) -> AgentMcpServerDetachResponse:
+        """Detach an MCP server from an agent. Idempotent: safe to retry."""
+        return AgentMcpServerDetachResponse.model_validate(
+            self._client.delete(f"agents/{agent_id}/mcp-servers/{server_id}")
+        )
+
+    def list_mcp_servers(self, agent_id: str) -> AgentMcpServersResponse:
+        return AgentMcpServersResponse.model_validate(self._client.get(f"agents/{agent_id}/mcp-servers"))
 
     def get_evaluation_config(self, agent_id: str) -> EvaluationConfigResponse:
         return EvaluationConfigResponse.model_validate(self._client.get(f"agents/{agent_id}/evaluation-config"))
@@ -133,8 +181,42 @@ class AsyncAgents:
         request: AgentUpdateRequest | Mapping[str, Any] | None = None,
         **kwargs: Any,
     ) -> AgentResponse:
+        """``tools`` replaces the entire list when provided (legacy bulk path); prefer
+        attach_mcp_server/detach_mcp_server for individual MCP servers and
+        attach_skills/detach_skills for skills."""
         data = await self._client.patch(f"agents/{agent_id}", json=AgentUpdateRequest.build(request, **kwargs))
         return AgentResponse.model_validate(data)
+
+    async def attach_skills(self, agent_id: str, skill_ids: str | Sequence[str]) -> AgentSkillsResponse:
+        """Attach skills to an agent. Idempotent: safe to retry, already-attached ids are reported."""
+        data = await self._client.patch(f"agents/{agent_id}/skills", json={"attach": _skill_id_list(skill_ids)})
+        return AgentSkillsResponse.model_validate(data)
+
+    async def detach_skills(self, agent_id: str, skill_ids: str | Sequence[str]) -> AgentSkillsResponse:
+        """Detach skills from an agent. Idempotent: safe to retry, already-detached ids are reported."""
+        data = await self._client.patch(f"agents/{agent_id}/skills", json={"detach": _skill_id_list(skill_ids)})
+        return AgentSkillsResponse.model_validate(data)
+
+    async def list_skills(self, agent_id: str, **kwargs: Any) -> SkillListResponse:
+        data = await self._client.get("skills", params={"agent_id": agent_id, **kwargs})
+        return SkillListResponse.model_validate(data)
+
+    async def attach_mcp_server(self, agent_id: str, server_id: str, **config: Any) -> AgentMcpServerResponse:
+        """Attach an MCP server, or update its config if already attached (idempotent upsert)."""
+        data = await self._client.put(
+            f"agents/{agent_id}/mcp-servers/{server_id}",
+            json={k: v for k, v in config.items() if v is not None},
+        )
+        return AgentMcpServerResponse.model_validate(data)
+
+    async def detach_mcp_server(self, agent_id: str, server_id: str) -> AgentMcpServerDetachResponse:
+        """Detach an MCP server from an agent. Idempotent: safe to retry."""
+        data = await self._client.delete(f"agents/{agent_id}/mcp-servers/{server_id}")
+        return AgentMcpServerDetachResponse.model_validate(data)
+
+    async def list_mcp_servers(self, agent_id: str) -> AgentMcpServersResponse:
+        data = await self._client.get(f"agents/{agent_id}/mcp-servers")
+        return AgentMcpServersResponse.model_validate(data)
 
     async def get_evaluation_config(self, agent_id: str) -> EvaluationConfigResponse:
         data = await self._client.get(f"agents/{agent_id}/evaluation-config")

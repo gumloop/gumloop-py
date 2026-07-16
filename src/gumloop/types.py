@@ -53,6 +53,7 @@ class AgentCreateRequest(_Model):
     system_prompt: str | None = None
     tools: list[dict[str, Any]] = Field(default_factory=list)
     resources: list[dict[str, Any]] = Field(default_factory=list)
+    skill_ids: list[str] | None = None
     metadata: dict[str, Any] | None = None
     folder_id: str | None = None
     is_active: bool = True
@@ -80,6 +81,7 @@ class Agent(_Model):
     is_active: bool = False
     tools: list[dict[str, Any]] = Field(default_factory=list)
     resources: list[dict[str, Any]] = Field(default_factory=list)
+    skill_ids: list[str] | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
     model_name: str | None = None
     system_prompt: str | None = None
@@ -88,6 +90,33 @@ class Agent(_Model):
     created_at: str | None = None
     active_trigger_count: int | None = None
     creator: CreatorPayload | None = None
+
+
+class AgentSkillsResponse(_Model):
+    agent_id: str
+    skill_ids: list[str] = Field(default_factory=list)
+    attached: list[str] = Field(default_factory=list)
+    detached: list[str] = Field(default_factory=list)
+    already_attached: list[str] = Field(default_factory=list)
+    already_detached: list[str] = Field(default_factory=list)
+
+
+class AgentMcpServerResponse(_Model):
+    agent_id: str
+    mcp_server: dict[str, Any] = Field(default_factory=dict)
+    created: bool = False
+    auth_status: str | None = None
+
+
+class AgentMcpServerDetachResponse(_Model):
+    agent_id: str
+    server_id: str
+    detached: bool = False
+
+
+class AgentMcpServersResponse(_Model):
+    agent_id: str
+    mcp_servers: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class AgentResponse(_Model):

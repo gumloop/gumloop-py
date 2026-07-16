@@ -94,6 +94,132 @@ def test_agents_retrieve_and_update_routes(client: Gumloop) -> None:
 
 
 @respx.mock
+def test_agents_attach_skills_sends_only_attach_body(client: Gumloop) -> None:
+    route = respx.patch(f"{API_BASE}/agents/agent_123/skills").mock(
+        return_value=httpx.Response(
+            200, json={"agent_id": "agent_123", "skill_ids": ["s1", "s2"], "attached": ["s2"]}
+        )
+    )
+
+    result = client.agents.attach_skills("agent_123", ["s1", "s2"])
+
+    assert result.agent_id == "agent_123"
+    assert result.skill_ids == ["s1", "s2"]
+    assert result.attached == ["s2"]
+    assert request_json(route.calls[0].request) == {"attach": ["s1", "s2"]}
+
+
+@respx.mock
+def test_agents_attach_skills_coerces_bare_string(client: Gumloop) -> None:
+    route = respx.patch(f"{API_BASE}/agents/agent_123/skills").mock(
+        return_value=httpx.Response(200, json={"agent_id": "agent_123", "attached": ["s1"]})
+    )
+
+    client.agents.attach_skills("agent_123", "s1")
+
+    assert request_json(route.calls[0].request) == {"attach": ["s1"]}
+
+
+@respx.mock
+def test_agents_detach_skills_sends_only_detach_body(client: Gumloop) -> None:
+    route = respx.patch(f"{API_BASE}/agents/agent_123/skills").mock(
+        return_value=httpx.Response(200, json={"agent_id": "agent_123", "detached": ["s1"]})
+    )
+
+    result = client.agents.detach_skills("agent_123", "s1")
+
+    assert result.detached == ["s1"]
+    assert request_json(route.calls[0].request) == {"detach": ["s1"]}
+
+
+@respx.mock
+def test_agents_list_skills_sends_agent_id_param(client: Gumloop) -> None:
+    route = respx.get(f"{API_BASE}/skills").mock(return_value=httpx.Response(200, json={"skills": []}))
+
+    result = client.agents.list_skills("agent_123")
+
+    assert result.skills == []
+    assert route.calls[0].request.url.params["agent_id"] == "agent_123"
+
+
+@respx.mock
+def test_agents_attach_mcp_server_puts_config(client: Gumloop) -> None:
+    route = respx.put(f"{API_BASE}/agents/agent_123/mcp-servers/gmail").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "agent_id": "agent_123",
+                "mcp_server": {"type": "gumcp_server", "server_id": "gmail", "approval_mode": "off"},
+                "created": True,
+                "auth_status": "connected",
+            },
+        )
+    )
+
+    result = client.agents.attach_mcp_server("agent_123", "gmail", approval_mode="off")
+
+    assert result.created is True
+    assert result.auth_status == "connected"
+    assert result.mcp_server["server_id"] == "gmail"
+    assert request_json(route.calls[0].request) == {"approval_mode": "off"}
+
+
+@respx.mock
+def test_agents_detach_mcp_server(client: Gumloop) -> None:
+    route = respx.delete(f"{API_BASE}/agents/agent_123/mcp-servers/gmail").mock(
+        return_value=httpx.Response(200, json={"agent_id": "agent_123", "server_id": "gmail", "detached": True})
+    )
+
+    result = client.agents.detach_mcp_server("agent_123", "gmail")
+
+    assert result.detached is True
+    assert result.server_id == "gmail"
+    assert route.call_count == 1
+
+
+@respx.mock
+def test_agents_list_mcp_servers(client: Gumloop) -> None:
+    respx.get(f"{API_BASE}/agents/agent_123/mcp-servers").mock(
+        return_value=httpx.Response(
+            200, json={"agent_id": "agent_123", "mcp_servers": [{"server_id": "gmail"}]}
+        )
+    )
+
+    result = client.agents.list_mcp_servers("agent_123")
+
+    assert result.agent_id == "agent_123"
+    assert result.mcp_servers == [{"server_id": "gmail"}]
+
+
+@respx.mock
+def test_async_agents_skill_and_mcp_methods() -> None:
+    respx.patch(f"{API_BASE}/agents/agent_123/skills").mock(
+        return_value=httpx.Response(200, json={"agent_id": "agent_123", "attached": ["s1"]})
+    )
+    respx.get(f"{API_BASE}/skills").mock(return_value=httpx.Response(200, json={"skills": []}))
+    respx.put(f"{API_BASE}/agents/agent_123/mcp-servers/gmail").mock(
+        return_value=httpx.Response(200, json={"agent_id": "agent_123", "created": True})
+    )
+    respx.delete(f"{API_BASE}/agents/agent_123/mcp-servers/gmail").mock(
+        return_value=httpx.Response(200, json={"agent_id": "agent_123", "server_id": "gmail", "detached": True})
+    )
+    respx.get(f"{API_BASE}/agents/agent_123/mcp-servers").mock(
+        return_value=httpx.Response(200, json={"agent_id": "agent_123", "mcp_servers": []})
+    )
+
+    async def run() -> None:
+        async with AsyncGumloop(access_token="token") as client:
+            assert (await client.agents.attach_skills("agent_123", "s1")).attached == ["s1"]
+            assert (await client.agents.detach_skills("agent_123", ["s1"])).agent_id == "agent_123"
+            assert (await client.agents.list_skills("agent_123")).skills == []
+            assert (await client.agents.attach_mcp_server("agent_123", "gmail", approval_mode="off")).created is True
+            assert (await client.agents.detach_mcp_server("agent_123", "gmail")).detached is True
+            assert (await client.agents.list_mcp_servers("agent_123")).mcp_servers == []
+
+    asyncio.run(run())
+
+
+@respx.mock
 def test_models_list(client: Gumloop) -> None:
     respx.get(f"{API_BASE}/models").mock(return_value=httpx.Response(200, json={"model_groups": [{"id": "auto"}]}))
 

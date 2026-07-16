@@ -124,6 +124,73 @@ def test_agents_update_only_sends_specified_fields(cli_runner: CliRunner) -> Non
 
 
 @respx.mock
+def test_agents_attach_skills_command(cli_runner: CliRunner) -> None:
+    route = respx.patch(f"{API_BASE}/agents/agent_abc/skills").mock(
+        return_value=httpx.Response(200, json={"agent_id": "agent_abc", "attached": ["s1", "s2"]})
+    )
+    save_credentials(Credentials(api_key="key"))
+
+    result = cli_runner.invoke(app, ["agents", "attach-skills", "agent_abc", "s1", "s2"])
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(route.calls[0].request.content) == {"attach": ["s1", "s2"]}
+
+
+@respx.mock
+def test_agents_detach_skills_command(cli_runner: CliRunner) -> None:
+    route = respx.patch(f"{API_BASE}/agents/agent_abc/skills").mock(
+        return_value=httpx.Response(200, json={"agent_id": "agent_abc", "detached": ["s1"]})
+    )
+    save_credentials(Credentials(api_key="key"))
+
+    result = cli_runner.invoke(app, ["agents", "detach-skills", "agent_abc", "s1"])
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(route.calls[0].request.content) == {"detach": ["s1"]}
+
+
+@respx.mock
+def test_agents_attach_mcp_server_command(cli_runner: CliRunner) -> None:
+    route = respx.put(f"{API_BASE}/agents/agent_abc/mcp-servers/gmail").mock(
+        return_value=httpx.Response(
+            200, json={"agent_id": "agent_abc", "created": True, "auth_status": "connected"}
+        )
+    )
+    save_credentials(Credentials(api_key="key"))
+
+    result = cli_runner.invoke(
+        app, ["agents", "attach-mcp-server", "agent_abc", "gmail", "--approval-mode", "off"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(route.calls[0].request.content) == {"approval_mode": "off"}
+    assert "connected" in result.output
+
+
+@respx.mock
+def test_agents_detach_mcp_server_command(cli_runner: CliRunner) -> None:
+    route = respx.delete(f"{API_BASE}/agents/agent_abc/mcp-servers/gmail").mock(
+        return_value=httpx.Response(200, json={"agent_id": "agent_abc", "server_id": "gmail", "detached": True})
+    )
+    save_credentials(Credentials(api_key="key"))
+
+    result = cli_runner.invoke(app, ["agents", "detach-mcp-server", "agent_abc", "gmail"])
+
+    assert result.exit_code == 0, result.output
+    assert route.call_count == 1
+    assert "true" in result.output
+
+
+@respx.mock
+def test_agents_update_rejects_skill_ids_option(cli_runner: CliRunner) -> None:
+    save_credentials(Credentials(api_key="key"))
+
+    result = cli_runner.invoke(app, ["agents", "update", "agent_abc", "--skill-ids", "s1"])
+
+    assert result.exit_code != 0
+
+
+@respx.mock
 def test_agents_create_uses_effective_team_id(cli_runner: CliRunner, monkeypatch) -> None:
     route = respx.post(f"{API_BASE}/agents").mock(
         return_value=httpx.Response(201, json={"agent": {"id": "agent_new", "name": "Bot"}})

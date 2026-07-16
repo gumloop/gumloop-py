@@ -110,6 +110,9 @@ class HttpClient:
     ) -> Any:
         return self._request("PATCH", path, json=json, data=_omit_none_params(data), files=files)
 
+    def put(self, path: str, *, json: Any = None) -> Any:
+        return self._request("PUT", path, json=json)
+
     def delete(self, path: str) -> Any:
         return self._request("DELETE", path)
 
@@ -250,6 +253,9 @@ class AsyncHttpClient:
         files: list[tuple[str, Any]] | None = None,
     ) -> Any:
         return await self._request("PATCH", path, json=json, data=_omit_none_params(data), files=files)
+
+    async def put(self, path: str, *, json: Any = None) -> Any:
+        return await self._request("PUT", path, json=json)
 
     async def delete(self, path: str) -> Any:
         return await self._request("DELETE", path)
