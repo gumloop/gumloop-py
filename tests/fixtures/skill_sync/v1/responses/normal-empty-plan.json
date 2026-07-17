@@ -1,0 +1,19 @@
+{
+  "limits": {
+    "bundle_transfer_bytes": 104857600,
+    "bytes_per_file": 26214400,
+    "files_per_skill": 1000,
+    "total_uncompressed_bytes": 209715200
+  },
+  "manifest": {
+    "algorithm": "sha256",
+    "format_version": 1,
+    "hash": "4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a",
+    "skill_count": 0
+  },
+  "organization": {
+    "organization_id": "org_fixture",
+    "organization_name": "Fixture Organization"
+  },
+  "skill_count": 0
+}

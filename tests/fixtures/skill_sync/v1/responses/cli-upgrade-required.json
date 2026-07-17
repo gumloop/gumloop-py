@@ -1,0 +1,12 @@
+{
+  "error": {
+    "code": "cli_upgrade_required",
+    "details": {
+      "minimum_cli_version": "0.4.0",
+      "requested_cli_version": "0.3.3"
+    },
+    "message": "Upgrade the Gumloop CLI to continue.",
+    "param": null,
+    "type": "invalid_request_error"
+  }
+}

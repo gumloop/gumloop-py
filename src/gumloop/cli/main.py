@@ -16,6 +16,7 @@ from gumloop.cli.commands.chat import chat_app
 from gumloop.cli.commands.mcp import mcp_app
 from gumloop.cli.commands.sessions import sessions_app
 from gumloop.cli.commands.skills import skills_app
+from gumloop.cli.commands.sync import sync_app
 from gumloop.cli.context import CliContext
 from gumloop.cli.credentials import load_credentials
 
@@ -99,6 +100,7 @@ app.add_typer(skills_app, name="skills")
 app.add_typer(artifacts_app, name="artifacts")
 app.add_typer(chat_app, name="chat")
 app.add_typer(brain_app, name="brain")
+app.add_typer(sync_app, name="sync")
 
 
 def _require_supported_platform() -> None:

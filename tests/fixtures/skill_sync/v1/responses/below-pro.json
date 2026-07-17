@@ -1,0 +1,9 @@
+{
+  "error": {
+    "code": "organization_sync_requires_pro",
+    "details": {},
+    "message": "Organization skill sync requires a Pro plan.",
+    "param": null,
+    "type": "permission_error"
+  }
+}

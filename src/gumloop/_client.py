@@ -28,6 +28,7 @@ from gumloop.resources import Chat
 from gumloop.resources import Models
 from gumloop.resources import Sessions
 from gumloop.resources import Skills
+from gumloop.resources import Sync
 from gumloop.resources import Teams
 
 DEFAULT_BASE_URL = "https://api.gumloop.com/api/v1"
@@ -87,6 +88,7 @@ class Gumloop:
         self.mcp = MCP(self._http)
         self.teams = Teams(self._http)
         self.skills = Skills(self._http)
+        self.sync = Sync(self._http)
         self.artifacts = Artifacts(self._http)
         self.brain = Brain(self._http)
         self.oauth = OAuth(base_url=self.base_url, timeout=self.timeout)

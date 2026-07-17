@@ -1,0 +1,10 @@
+{
+  "expected_minimum_archive_bytes": 104857601,
+  "generation": {
+    "archive_format": "zip",
+    "entry_bytes": 26214400,
+    "entry_count": 5,
+    "entry_source": "deterministic incompressible test bytes"
+  },
+  "reason": "The generated archive exceeds the transfer limit without storing it in Git."
+}
