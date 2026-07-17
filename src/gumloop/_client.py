@@ -32,7 +32,7 @@ from gumloop.resources import Sync
 from gumloop.resources import Teams
 
 DEFAULT_BASE_URL = "https://api.gumloop.com/api/v1"
-DEFAULT_TIMEOUT = 30.0
+DEFAULT_TIMEOUT = 90.0
 DEFAULT_STREAM_TIMEOUT = 3600.0
 
 
