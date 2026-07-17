@@ -61,6 +61,75 @@ def test_missing_credential_raises_clear_auth_error(monkeypatch: pytest.MonkeyPa
 
 
 @respx.mock
+def test_env_sourced_token_follows_env_rotation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A client built from GUMLOOP_ACCESS_TOKEN must send the CURRENT env
+    value per request: platforms (e.g. the agent sandbox) rotate the token
+    between requests on a live client."""
+    monkeypatch.setenv("GUMLOOP_ACCESS_TOKEN", "tok-1")
+    route = respx.get(f"{API_BASE}/models").mock(return_value=httpx.Response(200, json={"model_groups": []}))
+    client = Gumloop()
+
+    client.models.list()
+    monkeypatch.setenv("GUMLOOP_ACCESS_TOKEN", "tok-2")
+    client.models.list()
+
+    assert auth_header(route.calls[0].request) == "Bearer tok-1"
+    assert auth_header(route.calls[1].request) == "Bearer tok-2"
+
+
+@respx.mock
+def test_env_sourced_token_falls_back_to_snapshot_when_env_cleared(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GUMLOOP_ACCESS_TOKEN", "tok-1")
+    route = respx.get(f"{API_BASE}/models").mock(return_value=httpx.Response(200, json={"model_groups": []}))
+    client = Gumloop()
+
+    monkeypatch.delenv("GUMLOOP_ACCESS_TOKEN")
+    client.models.list()
+
+    assert auth_header(route.calls[0].request) == "Bearer tok-1"
+
+
+@pytest.mark.parametrize(
+    "kwargs, expected_header",
+    [
+        ({"access_token": "explicit-tok"}, "Bearer explicit-tok"),
+        ({"api_key": "gum_xxx"}, "Bearer gum_xxx"),
+    ],
+)
+@respx.mock
+def test_explicit_credential_ignores_env_rotation(
+    monkeypatch: pytest.MonkeyPatch, kwargs: dict[str, str], expected_header: str
+) -> None:
+    """Explicitly passed credentials are immutable — a env var appearing or
+    rotating later must never hijack the client's identity."""
+    monkeypatch.setenv("GUMLOOP_ACCESS_TOKEN", "env-tok")
+    route = respx.get(f"{API_BASE}/models").mock(return_value=httpx.Response(200, json={"model_groups": []}))
+    client = Gumloop(**kwargs)
+
+    monkeypatch.setenv("GUMLOOP_ACCESS_TOKEN", "env-tok-2")
+    client.models.list()
+
+    assert auth_header(route.calls[0].request) == expected_header
+
+
+@respx.mock
+def test_async_env_sourced_token_follows_env_rotation(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GUMLOOP_ACCESS_TOKEN", "tok-1")
+    route = respx.get(f"{API_BASE}/models").mock(return_value=httpx.Response(200, json={"model_groups": []}))
+
+    async def run() -> None:
+        async with AsyncGumloop() as client:
+            await client.models.list()
+            monkeypatch.setenv("GUMLOOP_ACCESS_TOKEN", "tok-2")
+            await client.models.list()
+
+    asyncio.run(run())
+
+    assert auth_header(route.calls[0].request) == "Bearer tok-1"
+    assert auth_header(route.calls[1].request) == "Bearer tok-2"
+
+
+@respx.mock
 def test_non_success_response_raises_gumloop_status_error(client: Gumloop) -> None:
     error = {
         "error": {
