@@ -7,6 +7,7 @@ from typing import Any
 
 import httpx
 
+from gumloop._auth import EnvToken
 from gumloop._http import AsyncHttpClient
 from gumloop._http import HttpClient
 from gumloop.oauth import OAuth
@@ -59,7 +60,7 @@ class Gumloop:
         stream_timeout: float | None = DEFAULT_STREAM_TIMEOUT,
     ) -> None:
         self.api_key = api_key
-        self.access_token = access_token or api_key or os.environ.get("GUMLOOP_ACCESS_TOKEN")
+        self.access_token = access_token or api_key or EnvToken.from_env()
         # Personal Gumloop API keys are user-scoped; the backend uses the
         # x-auth-key header to look up the owner's stored secret. OAuth
         # callers omit it because the bearer token already identifies them.
@@ -115,7 +116,7 @@ class AsyncGumloop:
         stream_timeout: float | None = DEFAULT_STREAM_TIMEOUT,
     ) -> None:
         self.api_key = api_key
-        self.access_token = access_token or api_key or os.environ.get("GUMLOOP_ACCESS_TOKEN")
+        self.access_token = access_token or api_key or EnvToken.from_env()
         self.user_id = user_id or os.environ.get("GUMLOOP_USER_ID")
         # Defaults to production; GUMLOOP_BASE_URL is an optional override.
         self.base_url = (base_url or os.environ.get("GUMLOOP_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
