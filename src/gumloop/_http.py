@@ -64,14 +64,24 @@ class HttpClient:
         stream_base_url: str,
         access_token: str | None,
         user_id: str | None,
+        team_id: str | None = None,
         timeout: float,
         stream_timeout: float | None,
     ) -> None:
         self.access_token = access_token
         self.user_id = user_id
+        self.team_id = team_id
         self._stream_base_url = stream_base_url.rstrip("/")
         self._stream_timeout = stream_timeout
         self._client = httpx.Client(base_url=base_url.rstrip("/"), timeout=timeout)
+
+    def _scoped_params(self, params: dict[str, Any] | None) -> dict[str, Any] | None:
+        # Team keys are validated against ``team_id``, so it rides on every request.
+        if not self.team_id:
+            return params
+        merged = dict(params or {})
+        merged.setdefault("team_id", self.team_id)
+        return merged
 
     def close(self) -> None:
         self._client.close()
@@ -234,6 +244,7 @@ class HttpClient:
             headers["Content-Type"] = "application/json"
         if extra_headers:
             headers.update(extra_headers)
+        kwargs["params"] = self._scoped_params(kwargs.get("params"))
         response = self._client.request(method, path, headers=headers, **kwargs)
         if response.status_code >= 400:
             raise to_api_error(response)
@@ -250,14 +261,24 @@ class AsyncHttpClient:
         stream_base_url: str,
         access_token: str | None,
         user_id: str | None,
+        team_id: str | None = None,
         timeout: float,
         stream_timeout: float | None,
     ) -> None:
         self.access_token = access_token
         self.user_id = user_id
+        self.team_id = team_id
         self._stream_base_url = stream_base_url.rstrip("/")
         self._stream_timeout = stream_timeout
         self._client = httpx.AsyncClient(base_url=base_url.rstrip("/"), timeout=timeout)
+
+    def _scoped_params(self, params: dict[str, Any] | None) -> dict[str, Any] | None:
+        # Team keys are validated against ``team_id``, so it rides on every request.
+        if not self.team_id:
+            return params
+        merged = dict(params or {})
+        merged.setdefault("team_id", self.team_id)
+        return merged
 
     async def aclose(self) -> None:
         await self._client.aclose()
@@ -371,6 +392,7 @@ class AsyncHttpClient:
         headers = auth_headers(self.access_token, self.user_id)
         if not kwargs.get("files"):
             headers["Content-Type"] = "application/json"
+        kwargs["params"] = self._scoped_params(kwargs.get("params"))
         response = await self._client.request(method, path, headers=headers, **kwargs)
         if response.status_code >= 400:
             raise to_api_error(response)

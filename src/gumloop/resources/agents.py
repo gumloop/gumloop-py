@@ -46,9 +46,11 @@ class Agents:
         request: AgentCreateRequest | Mapping[str, Any] | None = None,
         **kwargs: Any,
     ) -> AgentResponse:
-        return AgentResponse.model_validate(
-            self._client.post("agents", json=AgentCreateRequest.build(request, **kwargs))
-        )
+        body = AgentCreateRequest.build(request, **kwargs)
+        # The create workspace is read from the body, not the query.
+        if self._client.team_id is not None:
+            body.setdefault("team_id", self._client.team_id)
+        return AgentResponse.model_validate(self._client.post("agents", json=body))
 
     def retrieve(self, agent_id: str) -> AgentResponse:
         return AgentResponse.model_validate(self._client.get(f"agents/{agent_id}"))
@@ -169,7 +171,11 @@ class AsyncAgents:
         request: AgentCreateRequest | Mapping[str, Any] | None = None,
         **kwargs: Any,
     ) -> AgentResponse:
-        data = await self._client.post("agents", json=AgentCreateRequest.build(request, **kwargs))
+        body = AgentCreateRequest.build(request, **kwargs)
+        # The create workspace is read from the body, not the query.
+        if self._client.team_id is not None:
+            body.setdefault("team_id", self._client.team_id)
+        data = await self._client.post("agents", json=body)
         return AgentResponse.model_validate(data)
 
     async def retrieve(self, agent_id: str) -> AgentResponse:

@@ -55,6 +55,7 @@ class Gumloop:
         *,
         access_token: str | None = None,
         user_id: str | None = None,
+        team_id: str | None = None,
         base_url: str | None = None,
         stream_base_url: str | None = None,
         timeout: float = DEFAULT_TIMEOUT,
@@ -66,6 +67,8 @@ class Gumloop:
         # x-auth-key header to look up the owner's stored secret. OAuth
         # callers omit it because the bearer token already identifies them.
         self.user_id = user_id or os.environ.get("GUMLOOP_USER_ID")
+        # Team API keys are validated against ``team_id``; ``user_id`` stays the acting member.
+        self.team_id = team_id or os.environ.get("GUMLOOP_TEAM_ID")
         # Defaults to production; GUMLOOP_BASE_URL is an optional override.
         self.base_url = (base_url or os.environ.get("GUMLOOP_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
         self.stream_base_url = (stream_base_url or _derive_stream_base_url(self.base_url)).rstrip("/")
@@ -77,6 +80,7 @@ class Gumloop:
             stream_base_url=self.stream_base_url,
             access_token=self.access_token,
             user_id=self.user_id,
+            team_id=self.team_id,
             timeout=self.timeout,
             stream_timeout=self.stream_timeout,
         )
@@ -112,6 +116,7 @@ class AsyncGumloop:
         *,
         access_token: str | None = None,
         user_id: str | None = None,
+        team_id: str | None = None,
         base_url: str | None = None,
         stream_base_url: str | None = None,
         timeout: float = DEFAULT_TIMEOUT,
@@ -120,6 +125,8 @@ class AsyncGumloop:
         self.api_key = api_key
         self.access_token = access_token or api_key or EnvToken.from_env()
         self.user_id = user_id or os.environ.get("GUMLOOP_USER_ID")
+        # Team API keys are validated against ``team_id``; ``user_id`` stays the acting member.
+        self.team_id = team_id or os.environ.get("GUMLOOP_TEAM_ID")
         # Defaults to production; GUMLOOP_BASE_URL is an optional override.
         self.base_url = (base_url or os.environ.get("GUMLOOP_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
         self.stream_base_url = (stream_base_url or _derive_stream_base_url(self.base_url)).rstrip("/")
@@ -131,6 +138,7 @@ class AsyncGumloop:
             stream_base_url=self.stream_base_url,
             access_token=self.access_token,
             user_id=self.user_id,
+            team_id=self.team_id,
             timeout=self.timeout,
             stream_timeout=self.stream_timeout,
         )

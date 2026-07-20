@@ -70,6 +70,8 @@ class Skills:
         team_id: str | None = None,
         **kwargs: Any,
     ) -> SkillResponse:
+        # The create workspace is read from the form body, not the query.
+        team_id = team_id if team_id is not None else self._client.team_id
         return SkillResponse.model_validate(
             self._client.post(
                 "skills",
@@ -134,6 +136,8 @@ class AsyncSkills:
         team_id: str | None = None,
         **kwargs: Any,
     ) -> SkillResponse:
+        # The create workspace is read from the form body, not the query.
+        team_id = team_id if team_id is not None else self._client.team_id
         data = await self._client.post(
             "skills",
             data={"team_id": team_id, **kwargs},
