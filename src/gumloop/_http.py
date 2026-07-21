@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from collections.abc import AsyncIterator
 from collections.abc import Iterator
 from collections.abc import Mapping
@@ -18,6 +19,23 @@ from gumloop.errors import to_api_error
 from gumloop.types import StreamEvent
 
 logger = logging.getLogger(__name__)
+
+
+def _base_headers(access_token: str | None, user_id: str | None) -> dict[str, str]:
+    """Auth headers plus W3C trace context when the host runtime provides it.
+
+    Gumloop sandboxes export TRACEPARENT so SDK calls join the platform trace
+    that launched the script instead of starting fresh ones. Read per request:
+    sandbox runtimes rotate env between calls.
+    """
+    headers = auth_headers(access_token, user_id)
+    traceparent = os.environ.get("TRACEPARENT")
+    if traceparent:
+        headers["traceparent"] = traceparent
+        tracestate = os.environ.get("TRACESTATE")
+        if tracestate:
+            headers["tracestate"] = tracestate
+    return headers
 
 _DONE_SENTINEL = "[DONE]"
 _T = TypeVar("_T", bound=BaseModel)
@@ -137,7 +155,7 @@ class HttpClient:
         extra_headers: Mapping[str, str] | None = None,
         max_bytes: int,
     ) -> tuple[bytes, httpx.Headers]:
-        headers = auth_headers(self.access_token, self.user_id)
+        headers = _base_headers(self.access_token, self.user_id)
         headers["Content-Type"] = "application/json"
         if extra_headers:
             headers.update(extra_headers)
@@ -158,7 +176,7 @@ class HttpClient:
         # Endpoints whose streaming variant lives on the stream host (e.g. chat
         # completions) must accept their unary counterparts at the same host —
         # the api host has no handler for them.
-        headers = auth_headers(self.access_token, self.user_id)
+        headers = _base_headers(self.access_token, self.user_id)
         headers["Content-Type"] = "application/json"
         response = self._client.post(
             f"{self._stream_base_url}/{path.lstrip('/')}",
@@ -178,7 +196,7 @@ class HttpClient:
         json: Any = None,
         params: Mapping[str, Any] | None = None,
     ) -> Iterator[StreamEvent]:
-        headers = {**auth_headers(self.access_token, self.user_id), "Accept": "text/event-stream"}
+        headers = {**_base_headers(self.access_token, self.user_id), "Accept": "text/event-stream"}
         with self._client.stream(
             method,
             f"{self._stream_base_url}/{path.lstrip('/')}",
@@ -204,7 +222,7 @@ class HttpClient:
     ) -> Iterator[_T]:
         # Skips the StreamEvent envelope and honors OpenRouter's `data: [DONE]`
         # terminator. Unparseable events (keep-alives, comments) are skipped.
-        headers = {**auth_headers(self.access_token, self.user_id), "Accept": "text/event-stream"}
+        headers = {**_base_headers(self.access_token, self.user_id), "Accept": "text/event-stream"}
         with self._client.stream(
             method,
             f"{self._stream_base_url}/{path.lstrip('/')}",
@@ -239,7 +257,7 @@ class HttpClient:
     ) -> Any:
         # Headers are rebuilt per request so ``access_token`` / ``user_id``
         # can be rotated on a live client without reconstructing it.
-        headers = auth_headers(self.access_token, self.user_id)
+        headers = _base_headers(self.access_token, self.user_id)
         if not kwargs.get("files"):
             headers["Content-Type"] = "application/json"
         if extra_headers:
@@ -319,7 +337,7 @@ class AsyncHttpClient:
         return await self._request("DELETE", path)
 
     async def post_to_stream_host(self, path: str, *, json: Any = None) -> Any:
-        headers = auth_headers(self.access_token, self.user_id)
+        headers = _base_headers(self.access_token, self.user_id)
         headers["Content-Type"] = "application/json"
         response = await self._client.post(
             f"{self._stream_base_url}/{path.lstrip('/')}",
@@ -339,7 +357,7 @@ class AsyncHttpClient:
         json: Any = None,
         params: Mapping[str, Any] | None = None,
     ) -> AsyncIterator[StreamEvent]:
-        headers = {**auth_headers(self.access_token, self.user_id), "Accept": "text/event-stream"}
+        headers = {**_base_headers(self.access_token, self.user_id), "Accept": "text/event-stream"}
         async with self._client.stream(
             method,
             f"{self._stream_base_url}/{path.lstrip('/')}",
@@ -363,7 +381,7 @@ class AsyncHttpClient:
         json: Any = None,
         params: Mapping[str, Any] | None = None,
     ) -> AsyncIterator[_T]:
-        headers = {**auth_headers(self.access_token, self.user_id), "Accept": "text/event-stream"}
+        headers = {**_base_headers(self.access_token, self.user_id), "Accept": "text/event-stream"}
         async with self._client.stream(
             method,
             f"{self._stream_base_url}/{path.lstrip('/')}",
@@ -389,7 +407,7 @@ class AsyncHttpClient:
                     continue
 
     async def _request(self, method: str, path: str, **kwargs: Any) -> Any:
-        headers = auth_headers(self.access_token, self.user_id)
+        headers = _base_headers(self.access_token, self.user_id)
         if not kwargs.get("files"):
             headers["Content-Type"] = "application/json"
         kwargs["params"] = self._scoped_params(kwargs.get("params"))

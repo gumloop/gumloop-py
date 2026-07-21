@@ -280,3 +280,30 @@ def test_async_team_id_is_sent_as_query_param() -> None:
     asyncio.run(run())
 
     assert route.calls[0].request.url.params["team_id"] == "team_1"
+
+
+@respx.mock
+def test_traceparent_env_is_forwarded_as_header(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GUMLOOP_ACCESS_TOKEN", "env-token")
+    monkeypatch.setenv("TRACEPARENT", "00-11111111111111111111111111111111-2222222222222222-01")
+    monkeypatch.setenv("TRACESTATE", "gumloop=1")
+    route = respx.get(f"{API_BASE}/models").mock(return_value=httpx.Response(200, json={"model_groups": []}))
+
+    Gumloop().models.list()
+
+    request = route.calls[0].request
+    assert request.headers["traceparent"] == "00-11111111111111111111111111111111-2222222222222222-01"
+    assert request.headers["tracestate"] == "gumloop=1"
+
+
+@respx.mock
+def test_no_trace_headers_without_traceparent_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GUMLOOP_ACCESS_TOKEN", "env-token")
+    monkeypatch.delenv("TRACEPARENT", raising=False)
+    route = respx.get(f"{API_BASE}/models").mock(return_value=httpx.Response(200, json={"model_groups": []}))
+
+    Gumloop().models.list()
+
+    request = route.calls[0].request
+    assert "traceparent" not in request.headers
+    assert "tracestate" not in request.headers
