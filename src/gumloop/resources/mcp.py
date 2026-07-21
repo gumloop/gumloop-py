@@ -79,6 +79,8 @@ class MCP:
         *,
         team_id: str | None = None,
     ) -> McpPromptResponse:
+        # team_id is read from the body here; the query-level default doesn't reach it.
+        team_id = team_id if team_id is not None else self._client.team_id
         body: dict[str, Any] = {"name": name, "arguments": arguments or {}}
         if team_id is not None:
             body["team_id"] = team_id
@@ -93,6 +95,7 @@ class MCP:
         ref: str | None = None,
         team_id: str | None = None,
     ) -> McpExecuteResponse:
+        team_id = team_id if team_id is not None else self._client.team_id
         call = McpToolCallRequest(
             server_id=server_id,
             tool_name=tool_name,
@@ -107,6 +110,7 @@ class MCP:
         *,
         team_id: str | None = None,
     ) -> McpExecuteResponse:
+        team_id = team_id if team_id is not None else self._client.team_id
         return McpExecuteResponse.model_validate(self._client.post("mcp/tools/call", json=_call_body(calls, team_id)))
 
 
@@ -156,6 +160,8 @@ class AsyncMCP:
         *,
         team_id: str | None = None,
     ) -> McpPromptResponse:
+        # team_id is read from the body here; the query-level default doesn't reach it.
+        team_id = team_id if team_id is not None else self._client.team_id
         body: dict[str, Any] = {"name": name, "arguments": arguments or {}}
         if team_id is not None:
             body["team_id"] = team_id
@@ -171,6 +177,7 @@ class AsyncMCP:
         ref: str | None = None,
         team_id: str | None = None,
     ) -> McpExecuteResponse:
+        team_id = team_id if team_id is not None else self._client.team_id
         call = McpToolCallRequest(
             server_id=server_id,
             tool_name=tool_name,
@@ -186,5 +193,6 @@ class AsyncMCP:
         *,
         team_id: str | None = None,
     ) -> McpExecuteResponse:
+        team_id = team_id if team_id is not None else self._client.team_id
         data = await self._client.post("mcp/tools/call", json=_call_body(calls, team_id))
         return McpExecuteResponse.model_validate(data)

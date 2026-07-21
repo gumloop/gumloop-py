@@ -13,6 +13,7 @@ from gumloop.errors import APIStatusError
 from gumloop.errors import AuthenticationError
 from tests.sdk.helpers import API_BASE
 from tests.sdk.helpers import auth_header
+from tests.sdk.helpers import request_json
 
 
 @respx.mock
@@ -202,3 +203,80 @@ def test_async_user_id_sets_x_auth_key_header() -> None:
     asyncio.run(run())
 
     assert route.calls[0].request.headers["x-auth-key"] == "user_123"
+
+
+_AGENT_JSON = {"agent": {"id": "agent_1", "name": "Agent"}}
+
+
+@respx.mock
+def test_team_id_is_sent_as_query_param_on_every_request() -> None:
+    # Team keys are validated against ``team_id`` — it must be on every request.
+    route = respx.get(f"{API_BASE}/agents/agent_1").mock(return_value=httpx.Response(200, json=_AGENT_JSON))
+
+    Gumloop(api_key="team_key", user_id="user_123", team_id="team_1").agents.retrieve("agent_1")
+
+    assert route.calls[0].request.url.params["team_id"] == "team_1"
+
+
+@respx.mock
+def test_explicit_team_id_wins_over_client_team_id() -> None:
+    route = respx.get(f"{API_BASE}/agents").mock(return_value=httpx.Response(200, json={"agents": []}))
+
+    Gumloop(api_key="team_key", user_id="user_123", team_id="team_1").agents.list(team_id="team_2")
+
+    assert route.calls[0].request.url.params["team_id"] == "team_2"
+
+
+@respx.mock
+def test_no_team_id_omits_query_param() -> None:
+    route = respx.get(f"{API_BASE}/models").mock(return_value=httpx.Response(200, json={"model_groups": []}))
+
+    Gumloop(api_key="gum_xxx", user_id="user_123").models.list()
+
+    assert "team_id" not in route.calls[0].request.url.params
+
+
+@respx.mock
+def test_env_team_id_is_used_when_not_passed_explicitly(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GUMLOOP_TEAM_ID", "env_team")
+    route = respx.get(f"{API_BASE}/models").mock(return_value=httpx.Response(200, json={"model_groups": []}))
+
+    Gumloop(api_key="team_key", user_id="user_123").models.list()
+
+    assert route.calls[0].request.url.params["team_id"] == "env_team"
+
+
+@respx.mock
+def test_team_id_defaults_into_mcp_execute_body() -> None:
+    # /mcp/tools/call reads team_id from the body — a query-only default would
+    # authenticate as the team but silently execute with personal credentials.
+    route = respx.post(f"{API_BASE}/mcp/tools/call").mock(return_value=httpx.Response(200, json={"results": []}))
+
+    Gumloop(api_key="team_key", user_id="user_123", team_id="team_1").mcp.execute("server_1", "tool_1")
+
+    assert request_json(route.calls[0].request)["team_id"] == "team_1"
+
+
+@respx.mock
+def test_team_id_defaults_into_agent_create_body() -> None:
+    route = respx.post(f"{API_BASE}/agents").mock(return_value=httpx.Response(201, json=_AGENT_JSON))
+
+    client = Gumloop(api_key="team_key", user_id="user_123", team_id="team_1")
+    client.agents.create(name="Agent", model_name="model")
+    client.agents.create(name="Agent", model_name="model", team_id="team_2")
+
+    assert request_json(route.calls[0].request)["team_id"] == "team_1"
+    assert request_json(route.calls[1].request)["team_id"] == "team_2"
+
+
+@respx.mock
+def test_async_team_id_is_sent_as_query_param() -> None:
+    route = respx.get(f"{API_BASE}/agents/agent_1").mock(return_value=httpx.Response(200, json=_AGENT_JSON))
+
+    async def run() -> None:
+        async with AsyncGumloop(api_key="team_key", user_id="user_123", team_id="team_1") as client:
+            await client.agents.retrieve("agent_1")
+
+    asyncio.run(run())
+
+    assert route.calls[0].request.url.params["team_id"] == "team_1"
