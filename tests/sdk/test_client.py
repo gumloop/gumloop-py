@@ -307,3 +307,19 @@ def test_no_trace_headers_without_traceparent_env(monkeypatch: pytest.MonkeyPatc
     request = route.calls[0].request
     assert "traceparent" not in request.headers
     assert "tracestate" not in request.headers
+
+
+@respx.mock
+def test_traceparent_env_is_forwarded_on_async_client(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GUMLOOP_ACCESS_TOKEN", "env-token")
+    monkeypatch.setenv("TRACEPARENT", "00-11111111111111111111111111111111-2222222222222222-01")
+    route = respx.get(f"{API_BASE}/models").mock(return_value=httpx.Response(200, json={"model_groups": []}))
+
+    async def run() -> None:
+        async with AsyncGumloop() as client:
+            await client.models.list()
+
+    asyncio.run(run())
+
+    request = route.calls[0].request
+    assert request.headers["traceparent"] == "00-11111111111111111111111111111111-2222222222222222-01"
