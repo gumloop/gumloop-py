@@ -22,11 +22,9 @@ logger = logging.getLogger(__name__)
 
 
 def _base_headers(access_token: str | None, user_id: str | None) -> dict[str, str]:
-    """Auth headers plus W3C trace context when the host runtime provides it.
+    """Auth headers plus W3C trace context when the host sets TRACEPARENT.
 
-    Gumloop sandboxes export TRACEPARENT so SDK calls join the platform trace
-    that launched the script instead of starting fresh ones. Read per request:
-    sandbox runtimes rotate env between calls.
+    Read per request: sandbox runtimes rotate env between calls.
     """
     headers = auth_headers(access_token, user_id)
     traceparent = os.environ.get("TRACEPARENT")
