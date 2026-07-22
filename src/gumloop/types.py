@@ -180,6 +180,14 @@ class MessagePayload(_Model):
     parts: list[dict[str, Any]] | None = None
 
 
+class SessionUsage(_Model):
+    credit_cost: float | None = None
+    tool_credit_cost: float | None = None
+    flow_credit_cost: float | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+
+
 class Session(_Model):
     id: str
     agent_id: str
@@ -195,6 +203,7 @@ class Session(_Model):
     agent_tools: list[dict[str, Any]] = Field(default_factory=list)
     participants: dict[str, dict[str, Any]] = Field(default_factory=dict)
     creator: CreatorPayload | None = None
+    usage: SessionUsage | None = None
 
 
 class SessionResponse(_Model):
