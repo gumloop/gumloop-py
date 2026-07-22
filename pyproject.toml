@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gumloop"
-version = "0.4.2"
+dynamic = ["version"]
 description = "Python client for the Gumloop API"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -31,6 +31,9 @@ dependencies = [
     "click>=8.0",
     "typer>=0.25.1",
 ]
+
+[tool.hatch.version]
+path = "src/gumloop/_version.py"
 
 [project.scripts]
 gumloop = "gumloop.cli.main:main"
