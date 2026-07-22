@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from collections.abc import AsyncIterator
 from collections.abc import Iterator
 from collections.abc import Mapping
@@ -18,6 +19,29 @@ from gumloop.errors import to_api_error
 from gumloop.types import StreamEvent
 
 logger = logging.getLogger(__name__)
+
+
+def _inject_trace_context(request: httpx.Request) -> None:
+    """Request event hook: attach W3C trace context when the host sets TRACEPARENT.
+
+    Read per request: sandbox runtimes rotate env between calls. setdefault so
+    an explicitly provided header wins.
+    """
+    traceparent = os.environ.get("TRACEPARENT")
+    if not traceparent:
+        return
+    request.headers.setdefault("traceparent", traceparent)
+    tracestate = os.environ.get("TRACESTATE")
+    if tracestate:
+        request.headers.setdefault("tracestate", tracestate)
+
+
+async def _inject_trace_context_async(request: httpx.Request) -> None:
+    _inject_trace_context(request)
+
+
+_TRACE_EVENT_HOOKS = {"request": [_inject_trace_context]}
+_ASYNC_TRACE_EVENT_HOOKS = {"request": [_inject_trace_context_async]}
 
 _DONE_SENTINEL = "[DONE]"
 _T = TypeVar("_T", bound=BaseModel)
@@ -73,7 +97,7 @@ class HttpClient:
         self.team_id = team_id
         self._stream_base_url = stream_base_url.rstrip("/")
         self._stream_timeout = stream_timeout
-        self._client = httpx.Client(base_url=base_url.rstrip("/"), timeout=timeout)
+        self._client = httpx.Client(base_url=base_url.rstrip("/"), timeout=timeout, event_hooks=_TRACE_EVENT_HOOKS)
 
     def _scoped_params(self, params: dict[str, Any] | None) -> dict[str, Any] | None:
         # Team keys are validated against ``team_id``, so it rides on every request.
@@ -270,7 +294,9 @@ class AsyncHttpClient:
         self.team_id = team_id
         self._stream_base_url = stream_base_url.rstrip("/")
         self._stream_timeout = stream_timeout
-        self._client = httpx.AsyncClient(base_url=base_url.rstrip("/"), timeout=timeout)
+        self._client = httpx.AsyncClient(
+            base_url=base_url.rstrip("/"), timeout=timeout, event_hooks=_ASYNC_TRACE_EVENT_HOOKS
+        )
 
     def _scoped_params(self, params: dict[str, Any] | None) -> dict[str, Any] | None:
         # Team keys are validated against ``team_id``, so it rides on every request.
