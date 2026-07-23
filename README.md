@@ -1,11 +1,27 @@
 # Gumloop Python Client
 
-A Python client for the Gumloop API that makes it easy to run and monitor Gumloop flows.
+A Python client for the Gumloop API that makes it easy to run and monitor Gumloop flows, plus the `gumloop` CLI.
 
-## Installation
+## CLI
+
+Install on macOS or Linux:
 
 ```bash
-pip install gumloop
+curl -fsSL https://gumloop.com/cli/install.sh | sh
+```
+
+The installer is fully self-contained under `~/.gumloop` — it ships its own Python, never touches your system Python, and needs no sudo. Run `gumloop --help` to get started and update any time with:
+
+```bash
+gumloop update
+```
+
+## SDK
+
+To use the client as a library in your own Python project:
+
+```bash
+uv add gumloop
 ```
 
 ## Usage

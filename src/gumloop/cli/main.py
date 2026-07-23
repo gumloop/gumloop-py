@@ -17,6 +17,8 @@ from gumloop.cli.commands.mcp import mcp_app
 from gumloop.cli.commands.sessions import sessions_app
 from gumloop.cli.commands.skills import skills_app
 from gumloop.cli.commands.sync import sync_app
+from gumloop.cli.commands.update import maybe_notify_update
+from gumloop.cli.commands.update import update as update_command
 from gumloop.cli.context import CliContext
 from gumloop.cli.credentials import load_credentials
 
@@ -93,6 +95,7 @@ app.command("login", epilog="Examples:\n  gumloop login\n  gumloop login --api-k
     login_command
 )
 app.command("logout")(logout_command)
+app.command("update")(update_command)
 app.add_typer(mcp_app, name="mcp")
 app.add_typer(agents_app, name="agents")
 app.add_typer(sessions_app, name="sessions")
@@ -119,6 +122,8 @@ def _require_supported_platform() -> None:
 
 def main() -> None:
     _require_supported_platform()
+    if sys.argv[1:2] != ["update"]:
+        maybe_notify_update()
     app()
 
 
