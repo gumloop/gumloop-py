@@ -76,7 +76,9 @@ class TestPlan:
     def test_plan_sends_cli_version_header_auth_and_body_for_api_key(self, api_key_sync: Sync) -> None:
         """A personal API key plan request carries auth, CLI version, and the plan body."""
         route = respx.post(PLAN_URL).mock(
-            return_value=httpx.Response(200, json=load_json("responses/normal-plan.json"), headers=_sync_response_headers())
+            return_value=httpx.Response(
+                200, json=load_json("responses/normal-plan.json"), headers=_sync_response_headers()
+            )
         )
 
         result = api_key_sync.plan(organization_id="org_fixture")
@@ -92,7 +94,9 @@ class TestPlan:
     def test_plan_omits_organization_id_when_not_provided(self, api_key_sync: Sync) -> None:
         """A plan request omits organization_id when the caller leaves it unset."""
         route = respx.post(PLAN_URL).mock(
-            return_value=httpx.Response(200, json=load_json("responses/normal-plan.json"), headers=_sync_response_headers())
+            return_value=httpx.Response(
+                200, json=load_json("responses/normal-plan.json"), headers=_sync_response_headers()
+            )
         )
 
         api_key_sync.plan()
@@ -104,7 +108,9 @@ class TestPlan:
     def test_plan_oauth_uses_bearer_without_x_auth_key(self, oauth_sync: Sync) -> None:
         """An OAuth plan request sends only the bearer token."""
         route = respx.post(PLAN_URL).mock(
-            return_value=httpx.Response(200, json=load_json("responses/normal-plan.json"), headers=_sync_response_headers())
+            return_value=httpx.Response(
+                200, json=load_json("responses/normal-plan.json"), headers=_sync_response_headers()
+            )
         )
 
         oauth_sync.plan()
@@ -128,7 +134,9 @@ class TestPlan:
     @respx.mock
     def test_plan_malformed_json_raises_invalid_desired_state(self, api_key_sync: Sync) -> None:
         """Malformed plan JSON becomes a stable invalid_desired_state sync error."""
-        respx.post(PLAN_URL).mock(return_value=httpx.Response(200, content=b"not-json", headers=_sync_response_headers()))
+        respx.post(PLAN_URL).mock(
+            return_value=httpx.Response(200, content=b"not-json", headers=_sync_response_headers())
+        )
 
         with pytest.raises(SyncError) as exc_info:
             api_key_sync.plan()

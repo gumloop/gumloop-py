@@ -19,9 +19,7 @@ STREAM_BASE = "https://ws.gumloop.com/api/v1"
 
 
 def _sse(payloads: list[dict | str]) -> str:
-    return "".join(
-        f"data: {p if isinstance(p, str) else json.dumps(p)}\n\n" for p in payloads
-    )
+    return "".join(f"data: {p if isinstance(p, str) else json.dumps(p)}\n\n" for p in payloads)
 
 
 _UNARY_RESPONSE: dict[str, Any] = {
@@ -42,9 +40,7 @@ _UNARY_RESPONSE: dict[str, Any] = {
 
 @respx.mock
 def test_create_no_stream_outputs_message_content(cli_runner: CliRunner) -> None:
-    route = respx.post(f"{STREAM_BASE}/chat/completions").mock(
-        return_value=httpx.Response(200, json=_UNARY_RESPONSE)
-    )
+    route = respx.post(f"{STREAM_BASE}/chat/completions").mock(return_value=httpx.Response(200, json=_UNARY_RESPONSE))
     save_credentials(Credentials(api_key="key"))
 
     result = cli_runner.invoke(
@@ -62,9 +58,7 @@ def test_create_no_stream_outputs_message_content(cli_runner: CliRunner) -> None
 
 @respx.mock
 def test_create_json_implies_no_stream_and_outputs_json(cli_runner: CliRunner) -> None:
-    route = respx.post(f"{STREAM_BASE}/chat/completions").mock(
-        return_value=httpx.Response(200, json=_UNARY_RESPONSE)
-    )
+    route = respx.post(f"{STREAM_BASE}/chat/completions").mock(return_value=httpx.Response(200, json=_UNARY_RESPONSE))
     save_credentials(Credentials(api_key="key"))
 
     result = cli_runner.invoke(
@@ -81,9 +75,7 @@ def test_create_json_implies_no_stream_and_outputs_json(cli_runner: CliRunner) -
 
 @respx.mock
 def test_create_stdin_message_routes_to_request_body(cli_runner: CliRunner) -> None:
-    route = respx.post(f"{STREAM_BASE}/chat/completions").mock(
-        return_value=httpx.Response(200, json=_UNARY_RESPONSE)
-    )
+    route = respx.post(f"{STREAM_BASE}/chat/completions").mock(return_value=httpx.Response(200, json=_UNARY_RESPONSE))
     save_credentials(Credentials(api_key="key"))
 
     result = cli_runner.invoke(
@@ -101,18 +93,22 @@ def test_create_stdin_message_routes_to_request_body(cli_runner: CliRunner) -> N
 
 @respx.mock
 def test_create_system_messages_repeatable_and_ordered(cli_runner: CliRunner) -> None:
-    route = respx.post(f"{STREAM_BASE}/chat/completions").mock(
-        return_value=httpx.Response(200, json=_UNARY_RESPONSE)
-    )
+    route = respx.post(f"{STREAM_BASE}/chat/completions").mock(return_value=httpx.Response(200, json=_UNARY_RESPONSE))
     save_credentials(Credentials(api_key="key"))
 
     result = cli_runner.invoke(
         app,
         [
-            "chat", "completions", "create", "go",
-            "-m", "claude-sonnet-4-5",
-            "--system", "you are A",
-            "--system", "you are B",
+            "chat",
+            "completions",
+            "create",
+            "go",
+            "-m",
+            "claude-sonnet-4-5",
+            "--system",
+            "you are A",
+            "--system",
+            "you are B",
             "--json",
         ],
     )
@@ -133,9 +129,14 @@ def test_create_rejects_both_prompt_and_message_stdin(cli_runner: CliRunner) -> 
     result = cli_runner.invoke(
         app,
         [
-            "chat", "completions", "create", "x",
-            "-m", "claude-sonnet-4-5",
-            "--message-stdin", "-",
+            "chat",
+            "completions",
+            "create",
+            "x",
+            "-m",
+            "claude-sonnet-4-5",
+            "--message-stdin",
+            "-",
             "--json",
         ],
         input="y\n",
@@ -186,15 +187,24 @@ def test_create_streaming_outputs_concatenated_deltas(
 
     chunks = [
         {
-            "id": "c1", "object": "chat.completion.chunk", "created": 1, "model": "m",
+            "id": "c1",
+            "object": "chat.completion.chunk",
+            "created": 1,
+            "model": "m",
             "choices": [{"index": 0, "delta": {"role": "assistant", "content": "Hi"}, "finish_reason": None}],
         },
         {
-            "id": "c1", "object": "chat.completion.chunk", "created": 1, "model": "m",
+            "id": "c1",
+            "object": "chat.completion.chunk",
+            "created": 1,
+            "model": "m",
             "choices": [{"index": 0, "delta": {"content": " there"}, "finish_reason": None}],
         },
         {
-            "id": "c1", "object": "chat.completion.chunk", "created": 1, "model": "m",
+            "id": "c1",
+            "object": "chat.completion.chunk",
+            "created": 1,
+            "model": "m",
             "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
         },
         "[DONE]",
@@ -233,7 +243,10 @@ def test_create_stream_flag_forces_streaming_when_piped(
     monkeypatch.setattr("gumloop.cli.commands.chat._stdout_is_tty", lambda: False)
     chunks: list[dict | str] = [
         {
-            "id": "c1", "object": "chat.completion.chunk", "created": 1, "model": "m",
+            "id": "c1",
+            "object": "chat.completion.chunk",
+            "created": 1,
+            "model": "m",
             "choices": [{"index": 0, "delta": {"role": "assistant", "content": "hi"}, "finish_reason": None}],
         },
         "[DONE]",
@@ -273,16 +286,22 @@ def test_create_stream_and_no_stream_conflict(cli_runner: CliRunner) -> None:
 
 @respx.mock
 def test_create_modality_lands_in_request_body_as_modalities(cli_runner: CliRunner) -> None:
-    route = respx.post(f"{STREAM_BASE}/chat/completions").mock(
-        return_value=httpx.Response(200, json=_UNARY_RESPONSE)
-    )
+    route = respx.post(f"{STREAM_BASE}/chat/completions").mock(return_value=httpx.Response(200, json=_UNARY_RESPONSE))
     save_credentials(Credentials(api_key="key"))
 
     result = cli_runner.invoke(
         app,
         [
-            "chat", "completions", "create", "x", "-m", "m",
-            "--modality", "image", "--modality", "text",
+            "chat",
+            "completions",
+            "create",
+            "x",
+            "-m",
+            "m",
+            "--modality",
+            "image",
+            "--modality",
+            "text",
             "--json",
         ],
     )
@@ -300,17 +319,22 @@ def test_create_schema_file_lands_in_response_format(
     schema = {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}
     schema_path = tmp_path / "person.json"
     schema_path.write_text(json.dumps(schema))
-    route = respx.post(f"{STREAM_BASE}/chat/completions").mock(
-        return_value=httpx.Response(200, json=_UNARY_RESPONSE)
-    )
+    route = respx.post(f"{STREAM_BASE}/chat/completions").mock(return_value=httpx.Response(200, json=_UNARY_RESPONSE))
     save_credentials(Credentials(api_key="key"))
 
     result = cli_runner.invoke(
         app,
         [
-            "chat", "completions", "create", "x", "-m", "m",
-            "--schema-file", str(schema_path),
-            "--schema-name", "Person",
+            "chat",
+            "completions",
+            "create",
+            "x",
+            "-m",
+            "m",
+            "--schema-file",
+            str(schema_path),
+            "--schema-name",
+            "Person",
             "--json",
         ],
     )
@@ -332,15 +356,24 @@ def test_create_stream_json_emits_ndjson(
     monkeypatch.setattr("gumloop.cli.commands.chat._stdout_is_tty", lambda: False)
     chunks: list[dict | str] = [
         {
-            "id": "c1", "object": "chat.completion.chunk", "created": 1, "model": "m",
+            "id": "c1",
+            "object": "chat.completion.chunk",
+            "created": 1,
+            "model": "m",
             "choices": [{"index": 0, "delta": {"role": "assistant", "content": "Hi"}, "finish_reason": None}],
         },
         {
-            "id": "c1", "object": "chat.completion.chunk", "created": 1, "model": "m",
+            "id": "c1",
+            "object": "chat.completion.chunk",
+            "created": 1,
+            "model": "m",
             "choices": [{"index": 0, "delta": {"content": " there"}, "finish_reason": None}],
         },
         {
-            "id": "c1", "object": "chat.completion.chunk", "created": 1, "model": "m",
+            "id": "c1",
+            "object": "chat.completion.chunk",
+            "created": 1,
+            "model": "m",
             "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
         },
         "[DONE]",
@@ -367,8 +400,7 @@ def test_create_stream_json_emits_ndjson(
     assert all("choices" in obj and "id" in obj for obj in parsed)
     # Concatenated content reconstructs to the streamed text.
     text = "".join(
-        (choice.get("delta", {}) or {}).get("content", "") or ""
-        for obj in parsed for choice in obj["choices"]
+        (choice.get("delta", {}) or {}).get("content", "") or "" for obj in parsed for choice in obj["choices"]
     )
     assert text == "Hi there"
 
@@ -382,9 +414,7 @@ def test_create_stream_json_emits_ndjson(
 def test_max_tokens_alias_sends_same_wire_field_as_max_completion_tokens(
     cli_runner: CliRunner,
 ) -> None:
-    route = respx.post(f"{STREAM_BASE}/chat/completions").mock(
-        return_value=httpx.Response(200, json=_UNARY_RESPONSE)
-    )
+    route = respx.post(f"{STREAM_BASE}/chat/completions").mock(return_value=httpx.Response(200, json=_UNARY_RESPONSE))
     save_credentials(Credentials(api_key="key"))
 
     a = cli_runner.invoke(
@@ -414,10 +444,17 @@ def test_max_tokens_and_max_completion_tokens_conflict(cli_runner: CliRunner) ->
     result = cli_runner.invoke(
         app,
         [
-            "chat", "completions", "create", "x", "-m", "m",
+            "chat",
+            "completions",
+            "create",
+            "x",
+            "-m",
+            "m",
             "--no-stream",
-            "--max-tokens", "256",
-            "--max-completion-tokens", "256",
+            "--max-tokens",
+            "256",
+            "--max-completion-tokens",
+            "256",
         ],
     )
 
@@ -458,9 +495,7 @@ def test_stream_flag_overrides_tty_detection(
 ) -> None:
     # TTY=True would normally stream; --no-stream must override and produce unary.
     monkeypatch.setattr("gumloop.cli.commands.chat._stdout_is_tty", lambda: True)
-    route = respx.post(f"{STREAM_BASE}/chat/completions").mock(
-        return_value=httpx.Response(200, json=_UNARY_RESPONSE)
-    )
+    route = respx.post(f"{STREAM_BASE}/chat/completions").mock(return_value=httpx.Response(200, json=_UNARY_RESPONSE))
     save_credentials(Credentials(api_key="key"))
 
     result = cli_runner.invoke(
@@ -478,9 +513,7 @@ def test_modality_flag_wire_name_matches_sdk_kwarg(cli_runner: CliRunner) -> Non
     # The kwarg name on the SDK is ``modalities`` (plural). The CLI flag is
     # ``--modality`` (singular, repeatable) for ergonomics, but the wire MUST
     # carry the plural so the SDK accepts it.
-    route = respx.post(f"{STREAM_BASE}/chat/completions").mock(
-        return_value=httpx.Response(200, json=_UNARY_RESPONSE)
-    )
+    route = respx.post(f"{STREAM_BASE}/chat/completions").mock(return_value=httpx.Response(200, json=_UNARY_RESPONSE))
     save_credentials(Credentials(api_key="key"))
 
     result = cli_runner.invoke(

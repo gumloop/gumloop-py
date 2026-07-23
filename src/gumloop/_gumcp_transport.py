@@ -37,7 +37,7 @@ def gumcp_env_ready() -> bool:
 
 def _import_async_client() -> Any:
     try:
-        from gumcp_client import AsyncClient
+        from gumcp_client import AsyncClient  # type: ignore[import-not-found]
     except ImportError as exc:
         raise GumloopError(
             "GUMCP_ACCESS_TOKEN is set but gumcp_client is not installed. "
@@ -164,9 +164,7 @@ def _map_exception(exc: BaseException, *, ref: str, server_id: str, tool_name: s
             tool_name=tool_name,
             status="error",
             code="mcp_server_connection_failed",
-            message=(
-                "MCP server connection failed. Check the MCP server URL, authentication, and credentials."
-            ),
+            message=("MCP server connection failed. Check the MCP server URL, authentication, and credentials."),
             error_type="api_error",
             details={"server_id": server_id},
         )
@@ -181,8 +179,7 @@ def _map_exception(exc: BaseException, *, ref: str, server_id: str, tool_name: s
             status="error",
             code="mcp_server_http_error",
             message=(
-                f"MCP server returned HTTP {http_status}. "
-                "Check the MCP server URL, authentication, and credentials."
+                f"MCP server returned HTTP {http_status}. Check the MCP server URL, authentication, and credentials."
             ),
             error_type=_api_error_type(http_status),
             details={"server_id": server_id, "status_code": http_status},
@@ -197,9 +194,7 @@ def _map_exception(exc: BaseException, *, ref: str, server_id: str, tool_name: s
             tool_name=tool_name,
             status="error",
             code="mcp_server_connection_failed",
-            message=(
-                "MCP server connection failed. Check the MCP server URL, authentication, and credentials."
-            ),
+            message=("MCP server connection failed. Check the MCP server URL, authentication, and credentials."),
             error_type="api_error",
             details={"server_id": server_id},
         )
@@ -309,11 +304,7 @@ class GumcpTransport:
             return _map_exception(exc, ref=result_ref, server_id=server_id, tool_name=tool_name)
         except Exception as exc:
             result = _map_exception(exc, ref=result_ref, server_id=server_id, tool_name=tool_name)
-            if (
-                not _retried
-                and result.status == "unauthenticated"
-                and self._current_fingerprint() != self._fingerprint
-            ):
+            if not _retried and result.status == "unauthenticated" and self._current_fingerprint() != self._fingerprint:
                 # Env token rotated mid-flight: rebuild once and retry.
                 await self._close_client()
                 return await self.call_one(

@@ -10,14 +10,14 @@ generated parent serializer knows to strip, so we mirror that pattern.
 from __future__ import annotations
 
 from typing import Any
-from typing import Optional
 
 from openrouter.components import ChatAssistantImages
 from openrouter.components import ChatStreamChoice as _ChatStreamChoice
 from openrouter.components import ChatStreamChunk as _ChatStreamChunk
 from openrouter.components import ChatStreamDelta as _ChatStreamDelta
 from openrouter.components import ChatUsage as _ChatUsage
-from openrouter.types import UNSET, OptionalNullable
+from openrouter.types import UNSET
+from openrouter.types import OptionalNullable
 
 
 class ChatUsage(_ChatUsage):
@@ -53,5 +53,5 @@ class ChatStreamChunk(_ChatStreamChunk):
     # Re-annotate so validation constructs our extended ChatUsage and
     # ChatStreamChoice. Pydantic resolves by annotation, not isinstance —
     # without this, parent annotations would drop the added fields.
-    usage: Optional[ChatUsage] = None  # type: ignore[assignment]
+    usage: ChatUsage | None = None  # type: ignore[assignment]
     choices: list[ChatStreamChoice]  # type: ignore[assignment]

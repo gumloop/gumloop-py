@@ -54,8 +54,7 @@ def scan_target(
                 marker_read=marker_read,
                 content_hash=(
                     directory_content_hash(resolved)
-                    if resolved.is_dir()
-                    and (marker_read.status == "valid" or entry.name in hash_unmanaged_names)
+                    if resolved.is_dir() and (marker_read.status == "valid" or entry.name in hash_unmanaged_names)
                     else None
                 ),
                 shared_symlink=True,

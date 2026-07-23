@@ -96,9 +96,7 @@ def test_agents_retrieve_and_update_routes(client: Gumloop) -> None:
 @respx.mock
 def test_agents_attach_skills_sends_only_attach_body(client: Gumloop) -> None:
     route = respx.patch(f"{API_BASE}/agents/agent_123/skills").mock(
-        return_value=httpx.Response(
-            200, json={"agent_id": "agent_123", "skill_ids": ["s1", "s2"], "attached": ["s2"]}
-        )
+        return_value=httpx.Response(200, json={"agent_id": "agent_123", "skill_ids": ["s1", "s2"], "attached": ["s2"]})
     )
 
     result = client.agents.attach_skills("agent_123", ["s1", "s2"])
@@ -180,9 +178,7 @@ def test_agents_detach_mcp_server(client: Gumloop) -> None:
 @respx.mock
 def test_agents_list_mcp_servers(client: Gumloop) -> None:
     respx.get(f"{API_BASE}/agents/agent_123/mcp-servers").mock(
-        return_value=httpx.Response(
-            200, json={"agent_id": "agent_123", "mcp_servers": [{"server_id": "gmail"}]}
-        )
+        return_value=httpx.Response(200, json={"agent_id": "agent_123", "mcp_servers": [{"server_id": "gmail"}]})
     )
 
     result = client.agents.list_mcp_servers("agent_123")
@@ -321,7 +317,9 @@ def test_async_agents_evaluation_methods() -> None:
             assert (await client.agents.get_evaluation_config("agent_123")).config.agent_id == "agent_123"
             assert (await client.agents.update_evaluation_config("agent_123", enabled=True)).config.enabled is True
             assert (await client.agents.list_evaluations("agent_123")).evaluations == []
-            assert (await client.agents.get_evaluation("agent_123", "eval_1")).evaluation.evaluation_id == "eval_1"
+            evaluation = (await client.agents.get_evaluation("agent_123", "eval_1")).evaluation
+            assert evaluation is not None
+            assert evaluation.evaluation_id == "eval_1"
 
     asyncio.run(run())
 

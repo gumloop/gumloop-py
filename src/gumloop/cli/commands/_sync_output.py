@@ -120,9 +120,7 @@ class SyncOutput:
         table.add_column("Coding agents")
 
         console.print()
-        console.print(
-            f"Enrolled in [cyan]{escape_markup(plan.organization.organization_name)}[/cyan]"
-        )
+        console.print(f"Enrolled in [cyan]{escape_markup(plan.organization.organization_name)}[/cyan]")
         if not targets:
             table.add_row(
                 Text("—"),
@@ -278,8 +276,7 @@ class SyncOutput:
         visible = [
             change
             for change in changes
-            if isinstance(change, dict)
-            and self._change_is_visible(change, verbose=verbose)
+            if isinstance(change, dict) and self._change_is_visible(change, verbose=verbose)
         ]
         if not visible:
             return

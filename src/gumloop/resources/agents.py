@@ -81,9 +81,7 @@ class Agents:
         )
 
     def list_skills(self, agent_id: str, **kwargs: Any) -> SkillListResponse:
-        return SkillListResponse.model_validate(
-            self._client.get("skills", params={"agent_id": agent_id, **kwargs})
-        )
+        return SkillListResponse.model_validate(self._client.get("skills", params={"agent_id": agent_id, **kwargs}))
 
     def attach_mcp_server(self, agent_id: str, server_id: str, **config: Any) -> AgentMcpServerResponse:
         """Attach an MCP server, or update its config if already attached (idempotent upsert)."""
