@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
 import httpx
 import pytest
@@ -99,7 +100,7 @@ def test_env_sourced_token_falls_back_to_snapshot_when_env_cleared(monkeypatch: 
 )
 @respx.mock
 def test_explicit_credential_ignores_env_rotation(
-    monkeypatch: pytest.MonkeyPatch, kwargs: dict[str, str], expected_header: str
+    monkeypatch: pytest.MonkeyPatch, kwargs: dict[str, Any], expected_header: str
 ) -> None:
     """Explicitly passed credentials are immutable — a env var appearing or
     rotating later must never hijack the client's identity."""

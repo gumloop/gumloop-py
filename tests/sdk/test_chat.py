@@ -81,7 +81,7 @@ def test_chat_accepts_chatrequest_instance(client: Gumloop) -> None:
 
     req = ChatRequest(
         model="moonshotai/kimi-k2.6",
-        messages=[{"role": "user", "content": "hi"}],
+        messages=[{"role": "user", "content": "hi"}],  # type: ignore[arg-type]
         temperature=0.2,
     )
     client.chat.completions.create(req)
@@ -128,9 +128,7 @@ def test_chat_kwargs_override_request_body(client: Gumloop) -> None:
 
 
 def _sse(payloads: list[dict | str]) -> str:
-    return "".join(
-        f"data: {p if isinstance(p, str) else json.dumps(p)}\n\n" for p in payloads
-    )
+    return "".join(f"data: {p if isinstance(p, str) else json.dumps(p)}\n\n" for p in payloads)
 
 
 @respx.mock
@@ -141,9 +139,7 @@ def test_chat_stream_yields_typed_chunks(client: Gumloop) -> None:
             "object": "chat.completion.chunk",
             "created": 1,
             "model": "m",
-            "choices": [
-                {"index": 0, "delta": {"role": "assistant", "content": "Hi"}, "finish_reason": None}
-            ],
+            "choices": [{"index": 0, "delta": {"role": "assistant", "content": "Hi"}, "finish_reason": None}],
         },
         {
             "id": "c1",
@@ -203,20 +199,23 @@ def test_chat_stream_skips_done_sentinel(client: Gumloop) -> None:
     respx.post(f"{STREAM_BASE}/chat/completions").mock(
         return_value=httpx.Response(
             200,
-            text=_sse([{
-                "id": "c1",
-                "object": "chat.completion.chunk",
-                "created": 1,
-                "model": "m",
-                "choices": [{"index": 0, "delta": {"content": "x"}, "finish_reason": None}],
-            }, "[DONE]"]),
+            text=_sse(
+                [
+                    {
+                        "id": "c1",
+                        "object": "chat.completion.chunk",
+                        "created": 1,
+                        "model": "m",
+                        "choices": [{"index": 0, "delta": {"content": "x"}, "finish_reason": None}],
+                    },
+                    "[DONE]",
+                ]
+            ),
             headers={"content-type": "text/event-stream"},
         )
     )
 
-    received = list(
-        client.chat.completions.create(model="m", messages=[{"role": "user", "content": "x"}], stream=True)
-    )
+    received = list(client.chat.completions.create(model="m", messages=[{"role": "user", "content": "x"}], stream=True))
 
     assert len(received) == 1
 
@@ -242,9 +241,7 @@ def test_chat_stream_error_chunk_surfaces_via_chunk_error(client: Gumloop) -> No
         )
     )
 
-    received = list(
-        client.chat.completions.create(model="m", messages=[{"role": "user", "content": "x"}], stream=True)
-    )
+    received = list(client.chat.completions.create(model="m", messages=[{"role": "user", "content": "x"}], stream=True))
 
     assert len(received) == 1
     chunk = received[0]
@@ -379,27 +376,31 @@ def test_chat_stream_carries_image_delta_chunks(client: Gumloop) -> None:
             "object": "chat.completion.chunk",
             "created": 1,
             "model": "gpt-image-1.5",
-            "choices": [{
-                "index": 0,
-                "delta": {
-                    "role": "assistant",
-                    "images": [{"image_url": {"url": "data:image/png;base64,YWJj"}}],
-                },
-                "finish_reason": None,
-            }],
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {
+                        "role": "assistant",
+                        "images": [{"image_url": {"url": "data:image/png;base64,YWJj"}}],
+                    },
+                    "finish_reason": None,
+                }
+            ],
         },
         {
             "id": "c1",
             "object": "chat.completion.chunk",
             "created": 1,
             "model": "gpt-image-1.5",
-            "choices": [{
-                "index": 0,
-                "delta": {
-                    "images": [{"image_url": {"url": "data:image/png;base64,ZGVm"}}],
-                },
-                "finish_reason": "stop",
-            }],
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {
+                        "images": [{"image_url": {"url": "data:image/png;base64,ZGVm"}}],
+                    },
+                    "finish_reason": "stop",
+                }
+            ],
         },
         "[DONE]",
     ]
@@ -448,9 +449,7 @@ def test_async_chat_create(async_client: AsyncGumloop) -> None:
     )
 
     async def run() -> None:
-        result = await async_client.chat.completions.create(
-            model="m", messages=[{"role": "user", "content": "x"}]
-        )
+        result = await async_client.chat.completions.create(model="m", messages=[{"role": "user", "content": "x"}])
         assert result.choices[0].message.content == "hi"
 
     asyncio.run(run())

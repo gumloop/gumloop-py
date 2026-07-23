@@ -152,9 +152,7 @@ def _prepare_persistent_sync(
     scheduler = scheduler_for_current_platform(home=home)
     if non_interactive:
         background: dict[str, object] = {
-            "enabled": scheduler.is_current(
-                Path(config.scheduler_gumloop_path)
-            ),
+            "enabled": scheduler.is_current(Path(config.scheduler_gumloop_path)),
             "interval_seconds": SYNC_INTERVAL_SECONDS,
             "scheduler": "launch_agent",
         }
@@ -172,10 +170,7 @@ def _prepare_persistent_sync(
 
     executable_path = resolve_gumloop_executable()
     scheduler.validate(executable_path)
-    was_current = (
-        config.scheduler_gumloop_path == str(executable_path)
-        and scheduler.is_current(executable_path)
-    )
+    was_current = config.scheduler_gumloop_path == str(executable_path) and scheduler.is_current(executable_path)
     scheduler.install(executable_path)
     background = {
         "enabled": True,
@@ -183,9 +178,7 @@ def _prepare_persistent_sync(
         "scheduler": "launch_agent",
     }
     if config.scheduler_gumloop_path != str(executable_path):
-        config = config.model_copy(
-            update={"scheduler_gumloop_path": str(executable_path)}
-        )
+        config = config.model_copy(update={"scheduler_gumloop_path": str(executable_path)})
         write_config(config, home)
     if not json_output and not was_current:
         output.print_background_status("repaired")

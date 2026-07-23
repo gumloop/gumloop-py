@@ -152,15 +152,11 @@ def test_agents_detach_skills_command(cli_runner: CliRunner) -> None:
 @respx.mock
 def test_agents_attach_mcp_server_command(cli_runner: CliRunner) -> None:
     route = respx.put(f"{API_BASE}/agents/agent_abc/mcp-servers/gmail").mock(
-        return_value=httpx.Response(
-            200, json={"agent_id": "agent_abc", "created": True, "auth_status": "connected"}
-        )
+        return_value=httpx.Response(200, json={"agent_id": "agent_abc", "created": True, "auth_status": "connected"})
     )
     save_credentials(Credentials(api_key="key"))
 
-    result = cli_runner.invoke(
-        app, ["agents", "attach-mcp-server", "agent_abc", "gmail", "--approval-mode", "off"]
-    )
+    result = cli_runner.invoke(app, ["agents", "attach-mcp-server", "agent_abc", "gmail", "--approval-mode", "off"])
 
     assert result.exit_code == 0, result.output
     assert json.loads(route.calls[0].request.content) == {"approval_mode": "off"}

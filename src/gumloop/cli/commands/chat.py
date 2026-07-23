@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Annotated
 from typing import Any
-from typing import Iterator
 
 import typer
 
@@ -112,7 +112,9 @@ def create_completion(
     ] = False,
     json_output: Annotated[
         bool,
-        typer.Option("--json", help="Print the response as JSON. Streaming + --json emits ndjson (one chunk per line)."),
+        typer.Option(
+            "--json", help="Print the response as JSON. Streaming + --json emits ndjson (one chunk per line)."
+        ),
     ] = False,
 ) -> None:
     """Create a chat completion."""
@@ -134,9 +136,7 @@ def create_completion(
         if not user_message:
             raise GumloopError("Pass a PROMPT or --message-stdin - with text to send.")
 
-        messages: list[dict[str, Any]] = [
-            {"role": "system", "content": s} for s in (system or [])
-        ]
+        messages: list[dict[str, Any]] = [{"role": "system", "content": s} for s in (system or [])]
         messages.append({"role": "user", "content": user_message})
 
         # Stream resolution: explicit flags always win; --json without --stream
@@ -174,9 +174,7 @@ def create_completion(
                 console.print()  # trailing newline to separate the prompt that follows
             return
 
-        result = cli.call_with_refresh(
-            lambda client: client.chat.completions.create(**kwargs)
-        )
+        result = cli.call_with_refresh(lambda client: client.chat.completions.create(**kwargs))
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
 

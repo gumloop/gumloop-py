@@ -514,9 +514,7 @@ class TestDepartureCleanup:
 
         envelope = parse_json_envelope(result)
         sync_dir = _sync_root(sync_cli_environment.home)
-        state = json.loads(
-            (sync_dir / "state.json").read_text(encoding="utf-8")
-        )
+        state = json.loads((sync_dir / "state.json").read_text(encoding="utf-8"))
         assert result.exit_code == 0
         assert envelope["result"]["departure_cleanup"] is True
         assert envelope["result"]["background"]["enabled"] is False

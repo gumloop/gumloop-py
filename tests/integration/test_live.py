@@ -10,6 +10,8 @@ from gumloop import APIStatusError
 from gumloop import Gumloop
 from gumloop import GumloopClient
 
+pytestmark = pytest.mark.live
+
 
 def test_run_flow_completes_and_returns_outputs(live_client: GumloopClient, test_flow_id: str) -> None:
     outputs = live_client.run_flow(test_flow_id, inputs={}, timeout=60.0)
@@ -140,13 +142,17 @@ class TestAgentMcpServers:
         assert response.mcp_server.get("approval_mode") == "always"
 
     def test_identity_keys_cannot_be_spoofed_and_secrets_never_round_trip(
-        self, dev_client: Gumloop, make_agent,
+        self,
+        dev_client: Gumloop,
+        make_agent,
     ) -> None:
         agent = make_agent()
 
         response = dev_client.agents.attach_mcp_server(
-            agent.id, "gmail",
-            mcp_server_url="https://evil.example.com", secret_id="spoofed",
+            agent.id,
+            "gmail",
+            mcp_server_url="https://evil.example.com",
+            secret_id="spoofed",
         )
 
         assert response.mcp_server.get("server_id") == "gmail"

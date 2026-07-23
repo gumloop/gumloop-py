@@ -19,8 +19,7 @@ def _required(name: str) -> str:
     value = os.environ.get(name)
     if not value:
         pytest.fail(
-            f"required env var {name} is not set — populate gumloop-py/.env "
-            f"or export it before running live tests",
+            f"required env var {name} is not set — populate gumloop-py/.env or export it before running live tests",
             pytrace=False,
         )
     return value

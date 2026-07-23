@@ -284,9 +284,8 @@ def _operation_entries(
 ) -> tuple[Path, ...]:
     entries = tuple(sorted(root.iterdir(), key=lambda path: path.name))
     for entry in entries:
-        valid_name = (
-            (install_names and is_safe_install_name(entry.name))
-            or (prepared_names and entry.name.startswith("skill-"))
+        valid_name = (install_names and is_safe_install_name(entry.name)) or (
+            prepared_names and entry.name.startswith("skill-")
         )
         if not valid_name or entry.is_symlink() or not entry.is_dir():
             raise SyncError("target_failed", f"The Gumloop workspace contains an invalid operation entry: {entry}")
