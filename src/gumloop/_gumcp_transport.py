@@ -131,6 +131,11 @@ def _map_exception(exc: BaseException, *, ref: str, server_id: str, tool_name: s
             details={"server_id": server_id, "tool_name": tool_name},
         )
 
+    # Substring classification of guMCP error text is inherently fragile;
+    # it narrows once the restricted-tools claim rides the token and guMCP
+    # rejects with structured errors. Unlike the HTTP path, auth_required
+    # details cannot include gumloop_auth_url here (that came from the
+    # backend catalog).
     if (
         "not permitted" in lower
         or "not allowed" in lower
@@ -271,6 +276,7 @@ class GumcpTransport:
         *,
         ref: str | None = None,
         fallback_ref: str = "0",
+        _retried: bool = False,
     ) -> McpToolCallResult:
         result_ref = ref or fallback_ref
         try:
@@ -288,11 +294,33 @@ class GumcpTransport:
             )
         except GumloopError:
             raise
-        except BaseException as exc:
-            # Preserve real task cancellation outside of known transport cancel-scope failures.
-            if isinstance(exc, asyncio.CancelledError) and "cancel scope" not in str(exc):
+        except asyncio.CancelledError as exc:
+            # Preserve real task cancellation; only the known anyio cancel-scope
+            # transport failure becomes a per-tool result.
+            if "cancel scope" not in str(exc):
                 raise
             return _map_exception(exc, ref=result_ref, server_id=server_id, tool_name=tool_name)
+        except Exception as exc:
+            result = _map_exception(exc, ref=result_ref, server_id=server_id, tool_name=tool_name)
+            if (
+                not _retried
+                and result.status == "unauthenticated"
+                and self._current_fingerprint() != self._fingerprint
+            ):
+                # The env token rotated while this client was in flight (chat
+                # kernels sync rotated tokens into os.environ): rebuild against
+                # the fresh env and retry once instead of surfacing a stale-token
+                # auth error.
+                await self._close_client()
+                return await self.call_one(
+                    server_id,
+                    tool_name,
+                    arguments,
+                    ref=ref,
+                    fallback_ref=fallback_ref,
+                    _retried=True,
+                )
+            return result
 
     async def execute_many_async(
         self,
@@ -330,24 +358,27 @@ class GumcpTransport:
         return self._loop
 
     def _run(self, coro: Any) -> Any:
-        # Mirror gumcp_client.Client: own a loop for sync callers. When a loop
-        # is already running (Jupyter), nest_asyncio (applied by the sandbox
-        # preamble) lets run_until_complete re-enter.
+        # Mirror gumcp_client.Client: own a loop for sync callers. Inside an
+        # already-running loop (Jupyter / chat kernels) run_until_complete is
+        # illegal, so detect that case directly — CPython's error message
+        # differs between same-loop and other-loop re-entry, so string
+        # matching is not reliable — and nest_asyncio-patch OUR loop (apply()
+        # with no args patches the running loop, not this one).
         loop = self._get_loop()
         try:
+            asyncio.get_running_loop()
+        except RuntimeError:
             return loop.run_until_complete(coro)
-        except RuntimeError as exc:
-            if "already running" not in str(exc):
-                raise
-            try:
-                import nest_asyncio
-            except ImportError as import_exc:
-                raise GumloopError(
-                    "Direct MCP transport needs nest_asyncio inside a running event loop "
-                    "(e.g. Jupyter). Install nest_asyncio or call from AsyncGumloop."
-                ) from import_exc
-            nest_asyncio.apply()
-            return loop.run_until_complete(coro)
+        try:
+            import nest_asyncio
+        except ImportError as import_exc:
+            coro.close()
+            raise GumloopError(
+                "Direct MCP transport needs nest_asyncio inside a running event loop "
+                "(e.g. Jupyter). Install nest_asyncio or call from AsyncGumloop."
+            ) from import_exc
+        nest_asyncio.apply(loop)
+        return loop.run_until_complete(coro)
 
     def execute(
         self,
@@ -366,6 +397,8 @@ class GumcpTransport:
         return self._run(self.execute_many_async(calls))
 
     def close(self) -> None:
+        if self._client is None and self._loop is None:
+            return
         try:
             self._run(self._close_client())
         except Exception:
@@ -375,6 +408,8 @@ class GumcpTransport:
         self._loop = None
 
     async def aclose(self) -> None:
+        if self._client is None and self._loop is None:
+            return
         await self._close_client()
         if self._loop is not None and not self._loop.is_closed():
             self._loop.close()

@@ -110,6 +110,8 @@ class MCP:
         ref: str | None = None,
         team_id: str | None = None,
     ) -> McpExecuteResponse:
+        # Direct sandbox transport: project scoping comes from the token's
+        # claims, so team_id is intentionally not forwarded.
         transport = self._direct_transport()
         if transport is not None:
             return transport.execute(server_id, tool_name, arguments, ref=ref)
@@ -128,6 +130,7 @@ class MCP:
         *,
         team_id: str | None = None,
     ) -> McpExecuteResponse:
+        # See execute(): team_id is token-derived on the direct transport.
         transport = self._direct_transport()
         if transport is not None:
             return transport.execute_many(calls)
@@ -211,6 +214,8 @@ class AsyncMCP:
         ref: str | None = None,
         team_id: str | None = None,
     ) -> McpExecuteResponse:
+        # Direct sandbox transport: project scoping comes from the token's
+        # claims, so team_id is intentionally not forwarded.
         transport = self._direct_transport()
         if transport is not None:
             return await transport.execute_async(server_id, tool_name, arguments, ref=ref)
@@ -230,6 +235,7 @@ class AsyncMCP:
         *,
         team_id: str | None = None,
     ) -> McpExecuteResponse:
+        # See execute(): team_id is token-derived on the direct transport.
         transport = self._direct_transport()
         if transport is not None:
             return await transport.execute_many_async(calls)

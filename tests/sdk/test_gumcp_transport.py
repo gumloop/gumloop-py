@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 from typing import Any
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
@@ -48,18 +49,15 @@ def test_execute_falls_back_to_http_without_gumcp_env(client: Gumloop, monkeypat
     assert request_json(route.calls[0].request)["calls"][0]["server_id"] == "gmail"
 
 
-def test_missing_gumcp_client_package_raises(gumcp_env: None) -> None:
+def test_missing_gumcp_client_package_raises(gumcp_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    # sys.modules[name] = None makes `from gumcp_client import AsyncClient`
+    # raise ImportError — exercises the real conversion, not a mock of it.
+    monkeypatch.setitem(sys.modules, "gumcp_client", None)
     transport = GumcpTransport()
 
-    def _missing() -> Any:
-        raise GumloopError(
-            "GUMCP_ACCESS_TOKEN is set but gumcp_client is not installed. "
-            "Install gumcp-client in the sandbox, or unset GUMCP_* to use the HTTP API."
-        )
-
-    with patch("gumloop._gumcp_transport._import_async_client", side_effect=_missing):
-        with pytest.raises(GumloopError, match="gumcp_client is not installed"):
-            transport.execute("gmail", "read_emails", {})
+    with pytest.raises(GumloopError, match="gumcp_client is not installed"):
+        transport.execute("gmail", "read_emails", {})
+    transport.close()
 
 
 def test_two_executes_reuse_one_client(gumcp_env: None) -> None:
@@ -214,3 +212,206 @@ def test_http_path_still_used_when_gumcp_env_absent_for_execute_many(
 
     client.mcp.execute_many([{"server_id": "gmail", "tool_name": "read_emails", "arguments": {}}])
     assert route.call_count == 1
+
+
+def test_cancel_scope_error_maps_and_keeps_session(gumcp_env: None) -> None:
+    """anyio cancel-scope failures become per-tool results; the session is kept
+    (transport-level self-healing lives in gumcp_client, not here)."""
+    mock_client = MagicMock()
+    mock_client.call_tool = AsyncMock(
+        side_effect=[asyncio.CancelledError("cancel scope corrupted"), ["ok"]]
+    )
+    mock_client.close = AsyncMock()
+    construct_count = {"n": 0}
+
+    def _factory(**_kwargs: Any) -> Any:
+        construct_count["n"] += 1
+        return mock_client
+
+    with patch("gumloop._gumcp_transport._import_async_client", return_value=_factory):
+        client = Gumloop(access_token="http-token")
+        first = client.mcp.execute("gmail", "read_emails", {}).results[0]
+        second = client.mcp.execute("gmail", "read_emails", {}).results[0]
+        client.close()
+
+    assert first.status == "error"
+    assert first.error is not None and first.error["code"] == "mcp_server_connection_failed"
+    assert second.status == "success"
+    assert construct_count["n"] == 1  # same session served both calls
+
+
+def test_real_cancellation_is_reraised(gumcp_env: None) -> None:
+    mock_client = MagicMock()
+    mock_client.call_tool = AsyncMock(side_effect=asyncio.CancelledError())
+    mock_client.close = AsyncMock()
+
+    async def run() -> None:
+        transport = GumcpTransport()
+        with patch("gumloop._gumcp_transport._import_async_client", return_value=lambda **_: mock_client):
+            with pytest.raises(asyncio.CancelledError):
+                await transport.call_one("gmail", "read_emails", {})
+        await transport.aclose()
+
+    asyncio.run(run())
+
+
+def test_system_exit_is_not_swallowed(gumcp_env: None) -> None:
+    mock_client = MagicMock()
+    mock_client.call_tool = AsyncMock(side_effect=SystemExit(1))
+    mock_client.close = AsyncMock()
+
+    with patch("gumloop._gumcp_transport._import_async_client", return_value=lambda **_: mock_client):
+        client = Gumloop(access_token="http-token")
+        with pytest.raises(SystemExit):
+            client.mcp.execute("gmail", "read_emails", {})
+        client.close()
+
+
+def test_sync_calls_share_one_event_loop(gumcp_env: None) -> None:
+    """The property that makes reuse valid with real clients: every sync
+    execute drives the same loop, so connections never outlive their loop."""
+    seen_loops: list[int] = []
+
+    class LoopRecordingClient:
+        def __init__(self, **_kwargs: Any) -> None:
+            pass
+
+        async def call_tool(self, _tool: str, _args: dict[str, Any]) -> list[str]:
+            seen_loops.append(id(asyncio.get_running_loop()))
+            return ["ok"]
+
+        async def close(self) -> None:
+            pass
+
+    with patch("gumloop._gumcp_transport._import_async_client", return_value=LoopRecordingClient):
+        client = Gumloop(access_token="http-token")
+        client.mcp.execute("gmail", "a", {})
+        client.mcp.execute("gmail", "b", {})
+        client.close()
+
+    assert len(seen_loops) == 2
+    assert seen_loops[0] == seen_loops[1]
+
+
+def test_factory_receives_gumcp_config(gumcp_env: None) -> None:
+    """GUMCP_CONFIG carries server_routes — dropping it silently breaks
+    gumstack/custom-MCP calls."""
+    captured: dict[str, Any] = {}
+
+    def _factory(**kwargs: Any) -> Any:
+        captured.update(kwargs)
+        mock_client = MagicMock()
+        mock_client.call_tool = AsyncMock(return_value=["ok"])
+        mock_client.close = AsyncMock()
+        return mock_client
+
+    with patch("gumloop._gumcp_transport._import_async_client", return_value=_factory):
+        client = Gumloop(access_token="http-token")
+        client.mcp.execute("gmail", "read_emails", {})
+        client.close()
+
+    assert captured["config"] == {"allowed_servers": ["gmail"], "server_routes": {}}
+
+
+def test_sync_execute_inside_running_loop_uses_nest_asyncio(gumcp_env: None) -> None:
+    """Chat kernels call sync execute from within a running loop (Jupyter)."""
+    pytest.importorskip("nest_asyncio")
+    mock_client = MagicMock()
+    mock_client.call_tool = AsyncMock(return_value=["nested-ok"])
+    mock_client.close = AsyncMock()
+
+    async def kernel_cell() -> Any:
+        with patch("gumloop._gumcp_transport._import_async_client", return_value=lambda **_: mock_client):
+            client = Gumloop(access_token="http-token")
+            resp = client.mcp.execute("gmail", "read_emails", {})
+            client.close()
+            return resp
+
+    resp = asyncio.run(kernel_cell())
+    assert resp.results[0].content == ["nested-ok"]
+
+
+def test_sync_execute_inside_running_loop_without_nest_asyncio(
+    gumcp_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setitem(sys.modules, "nest_asyncio", None)
+    mock_client = MagicMock()
+    mock_client.call_tool = AsyncMock(return_value=["ok"])
+    mock_client.close = AsyncMock()
+
+    async def kernel_cell() -> None:
+        with patch("gumloop._gumcp_transport._import_async_client", return_value=lambda **_: mock_client):
+            client = Gumloop(access_token="http-token")
+            with pytest.raises(GumloopError, match="nest_asyncio"):
+                client.mcp.execute("gmail", "read_emails", {})
+
+    asyncio.run(kernel_cell())
+
+
+def test_close_on_unused_transport_is_a_noop(gumcp_env: None) -> None:
+    transport = GumcpTransport()
+    transport.close()
+    transport.close()  # idempotent
+    assert transport._loop is None
+
+    async def run() -> None:
+        fresh = GumcpTransport()
+        await fresh.aclose()
+
+    asyncio.run(run())
+
+
+def test_auth_failure_after_env_rotation_rebuilds_and_retries(gumcp_env: None) -> None:
+    """Token rotates in os.environ while a call is in flight: the stale-token
+    auth error triggers one rebuild+retry instead of surfacing."""
+    import os
+
+    clients: list[Any] = []
+
+    def _factory(**kwargs: Any) -> Any:
+        mock_client = MagicMock()
+        if not clients:
+            async def _fail(_tool: str, _args: dict[str, Any]) -> list[str]:
+                os.environ["GUMCP_ACCESS_TOKEN"] = "gumcp-token-rotated"
+                raise RuntimeError("credentials_not_found: Authentication required")
+
+            mock_client.call_tool = AsyncMock(side_effect=_fail)
+        else:
+            assert kwargs["access_token"] == "gumcp-token-rotated"
+            mock_client.call_tool = AsyncMock(return_value=["ok-after-rotate"])
+        mock_client.close = AsyncMock()
+        clients.append(mock_client)
+        return mock_client
+
+    with patch("gumloop._gumcp_transport._import_async_client", return_value=_factory):
+        client = Gumloop(access_token="http-token")
+        result = client.mcp.execute("gmail", "read_emails", {}).results[0]
+        client.close()
+
+    assert result.status == "success"
+    assert result.content == ["ok-after-rotate"]
+    assert len(clients) == 2
+    clients[0].close.assert_awaited()
+
+
+def test_auth_failure_without_rotation_is_not_retried(gumcp_env: None) -> None:
+    call_count = {"n": 0}
+
+    def _factory(**_kwargs: Any) -> Any:
+        mock_client = MagicMock()
+
+        async def _fail(_tool: str, _args: dict[str, Any]) -> list[str]:
+            call_count["n"] += 1
+            raise RuntimeError("credentials_not_found")
+
+        mock_client.call_tool = AsyncMock(side_effect=_fail)
+        mock_client.close = AsyncMock()
+        return mock_client
+
+    with patch("gumloop._gumcp_transport._import_async_client", return_value=_factory):
+        client = Gumloop(access_token="http-token")
+        result = client.mcp.execute("gmail", "read_emails", {}).results[0]
+        client.close()
+
+    assert result.status == "unauthenticated"
+    assert call_count["n"] == 1  # no blind retry loop
