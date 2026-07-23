@@ -253,16 +253,26 @@ def test_real_cancellation_is_reraised(gumcp_env: None) -> None:
     asyncio.run(run())
 
 
-def test_system_exit_is_not_swallowed(gumcp_env: None) -> None:
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")
+def test_system_exit_kills_loop_and_transport_recovers(gumcp_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    """SystemExit escapes the loop thread; the caller gets an error (not a
+    hang) and the next call gets a fresh loop."""
+    import gumloop._gumcp_transport as transport_mod
+
+    monkeypatch.setattr(transport_mod, "_LIVENESS_POLL_SECONDS", 0.05)
     mock_client = MagicMock()
-    mock_client.call_tool = AsyncMock(side_effect=SystemExit(1))
+    mock_client.call_tool = AsyncMock(side_effect=[SystemExit(1), ["recovered"]])
     mock_client.close = AsyncMock()
 
     with patch("gumloop._gumcp_transport._import_async_client", return_value=lambda **_: mock_client):
         client = Gumloop(access_token="http-token")
-        with pytest.raises(SystemExit):
+        with pytest.raises(RuntimeError, match="loop thread died"):
             client.mcp.execute("gmail", "read_emails", {})
+        result = client.mcp.execute("gmail", "read_emails", {}).results[0]
         client.close()
+
+    assert result.status == "success"
+    assert result.content == ["recovered"]
 
 
 def test_sync_calls_share_one_event_loop(gumcp_env: None) -> None:
@@ -309,9 +319,10 @@ def test_factory_receives_gumcp_config(gumcp_env: None) -> None:
     assert captured["config"] == {"allowed_servers": ["gmail"], "server_routes": {}}
 
 
-def test_sync_execute_inside_running_loop_uses_nest_asyncio(gumcp_env: None) -> None:
-    """Chat kernels call sync execute from within a running loop (Jupyter)."""
-    pytest.importorskip("nest_asyncio")
+def test_sync_execute_inside_running_loop(gumcp_env: None) -> None:
+    """Chat kernels call sync execute from within a running loop (Jupyter):
+    the calling thread blocks while the transport thread does the work —
+    no nest_asyncio needed."""
     mock_client = MagicMock()
     mock_client.call_tool = AsyncMock(return_value=["nested-ok"])
     mock_client.close = AsyncMock()
@@ -327,21 +338,38 @@ def test_sync_execute_inside_running_loop_uses_nest_asyncio(gumcp_env: None) -> 
     assert resp.results[0].content == ["nested-ok"]
 
 
-def test_sync_execute_inside_running_loop_without_nest_asyncio(
-    gumcp_env: None, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setitem(sys.modules, "nest_asyncio", None)
-    mock_client = MagicMock()
-    mock_client.call_tool = AsyncMock(return_value=["ok"])
-    mock_client.close = AsyncMock()
+def test_threaded_fanout_shares_one_session_safely(gumcp_env: None) -> None:
+    """Legacy generated scripts parallelize with ThreadPoolExecutor: all
+    threads must share one client on one loop with no RuntimeError."""
+    from concurrent.futures import ThreadPoolExecutor
 
-    async def kernel_cell() -> None:
-        with patch("gumloop._gumcp_transport._import_async_client", return_value=lambda **_: mock_client):
-            client = Gumloop(access_token="http-token")
-            with pytest.raises(GumloopError, match="nest_asyncio"):
-                client.mcp.execute("gmail", "read_emails", {})
+    seen_loops: list[int] = []
+    construct_count = {"n": 0}
 
-    asyncio.run(kernel_cell())
+    class LoopRecordingClient:
+        def __init__(self, **_kwargs: Any) -> None:
+            construct_count["n"] += 1
+
+        async def call_tool(self, tool: str, _args: dict[str, Any]) -> list[str]:
+            seen_loops.append(id(asyncio.get_running_loop()))
+            await asyncio.sleep(0.01)  # force overlap between threads
+            return [tool]
+
+        async def close(self) -> None:
+            pass
+
+    with patch("gumloop._gumcp_transport._import_async_client", return_value=LoopRecordingClient):
+        client = Gumloop(access_token="http-token")
+        with ThreadPoolExecutor(max_workers=4) as ex:
+            futures = [
+                ex.submit(client.mcp.execute, "gmail", f"tool_{i}", {}) for i in range(8)
+            ]
+            results = [f.result().results[0] for f in futures]
+        client.close()
+
+    assert all(r.status == "success" for r in results)
+    assert construct_count["n"] == 1  # one shared session
+    assert len(set(seen_loops)) == 1  # everything ran on the transport loop
 
 
 def test_close_on_unused_transport_is_a_noop(gumcp_env: None) -> None:

@@ -44,7 +44,6 @@ Homepage = "https://github.com/gumloop/gumloop-py"
 
 [dependency-groups]
 dev = [
-    "nest-asyncio>=1.6.0",
     "pre-commit>=2.21.0",
     "pyright>=1.1.409",
     "pytest>=7.4.4",

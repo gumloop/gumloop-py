@@ -15,7 +15,9 @@ import asyncio
 import json
 import os
 import re
+import threading
 from collections.abc import Sequence
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from typing import Any
 
 from gumloop.errors import GumloopError
@@ -25,6 +27,7 @@ from gumloop.types import McpToolCallResult
 
 _MAX_BATCH = 5
 _HTTP_STATUS_RE = re.compile(r"HTTP\s+(\d{3})")
+_LIVENESS_POLL_SECONDS = 1.0
 
 
 def gumcp_env_ready() -> bool:
@@ -220,6 +223,9 @@ class GumcpTransport:
         self._client: Any | None = None
         self._fingerprint: tuple[str, str, str] | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
+        self._loop_thread: threading.Thread | None = None
+        self._loop_lock = threading.Lock()
+        self._session_lock = asyncio.Lock()
 
     def _current_fingerprint(self) -> tuple[str, str, str]:
         token = os.environ.get("GUMCP_ACCESS_TOKEN") or ""
@@ -227,7 +233,7 @@ class GumcpTransport:
         config_raw = os.environ.get("GUMCP_CONFIG") or ""
         return (token, base_url, config_raw)
 
-    async def _close_client(self) -> None:
+    async def _close_client_unlocked(self) -> None:
         client = self._client
         self._client = None
         self._fingerprint = None
@@ -238,30 +244,37 @@ class GumcpTransport:
         except Exception:
             pass
 
+    async def _close_client(self) -> None:
+        async with self._session_lock:
+            await self._close_client_unlocked()
+
     async def _ensure_client(self) -> Any:
         fingerprint = self._current_fingerprint()
         token, base_url, _config_raw = fingerprint
         if not token or not base_url:
             raise GumloopError("GUMCP_ACCESS_TOKEN and GUMCP_BASE_URL are required for direct MCP transport")
 
-        if self._client is not None and self._fingerprint == fingerprint:
+        # Serialize build/rebuild: concurrent callers must never double-build
+        # (the loser's client would leak unclosed).
+        async with self._session_lock:
+            if self._client is not None and self._fingerprint == fingerprint:
+                return self._client
+
+            await self._close_client_unlocked()
+
+            AsyncClient = _import_async_client()
+            user_id = os.environ.get("GUMCP_USER_ID")
+            self._client = AsyncClient(
+                server_id=None,
+                user_id=user_id,
+                access_token=token,
+                base_url=base_url,
+                config=_load_config(),
+                auto_connect=False,
+                client_name="gumloop",
+            )
+            self._fingerprint = fingerprint
             return self._client
-
-        await self._close_client()
-
-        AsyncClient = _import_async_client()
-        user_id = os.environ.get("GUMCP_USER_ID")
-        self._client = AsyncClient(
-            server_id=None,
-            user_id=user_id,
-            access_token=token,
-            base_url=base_url,
-            config=_load_config(),
-            auto_connect=False,
-            client_name="gumloop",
-        )
-        self._fingerprint = fingerprint
-        return self._client
 
     async def call_one(
         self,
@@ -343,29 +356,58 @@ class GumcpTransport:
         result = await self.call_one(server_id, tool_name, arguments, ref=ref, fallback_ref="0")
         return McpExecuteResponse(results=[result])
 
-    def _get_loop(self) -> asyncio.AbstractEventLoop:
-        if self._loop is None or self._loop.is_closed():
-            self._loop = asyncio.new_event_loop()
-        return self._loop
+    @staticmethod
+    def _run_loop(loop: asyncio.AbstractEventLoop) -> None:
+        try:
+            loop.run_forever()
+        finally:
+            loop.close()
+
+    def _get_loop(self) -> tuple[asyncio.AbstractEventLoop, threading.Thread]:
+        with self._loop_lock:
+            if (
+                self._loop is None
+                or self._loop.is_closed()
+                or self._loop_thread is None
+                or not self._loop_thread.is_alive()
+            ):
+                loop = asyncio.new_event_loop()
+                thread = threading.Thread(
+                    target=self._run_loop, args=(loop,), name="gumloop-mcp-transport", daemon=True
+                )
+                thread.start()
+                self._loop = loop
+                self._loop_thread = thread
+            return self._loop, self._loop_thread
 
     def _run(self, coro: Any) -> Any:
-        # Sync callers own one loop; inside a running loop (Jupyter),
-        # nest_asyncio must patch THIS loop — no-arg apply() patches the running one.
-        loop = self._get_loop()
+        # One background loop thread serves all sync callers: threads share the
+        # session safely, and a call from inside a running loop (Jupyter) just
+        # blocks its own thread while the transport thread does the work.
+        loop, thread = self._get_loop()
         try:
-            asyncio.get_running_loop()
-        except RuntimeError:
-            return loop.run_until_complete(coro)
-        try:
-            import nest_asyncio
-        except ImportError as import_exc:
+            future = asyncio.run_coroutine_threadsafe(coro, loop)
+        except BaseException:
             coro.close()
-            raise GumloopError(
-                "Direct MCP transport needs nest_asyncio inside a running event loop "
-                "(e.g. Jupyter). Install nest_asyncio or call from AsyncGumloop."
-            ) from import_exc
-        nest_asyncio.apply(loop)
-        return loop.run_until_complete(coro)
+            raise
+        # If the loop thread dies mid-flight the future never resolves — poll
+        # liveness instead of blocking forever.
+        while True:
+            try:
+                return future.result(timeout=_LIVENESS_POLL_SECONDS)
+            except FutureTimeoutError:
+                if not thread.is_alive():
+                    raise RuntimeError("MCP transport loop thread died while awaiting result") from None
+
+    def _stop_loop(self) -> None:
+        with self._loop_lock:
+            loop, thread = self._loop, self._loop_thread
+            self._loop = None
+            self._loop_thread = None
+        if loop is not None and not loop.is_closed():
+            loop.call_soon_threadsafe(loop.stop)  # the thread's finally closes it
+        if thread is not None:
+            thread.join(timeout=5)
 
     def execute(
         self,
@@ -390,14 +432,10 @@ class GumcpTransport:
             self._run(self._close_client())
         except Exception:
             pass
-        if self._loop is not None and not self._loop.is_closed():
-            self._loop.close()
-        self._loop = None
+        self._stop_loop()
 
     async def aclose(self) -> None:
         if self._client is None and self._loop is None:
             return
         await self._close_client()
-        if self._loop is not None and not self._loop.is_closed():
-            self._loop.close()
-        self._loop = None
+        self._stop_loop()
