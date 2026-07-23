@@ -98,6 +98,7 @@ class Gumloop:
         self.oauth = OAuth(base_url=self.base_url, timeout=self.timeout)
 
     def close(self) -> None:
+        self.mcp.close()
         self._http.close()
 
     def __enter__(self) -> Gumloop:
@@ -161,6 +162,7 @@ class AsyncGumloop:
         await self.aclose()
 
     async def aclose(self) -> None:
+        await self.mcp.aclose()
         await self._http.aclose()
 
 
