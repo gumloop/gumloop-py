@@ -50,8 +50,7 @@ def test_execute_falls_back_to_http_without_gumcp_env(client: Gumloop, monkeypat
 
 
 def test_missing_gumcp_client_package_raises(gumcp_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
-    # sys.modules[name] = None makes `from gumcp_client import AsyncClient`
-    # raise ImportError — exercises the real conversion, not a mock of it.
+    # sys.modules[name] = None forces a real ImportError on import.
     monkeypatch.setitem(sys.modules, "gumcp_client", None)
     transport = GumcpTransport()
 
@@ -215,8 +214,7 @@ def test_http_path_still_used_when_gumcp_env_absent_for_execute_many(
 
 
 def test_cancel_scope_error_maps_and_keeps_session(gumcp_env: None) -> None:
-    """anyio cancel-scope failures become per-tool results; the session is kept
-    (transport-level self-healing lives in gumcp_client, not here)."""
+    """Cancel-scope failures map to results; the session is kept."""
     mock_client = MagicMock()
     mock_client.call_tool = AsyncMock(
         side_effect=[asyncio.CancelledError("cancel scope corrupted"), ["ok"]]
@@ -268,8 +266,7 @@ def test_system_exit_is_not_swallowed(gumcp_env: None) -> None:
 
 
 def test_sync_calls_share_one_event_loop(gumcp_env: None) -> None:
-    """The property that makes reuse valid with real clients: every sync
-    execute drives the same loop, so connections never outlive their loop."""
+    """Every sync execute drives the same loop, so connections never outlive it."""
     seen_loops: list[int] = []
 
     class LoopRecordingClient:
@@ -294,8 +291,7 @@ def test_sync_calls_share_one_event_loop(gumcp_env: None) -> None:
 
 
 def test_factory_receives_gumcp_config(gumcp_env: None) -> None:
-    """GUMCP_CONFIG carries server_routes — dropping it silently breaks
-    gumstack/custom-MCP calls."""
+    """GUMCP_CONFIG carries server_routes; dropping it breaks gumstack/custom MCP."""
     captured: dict[str, Any] = {}
 
     def _factory(**kwargs: Any) -> Any:
@@ -362,8 +358,7 @@ def test_close_on_unused_transport_is_a_noop(gumcp_env: None) -> None:
 
 
 def test_auth_failure_after_env_rotation_rebuilds_and_retries(gumcp_env: None) -> None:
-    """Token rotates in os.environ while a call is in flight: the stale-token
-    auth error triggers one rebuild+retry instead of surfacing."""
+    """Mid-flight env token rotation triggers one rebuild+retry."""
     import os
 
     clients: list[Any] = []

@@ -131,11 +131,6 @@ def _map_exception(exc: BaseException, *, ref: str, server_id: str, tool_name: s
             details={"server_id": server_id, "tool_name": tool_name},
         )
 
-    # Substring classification of guMCP error text is inherently fragile;
-    # it narrows once the restricted-tools claim rides the token and guMCP
-    # rejects with structured errors. Unlike the HTTP path, auth_required
-    # details cannot include gumloop_auth_url here (that came from the
-    # backend catalog).
     if (
         "not permitted" in lower
         or "not allowed" in lower
@@ -295,8 +290,7 @@ class GumcpTransport:
         except GumloopError:
             raise
         except asyncio.CancelledError as exc:
-            # Preserve real task cancellation; only the known anyio cancel-scope
-            # transport failure becomes a per-tool result.
+            # Real cancellation propagates; only the anyio cancel-scope failure maps.
             if "cancel scope" not in str(exc):
                 raise
             return _map_exception(exc, ref=result_ref, server_id=server_id, tool_name=tool_name)
@@ -307,10 +301,7 @@ class GumcpTransport:
                 and result.status == "unauthenticated"
                 and self._current_fingerprint() != self._fingerprint
             ):
-                # The env token rotated while this client was in flight (chat
-                # kernels sync rotated tokens into os.environ): rebuild against
-                # the fresh env and retry once instead of surfacing a stale-token
-                # auth error.
+                # Env token rotated mid-flight: rebuild once and retry.
                 await self._close_client()
                 return await self.call_one(
                     server_id,
@@ -358,12 +349,8 @@ class GumcpTransport:
         return self._loop
 
     def _run(self, coro: Any) -> Any:
-        # Mirror gumcp_client.Client: own a loop for sync callers. Inside an
-        # already-running loop (Jupyter / chat kernels) run_until_complete is
-        # illegal, so detect that case directly — CPython's error message
-        # differs between same-loop and other-loop re-entry, so string
-        # matching is not reliable — and nest_asyncio-patch OUR loop (apply()
-        # with no args patches the running loop, not this one).
+        # Sync callers own one loop; inside a running loop (Jupyter),
+        # nest_asyncio must patch THIS loop — no-arg apply() patches the running one.
         loop = self._get_loop()
         try:
             asyncio.get_running_loop()
