@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
+from gumloop._gumcp_transport import GumcpTransport
+from gumloop._gumcp_transport import gumcp_env_ready
 from gumloop._http import AsyncHttpClient
 from gumloop._http import HttpClient
 from gumloop.types import McpExecuteResponse
@@ -32,6 +34,19 @@ def _call_body(calls: Sequence[McpToolCallRequest | dict[str, Any]], team_id: st
 class MCP:
     def __init__(self, client: HttpClient) -> None:
         self._client = client
+        self._gumcp: GumcpTransport | None = None
+
+    def _direct_transport(self) -> GumcpTransport | None:
+        if not gumcp_env_ready():
+            return None
+        if self._gumcp is None:
+            self._gumcp = GumcpTransport()
+        return self._gumcp
+
+    def close(self) -> None:
+        if self._gumcp is not None:
+            self._gumcp.close()
+            self._gumcp = None
 
     def list_servers(self, *, team_id: str | None = None, **kwargs: Any) -> McpServersResponse:
         return McpServersResponse.model_validate(self._client.get("mcp/servers", params={"team_id": team_id, **kwargs}))
@@ -95,6 +110,10 @@ class MCP:
         ref: str | None = None,
         team_id: str | None = None,
     ) -> McpExecuteResponse:
+        # Direct transport: team_id comes from the token.
+        transport = self._direct_transport()
+        if transport is not None:
+            return transport.execute(server_id, tool_name, arguments, ref=ref)
         team_id = team_id if team_id is not None else self._client.team_id
         call = McpToolCallRequest(
             server_id=server_id,
@@ -110,6 +129,9 @@ class MCP:
         *,
         team_id: str | None = None,
     ) -> McpExecuteResponse:
+        transport = self._direct_transport()
+        if transport is not None:
+            return transport.execute_many(calls)
         team_id = team_id if team_id is not None else self._client.team_id
         return McpExecuteResponse.model_validate(self._client.post("mcp/tools/call", json=_call_body(calls, team_id)))
 
@@ -117,6 +139,19 @@ class MCP:
 class AsyncMCP:
     def __init__(self, client: AsyncHttpClient) -> None:
         self._client = client
+        self._gumcp: GumcpTransport | None = None
+
+    def _direct_transport(self) -> GumcpTransport | None:
+        if not gumcp_env_ready():
+            return None
+        if self._gumcp is None:
+            self._gumcp = GumcpTransport()
+        return self._gumcp
+
+    async def aclose(self) -> None:
+        if self._gumcp is not None:
+            await self._gumcp.aclose()
+            self._gumcp = None
 
     async def list_servers(self, *, team_id: str | None = None, **kwargs: Any) -> McpServersResponse:
         data = await self._client.get("mcp/servers", params={"team_id": team_id, **kwargs})
@@ -177,6 +212,10 @@ class AsyncMCP:
         ref: str | None = None,
         team_id: str | None = None,
     ) -> McpExecuteResponse:
+        # Direct transport: team_id comes from the token.
+        transport = self._direct_transport()
+        if transport is not None:
+            return await transport.execute_async(server_id, tool_name, arguments, ref=ref)
         team_id = team_id if team_id is not None else self._client.team_id
         call = McpToolCallRequest(
             server_id=server_id,
@@ -193,6 +232,9 @@ class AsyncMCP:
         *,
         team_id: str | None = None,
     ) -> McpExecuteResponse:
+        transport = self._direct_transport()
+        if transport is not None:
+            return await transport.execute_many_async(calls)
         team_id = team_id if team_id is not None else self._client.team_id
         data = await self._client.post("mcp/tools/call", json=_call_body(calls, team_id))
         return McpExecuteResponse.model_validate(data)
