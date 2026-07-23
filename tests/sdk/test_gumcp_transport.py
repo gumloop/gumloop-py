@@ -139,9 +139,7 @@ def test_execute_many_rejects_more_than_five(gumcp_env: None) -> None:
     with patch("gumloop._gumcp_transport._import_async_client", return_value=MagicMock):
         client = Gumloop(access_token="http-token")
         with pytest.raises(ValueError, match="cannot exceed 5"):
-            client.mcp.execute_many(
-                [{"server_id": "gmail", "tool_name": f"t{i}", "arguments": {}} for i in range(6)]
-            )
+            client.mcp.execute_many([{"server_id": "gmail", "tool_name": f"t{i}", "arguments": {}} for i in range(6)])
 
 
 def test_error_mapping_auth_and_not_allowed(gumcp_env: None) -> None:
@@ -216,9 +214,7 @@ def test_http_path_still_used_when_gumcp_env_absent_for_execute_many(
 def test_cancel_scope_error_maps_and_keeps_session(gumcp_env: None) -> None:
     """Cancel-scope failures map to results; the session is kept."""
     mock_client = MagicMock()
-    mock_client.call_tool = AsyncMock(
-        side_effect=[asyncio.CancelledError("cancel scope corrupted"), ["ok"]]
-    )
+    mock_client.call_tool = AsyncMock(side_effect=[asyncio.CancelledError("cancel scope corrupted"), ["ok"]])
     mock_client.close = AsyncMock()
     construct_count = {"n": 0}
 
@@ -361,9 +357,7 @@ def test_threaded_fanout_shares_one_session_safely(gumcp_env: None) -> None:
     with patch("gumloop._gumcp_transport._import_async_client", return_value=LoopRecordingClient):
         client = Gumloop(access_token="http-token")
         with ThreadPoolExecutor(max_workers=4) as ex:
-            futures = [
-                ex.submit(client.mcp.execute, "gmail", f"tool_{i}", {}) for i in range(8)
-            ]
+            futures = [ex.submit(client.mcp.execute, "gmail", f"tool_{i}", {}) for i in range(8)]
             results = [f.result().results[0] for f in futures]
         client.close()
 
@@ -394,6 +388,7 @@ def test_auth_failure_after_env_rotation_rebuilds_and_retries(gumcp_env: None) -
     def _factory(**kwargs: Any) -> Any:
         mock_client = MagicMock()
         if not clients:
+
             async def _fail(_tool: str, _args: dict[str, Any]) -> list[str]:
                 os.environ["GUMCP_ACCESS_TOKEN"] = "gumcp-token-rotated"
                 raise RuntimeError("credentials_not_found: Authentication required")
