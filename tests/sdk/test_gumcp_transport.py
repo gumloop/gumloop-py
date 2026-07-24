@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import os
 import sys
+from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
@@ -313,6 +316,75 @@ def test_factory_receives_gumcp_config(gumcp_env: None) -> None:
         client.close()
 
     assert captured["config"] == {"allowed_servers": ["gmail"], "server_routes": {}}
+
+
+def test_factory_config_resolves_server_routes_file(
+    gumcp_env: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """server_routes ship as a file (too large for the exec env); the client must see them inline."""
+    routes = {
+        "gs-1": {"base_url": "https://gs-1/mcp", "headers": {"Authorization": "Bearer t"}, "server_type": "gumstack"},
+        "srv-1": {"alias_of": "gs-1"},
+    }
+    routes_file = tmp_path / ".gumcp_server_routes.json"
+    routes_file.write_text(json.dumps(routes))
+    monkeypatch.setenv(
+        "GUMCP_CONFIG",
+        json.dumps({"allowed_servers": ["gs-1"], "server_routes_file": str(routes_file)}),
+    )
+    captured: dict[str, Any] = {}
+
+    def _factory(**kwargs: Any) -> Any:
+        captured.update(kwargs)
+        mock_client = MagicMock()
+        mock_client.call_tool = AsyncMock(return_value=["ok"])
+        mock_client.close = AsyncMock()
+        return mock_client
+
+    with patch("gumloop._gumcp_transport._import_async_client", return_value=_factory):
+        client = Gumloop(access_token="http-token")
+        client.mcp.execute("gs-1", "some_tool", {})
+        client.close()
+
+    assert captured["config"]["server_routes"] == routes
+
+
+@pytest.mark.parametrize("file_state", ["missing", "malformed"])
+def test_load_config_tolerates_bad_routes_file(
+    gumcp_env: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, file_state: str
+) -> None:
+    from gumloop._gumcp_transport import _load_config
+
+    routes_file = tmp_path / ".gumcp_server_routes.json"
+    if file_state == "malformed":
+        routes_file.write_text("not-json{{{")
+    monkeypatch.setenv(
+        "GUMCP_CONFIG",
+        json.dumps({"allowed_servers": ["gs-1"], "server_routes_file": str(routes_file)}),
+    )
+
+    config = _load_config()
+
+    assert "server_routes" not in config
+    assert config["allowed_servers"] == ["gs-1"]
+
+
+def test_fingerprint_changes_when_routes_file_changes(
+    gumcp_env: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A refreshed per-call routes file must rebuild the cached client."""
+    transport = GumcpTransport()
+    routes_file = tmp_path / ".gumcp_server_routes.json"
+    routes_file.write_text(json.dumps({"gs-1": {"base_url": "u", "headers": {}, "server_type": "gumstack"}}))
+    monkeypatch.setenv("GUMCP_CONFIG", json.dumps({"server_routes_file": str(routes_file)}))
+
+    first = transport._current_fingerprint()
+    mtime = routes_file.stat().st_mtime
+    os.utime(routes_file, (mtime + 10, mtime + 10))
+    second = transport._current_fingerprint()
+
+    assert first != second
+    assert first[:3] == second[:3]
 
 
 def test_sync_execute_inside_running_loop(gumcp_env: None) -> None:
