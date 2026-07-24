@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import sys
 from pathlib import Path
@@ -350,8 +351,12 @@ def test_factory_config_resolves_server_routes_file(
 
 
 @pytest.mark.parametrize("file_state", ["missing", "malformed"])
-def test_load_config_tolerates_bad_routes_file(
-    gumcp_env: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, file_state: str
+def test_load_config_warns_and_degrades_on_bad_routes_file(
+    gumcp_env: None,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    file_state: str,
 ) -> None:
     from gumloop._gumcp_transport import _load_config
 
@@ -363,10 +368,12 @@ def test_load_config_tolerates_bad_routes_file(
         json.dumps({"allowed_servers": ["gs-1"], "server_routes_file": str(routes_file)}),
     )
 
-    config = _load_config()
+    with caplog.at_level(logging.WARNING, logger="gumloop._gumcp_transport"):
+        config = _load_config()
 
     assert "server_routes" not in config
     assert config["allowed_servers"] == ["gs-1"]
+    assert str(routes_file) in caplog.text
 
 
 def test_fingerprint_changes_when_routes_file_changes(

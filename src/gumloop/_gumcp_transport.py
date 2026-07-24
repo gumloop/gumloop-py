@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import re
 import threading
@@ -25,6 +26,8 @@ from gumloop.errors import GumloopError
 from gumloop.types import McpExecuteResponse
 from gumloop.types import McpToolCallRequest
 from gumloop.types import McpToolCallResult
+
+logger = logging.getLogger(__name__)
 
 _MAX_BATCH = 5
 _HTTP_STATUS_RE = re.compile(r"HTTP\s+(\d{3})")
@@ -57,14 +60,12 @@ def _load_config() -> dict[str, Any]:
         return {}
     if not isinstance(parsed, dict):
         return {}
-    # server_routes ship as a sandbox file (too large for the exec env);
-    # resolve the pointer so the client sees inline routes.
     routes_file = parsed.get("server_routes_file")
     if routes_file and not parsed.get("server_routes"):
         try:
             parsed["server_routes"] = json.loads(Path(routes_file).read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
-            pass  # non-routed servers still work; routed calls surface errors
+            logger.warning("unreadable server_routes_file %s; routed servers unavailable", routes_file)
     return parsed
 
 
@@ -254,7 +255,6 @@ class GumcpTransport:
         token = os.environ.get("GUMCP_ACCESS_TOKEN") or ""
         base_url = (os.environ.get("GUMCP_BASE_URL") or "").rstrip("/")
         config_raw = os.environ.get("GUMCP_CONFIG") or ""
-        # routes-file mtime: a refreshed per-call file must rebuild the client
         return (token, base_url, config_raw, _routes_file_mtime())
 
     async def _close_client_unlocked(self) -> None:
