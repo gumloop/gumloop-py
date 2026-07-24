@@ -18,6 +18,7 @@ import re
 import threading
 from collections.abc import Sequence
 from concurrent.futures import TimeoutError as FutureTimeoutError
+from pathlib import Path
 from typing import Any
 
 from gumloop.errors import GumloopError
@@ -54,7 +55,34 @@ def _load_config() -> dict[str, Any]:
         parsed = json.loads(raw)
     except (json.JSONDecodeError, TypeError):
         return {}
-    return parsed if isinstance(parsed, dict) else {}
+    if not isinstance(parsed, dict):
+        return {}
+    # server_routes ship as a sandbox file (too large for the exec env);
+    # resolve the pointer so the client sees inline routes.
+    routes_file = parsed.get("server_routes_file")
+    if routes_file and not parsed.get("server_routes"):
+        try:
+            parsed["server_routes"] = json.loads(Path(routes_file).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            pass  # non-routed servers still work; routed calls surface errors
+    return parsed
+
+
+def _routes_file_mtime() -> float:
+    """mtime of the routes file referenced by GUMCP_CONFIG, 0.0 when absent."""
+    raw = os.environ.get("GUMCP_CONFIG") or ""
+    if not raw.startswith("{"):
+        return 0.0
+    try:
+        routes_file = json.loads(raw).get("server_routes_file")
+    except (json.JSONDecodeError, TypeError):
+        return 0.0
+    if not routes_file:
+        return 0.0
+    try:
+        return Path(routes_file).stat().st_mtime
+    except OSError:
+        return 0.0
 
 
 def _normalize_calls(
@@ -216,17 +244,18 @@ class GumcpTransport:
 
     def __init__(self) -> None:
         self._client: Any | None = None
-        self._fingerprint: tuple[str, str, str] | None = None
+        self._fingerprint: tuple[str, str, str, float] | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
         self._loop_thread: threading.Thread | None = None
         self._loop_lock = threading.Lock()
         self._session_lock = asyncio.Lock()
 
-    def _current_fingerprint(self) -> tuple[str, str, str]:
+    def _current_fingerprint(self) -> tuple[str, str, str, float]:
         token = os.environ.get("GUMCP_ACCESS_TOKEN") or ""
         base_url = (os.environ.get("GUMCP_BASE_URL") or "").rstrip("/")
         config_raw = os.environ.get("GUMCP_CONFIG") or ""
-        return (token, base_url, config_raw)
+        # routes-file mtime: a refreshed per-call file must rebuild the client
+        return (token, base_url, config_raw, _routes_file_mtime())
 
     async def _close_client_unlocked(self) -> None:
         client = self._client
@@ -245,7 +274,7 @@ class GumcpTransport:
 
     async def _ensure_client(self) -> Any:
         fingerprint = self._current_fingerprint()
-        token, base_url, _config_raw = fingerprint
+        token, base_url, _config_raw, _routes_mtime = fingerprint
         if not token or not base_url:
             raise GumloopError("GUMCP_ACCESS_TOKEN and GUMCP_BASE_URL are required for direct MCP transport")
 
