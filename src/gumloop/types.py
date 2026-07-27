@@ -169,12 +169,6 @@ class AgentVersionFieldChange(_Model):
     new_value: Any
 
 
-class AgentVersionArrayChange(_Model):
-    field: str
-    old_value: list[Any]
-    new_value: list[Any]
-
-
 class AgentVersionSkillChange(_Model):
     skill_id: str
     status: str
@@ -190,8 +184,6 @@ class AgentVersionKnowledgeSourceChange(_Model):
 class AgentVersionChanges(_Model):
     relationships_unknown: bool
     field_changes: list[AgentVersionFieldChange] = Field(default_factory=list)
-    tools_change: AgentVersionArrayChange | None = None
-    resources_change: AgentVersionArrayChange | None = None
     skill_changes: list[AgentVersionSkillChange] = Field(default_factory=list)
     knowledge_source_changes: list[AgentVersionKnowledgeSourceChange] = Field(default_factory=list)
 

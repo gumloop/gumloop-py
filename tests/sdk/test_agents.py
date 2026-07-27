@@ -154,6 +154,21 @@ def test_agents_get_version_returns_exportable_composition(client: Gumloop) -> N
                             "status": "modified",
                             "old_value": "Be concise.",
                             "new_value": "Be helpful.",
+                        },
+                        {
+                            "field": "tools",
+                            "status": "changed",
+                            "old_value": [{"type": "mcp_server", "name": "Old MCP"}],
+                            "new_value": [{"type": "mcp_server", "name": "New MCP"}],
+                        },
+                    ],
+                    "skill_changes": [{"skill_id": "skill_1", "status": "added"}],
+                    "knowledge_source_changes": [
+                        {
+                            "connector_id": "connector_1",
+                            "status": "changed",
+                            "old_config": None,
+                            "new_config": {"folder_ids": ["folder_1"]},
                         }
                     ],
                 },
@@ -167,6 +182,10 @@ def test_agents_get_version_returns_exportable_composition(client: Gumloop) -> N
     assert result.version.composition.skill_ids == ["skill_1"]
     assert result.changes is not None
     assert result.changes.field_changes[0].field == "system_prompt"
+    assert result.changes.field_changes[1].field == "tools"
+    assert result.changes.field_changes[1].new_value == [{"type": "mcp_server", "name": "New MCP"}]
+    assert result.changes.skill_changes[0].status == "added"
+    assert result.changes.knowledge_source_changes[0].status == "changed"
     assert route.calls[0].request.url.params["team_id"] == "team_123"
 
 
