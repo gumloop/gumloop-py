@@ -129,6 +129,83 @@ class AgentListResponse(_Model):
     next_cursor: str | None = None
 
 
+class AgentVersionKnowledgeSource(_Model):
+    connector_id: str
+    config: dict[str, Any] | None = None
+
+
+class AgentVersionComposition(_Model):
+    complete: bool
+    schema_version: int | None = None
+    name: str
+    description: str | None = None
+    model_name: str
+    system_prompt: str | None = None
+    tools: list[dict[str, Any]] = Field(default_factory=list)
+    resources: list[dict[str, Any]] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    skill_ids: list[str] | None = None
+    knowledge_sources: list[AgentVersionKnowledgeSource] | None = None
+
+
+class AgentVersionSummary(_Model):
+    id: str
+    agent_id: str
+    major_version: int
+    name: str
+    is_deployed: bool | None = None
+    created_at: str | None = None
+    creator: CreatorPayload | None = None
+
+
+class AgentVersion(AgentVersionSummary):
+    composition: AgentVersionComposition
+
+
+class AgentVersionFieldChange(_Model):
+    field: str
+    status: str
+    old_value: Any
+    new_value: Any
+
+
+class AgentVersionArrayChange(_Model):
+    field: str
+    old_value: list[Any]
+    new_value: list[Any]
+
+
+class AgentVersionSkillChange(_Model):
+    skill_id: str
+    status: str
+
+
+class AgentVersionKnowledgeSourceChange(_Model):
+    connector_id: str
+    status: str
+    old_config: Any
+    new_config: Any
+
+
+class AgentVersionChanges(_Model):
+    relationships_unknown: bool
+    field_changes: list[AgentVersionFieldChange] = Field(default_factory=list)
+    tools_change: AgentVersionArrayChange | None = None
+    resources_change: AgentVersionArrayChange | None = None
+    skill_changes: list[AgentVersionSkillChange] = Field(default_factory=list)
+    knowledge_source_changes: list[AgentVersionKnowledgeSourceChange] = Field(default_factory=list)
+
+
+class AgentVersionResponse(_Model):
+    version: AgentVersion
+    changes: AgentVersionChanges | None = None
+
+
+class AgentVersionsResponse(_Model):
+    versions: list[AgentVersionSummary] = Field(default_factory=list)
+    next_cursor: str | None = None
+
+
 # ---------------------------------------------------------------------------
 # Model types
 # ---------------------------------------------------------------------------

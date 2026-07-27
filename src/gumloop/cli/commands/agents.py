@@ -112,6 +112,108 @@ def get_agent(
 
 
 @agents_app.command(
+    "versions",
+    epilog="Examples:\n  gumloop agents versions agent_abc\n  gumloop agents versions agent_abc --limit 50 --json",
+)
+def list_agent_versions(
+    ctx: typer.Context,
+    agent_id: Annotated[str, typer.Argument(help="ID of the agent whose versions should be listed.")],
+    limit: Annotated[
+        int | None,
+        typer.Option("--limit", help="Maximum number of versions to return."),
+    ] = None,
+    cursor: Annotated[
+        str | None,
+        typer.Option("--cursor", help="Pagination cursor from a previous versions call."),
+    ] = None,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Print the raw SDK response as JSON."),
+    ] = False,
+) -> None:
+    """List immutable versions of an agent."""
+    cli: CliContext = ctx.obj
+    try:
+        response = cli.call_with_refresh(
+            lambda client: client.agents.list_versions(
+                agent_id,
+                page_size=limit,
+                cursor=cursor,
+                team_id=cli.effective_team_id,
+            )
+        )
+    except GumloopError as error:
+        exit_with_error(error, json_output=json_output)
+
+    if json_output:
+        print_json(response)
+        return
+
+    if not response.versions:
+        console.print("No agent versions found.")
+    else:
+        console.print("ID", "VERSION", "NAME", "DEPLOYED", "CREATED", sep="\t", soft_wrap=True)
+        for version in response.versions:
+            console.print(
+                version.id,
+                str(version.major_version),
+                version.name,
+                "yes" if version.is_deployed else "no",
+                version.created_at or "",
+                sep="\t",
+                soft_wrap=True,
+            )
+
+    if response.next_cursor:
+        console.print(f"\n[dim]Next cursor:[/dim] {escape_markup(response.next_cursor)}")
+
+
+@agents_app.command(
+    "export",
+    epilog=(
+        "Examples:\n"
+        "  gumloop agents export agent_abc version_123\n"
+        "  gumloop agents export agent_abc version_123 --output agent-version.json"
+    ),
+)
+def export_agent_version(
+    ctx: typer.Context,
+    agent_id: Annotated[str, typer.Argument(help="ID of the agent to export.")],
+    version_id: Annotated[str, typer.Argument(help="ID of the immutable version to export.")],
+    output: Annotated[
+        str | None,
+        typer.Option("-o", "--output", help="File to write. Omit or use '-' for stdout."),
+    ] = None,
+) -> None:
+    """Export one immutable agent version as JSON."""
+    cli: CliContext = ctx.obj
+    try:
+        response = cli.call_with_refresh(
+            lambda client: client.agents.get_version(
+                agent_id,
+                version_id,
+                team_id=cli.effective_team_id,
+            )
+        )
+        if output in (None, "-"):
+            print_json(response)
+            return
+
+        destination = Path(output).expanduser()
+        payload = json.dumps(response.model_dump(mode="json"), sort_keys=True)
+        destination.write_text(f"{payload}\n", encoding="utf-8")
+    except GumloopError as error:
+        exit_with_error(error, json_output=True)
+    except OSError as error:
+        exit_with_error(
+            GumloopError(f"Could not write {output}: {error.strerror or error}"),
+            json_output=True,
+        )
+
+    console.print(f"[green]Saved[/green] {destination}")
+
+
+@agents_app.command(
     "create",
     epilog=(
         "Examples:\n"

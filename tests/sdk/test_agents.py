@@ -94,6 +94,83 @@ def test_agents_retrieve_and_update_routes(client: Gumloop) -> None:
 
 
 @respx.mock
+def test_agents_list_versions_sends_pagination(client: Gumloop) -> None:
+    route = respx.get(f"{API_BASE}/agents/agent_123/versions").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "versions": [
+                    {
+                        "id": "version_2",
+                        "agent_id": "agent_123",
+                        "major_version": 2,
+                        "name": "Support Agent",
+                    }
+                ],
+                "next_cursor": "cursor_2",
+            },
+        )
+    )
+
+    result = client.agents.list_versions(
+        "agent_123",
+        page_size=10,
+        cursor="cursor_1",
+        team_id="team_123",
+    )
+
+    assert result.versions[0].id == "version_2"
+    assert result.next_cursor == "cursor_2"
+    assert route.calls[0].request.url.params["page_size"] == "10"
+    assert route.calls[0].request.url.params["cursor"] == "cursor_1"
+    assert route.calls[0].request.url.params["team_id"] == "team_123"
+
+
+@respx.mock
+def test_agents_get_version_returns_exportable_composition(client: Gumloop) -> None:
+    route = respx.get(f"{API_BASE}/agents/agent_123/versions/version_2").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "version": {
+                    "id": "version_2",
+                    "agent_id": "agent_123",
+                    "major_version": 2,
+                    "name": "Support Agent",
+                    "composition": {
+                        "complete": True,
+                        "schema_version": 1,
+                        "name": "Support Agent",
+                        "model_name": "auto",
+                        "system_prompt": "Be helpful.",
+                        "skill_ids": ["skill_1"],
+                    },
+                },
+                "changes": {
+                    "relationships_unknown": False,
+                    "field_changes": [
+                        {
+                            "field": "system_prompt",
+                            "status": "modified",
+                            "old_value": "Be concise.",
+                            "new_value": "Be helpful.",
+                        }
+                    ],
+                },
+            },
+        )
+    )
+
+    result = client.agents.get_version("agent_123", "version_2", team_id="team_123")
+
+    assert result.version.composition.system_prompt == "Be helpful."
+    assert result.version.composition.skill_ids == ["skill_1"]
+    assert result.changes is not None
+    assert result.changes.field_changes[0].field == "system_prompt"
+    assert route.calls[0].request.url.params["team_id"] == "team_123"
+
+
+@respx.mock
 def test_agents_attach_skills_sends_only_attach_body(client: Gumloop) -> None:
     route = respx.patch(f"{API_BASE}/agents/agent_123/skills").mock(
         return_value=httpx.Response(200, json={"agent_id": "agent_123", "skill_ids": ["s1", "s2"], "attached": ["s2"]})
@@ -333,6 +410,39 @@ def test_async_agents_models_and_user_methods() -> None:
     respx.get(f"{API_BASE}/agents/agent_123").mock(
         return_value=httpx.Response(200, json={"agent": {"id": "agent_123", "name": "Support Agent"}})
     )
+    respx.get(f"{API_BASE}/agents/agent_123/versions").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "versions": [
+                    {
+                        "id": "version_1",
+                        "agent_id": "agent_123",
+                        "major_version": 1,
+                        "name": "Support Agent",
+                    }
+                ]
+            },
+        )
+    )
+    respx.get(f"{API_BASE}/agents/agent_123/versions/version_1").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "version": {
+                    "id": "version_1",
+                    "agent_id": "agent_123",
+                    "major_version": 1,
+                    "name": "Support Agent",
+                    "composition": {
+                        "complete": True,
+                        "name": "Support Agent",
+                        "model_name": "auto",
+                    },
+                }
+            },
+        )
+    )
     respx.patch(f"{API_BASE}/agents/agent_123").mock(
         return_value=httpx.Response(200, json={"agent": {"id": "agent_123", "name": "Support Agent"}})
     )
@@ -343,6 +453,8 @@ def test_async_agents_models_and_user_methods() -> None:
             assert (await client.agents.list()).agents == []
             assert (await client.agents.create(name="Support Agent", model_name="auto")).agent.id == "agent_123"
             assert (await client.agents.retrieve("agent_123")).agent.id == "agent_123"
+            assert (await client.agents.list_versions("agent_123")).versions[0].id == "version_1"
+            assert (await client.agents.get_version("agent_123", "version_1")).version.major_version == 1
             assert (await client.agents.update("agent_123", model_name="auto")).agent.id == "agent_123"
             assert (await client.models.list()).model_groups == []
 
