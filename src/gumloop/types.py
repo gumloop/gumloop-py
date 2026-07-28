@@ -162,11 +162,36 @@ class AgentVersion(AgentVersionSummary):
     composition: AgentVersionComposition
 
 
+class AgentVersionTextHunk(_Model):
+    old_start: int
+    old_end: int
+    new_start: int
+    new_end: int
+    old_text: str
+    new_text: str
+
+
 class AgentVersionFieldChange(_Model):
     field: str
     status: str
     old_value: Any
     new_value: Any
+
+
+class AgentVersionTextFieldChange(_Model):
+    field: str
+    status: str
+    text_hunks: list[AgentVersionTextHunk]
+
+
+class AgentVersionCollectionItemChange(_Model):
+    identity: dict[str, Any]
+    status: str
+    old_position: int | None = None
+    new_position: int | None = None
+    old_value: Any = None
+    new_value: Any = None
+    field_changes: list[AgentVersionFieldChange] = Field(default_factory=list)
 
 
 class AgentVersionSkillChange(_Model):
@@ -179,11 +204,14 @@ class AgentVersionKnowledgeSourceChange(_Model):
     status: str
     old_config: Any
     new_config: Any
+    field_changes: list[AgentVersionFieldChange] = Field(default_factory=list)
 
 
 class AgentVersionChanges(_Model):
-    relationships_unknown: bool
-    field_changes: list[AgentVersionFieldChange] = Field(default_factory=list)
+    base_version_id: str
+    attachment_changes_complete: bool
+    field_changes: list[AgentVersionTextFieldChange | AgentVersionFieldChange] = Field(default_factory=list)
+    tool_changes: list[AgentVersionCollectionItemChange] = Field(default_factory=list)
     skill_changes: list[AgentVersionSkillChange] = Field(default_factory=list)
     knowledge_source_changes: list[AgentVersionKnowledgeSourceChange] = Field(default_factory=list)
 

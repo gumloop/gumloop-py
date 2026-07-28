@@ -7,6 +7,7 @@ import respx
 
 from gumloop import AsyncGumloop
 from gumloop import Gumloop
+from gumloop.types import AgentVersionTextFieldChange
 from tests.sdk.helpers import API_BASE
 from tests.sdk.helpers import request_json
 
@@ -147,20 +148,45 @@ def test_agents_get_version_returns_exportable_composition(client: Gumloop) -> N
                     },
                 },
                 "changes": {
-                    "relationships_unknown": False,
+                    "base_version_id": "version_1",
+                    "attachment_changes_complete": True,
                     "field_changes": [
                         {
-                            "field": "system_prompt",
-                            "status": "modified",
-                            "old_value": "Be concise.",
-                            "new_value": "Be helpful.",
+                            "field": "model_name",
+                            "status": "changed",
+                            "old_value": "gpt-4",
+                            "new_value": "auto",
                         },
                         {
-                            "field": "tools",
+                            "field": "system_prompt",
                             "status": "changed",
-                            "old_value": [{"type": "mcp_server", "name": "Old MCP"}],
-                            "new_value": [{"type": "mcp_server", "name": "New MCP"}],
+                            "text_hunks": [
+                                {
+                                    "old_start": 3,
+                                    "old_end": 10,
+                                    "new_start": 3,
+                                    "new_end": 10,
+                                    "old_text": "concise",
+                                    "new_text": "helpful",
+                                }
+                            ],
                         },
+                    ],
+                    "tool_changes": [
+                        {
+                            "identity": {"type": "mcp_server", "server_id": "server_1"},
+                            "status": "changed",
+                            "old_position": 0,
+                            "new_position": 0,
+                            "field_changes": [
+                                {
+                                    "field": "approval_mode",
+                                    "status": "changed",
+                                    "old_value": "all",
+                                    "new_value": "off",
+                                }
+                            ],
+                        }
                     ],
                     "skill_changes": [{"skill_id": "skill_1", "status": "added"}],
                     "knowledge_source_changes": [
@@ -169,6 +195,14 @@ def test_agents_get_version_returns_exportable_composition(client: Gumloop) -> N
                             "status": "changed",
                             "old_config": None,
                             "new_config": {"folder_ids": ["folder_1"]},
+                            "field_changes": [
+                                {
+                                    "field": "config",
+                                    "status": "changed",
+                                    "old_value": None,
+                                    "new_value": {"folder_ids": ["folder_1"]},
+                                }
+                            ],
                         }
                     ],
                 },
@@ -181,11 +215,16 @@ def test_agents_get_version_returns_exportable_composition(client: Gumloop) -> N
     assert result.version.composition.system_prompt == "Be helpful."
     assert result.version.composition.skill_ids == ["skill_1"]
     assert result.changes is not None
-    assert result.changes.field_changes[0].field == "system_prompt"
-    assert result.changes.field_changes[1].field == "tools"
-    assert result.changes.field_changes[1].new_value == [{"type": "mcp_server", "name": "New MCP"}]
+    assert result.changes.base_version_id == "version_1"
+    assert result.changes.field_changes[0].field == "model_name"
+    prompt_change = result.changes.field_changes[1]
+    assert isinstance(prompt_change, AgentVersionTextFieldChange)
+    assert prompt_change.text_hunks[0].new_text == "helpful"
+    assert result.changes.tool_changes[0].identity["server_id"] == "server_1"
+    assert result.changes.tool_changes[0].field_changes[0].field == "approval_mode"
     assert result.changes.skill_changes[0].status == "added"
     assert result.changes.knowledge_source_changes[0].status == "changed"
+    assert result.changes.knowledge_source_changes[0].field_changes[0].field == "config"
     assert route.calls[0].request.url.params["team_id"] == "team_123"
 
 
