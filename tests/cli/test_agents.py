@@ -41,6 +41,73 @@ def test_agents_get_calls_per_agent_endpoint(cli_runner: CliRunner) -> None:
 
 
 @respx.mock
+def test_agents_versions_lists_versions_with_pagination(cli_runner: CliRunner) -> None:
+    route = respx.get(f"{API_BASE}/agents/agent_abc/versions").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "versions": [
+                    {
+                        "id": "version_2",
+                        "agent_id": "agent_abc",
+                        "major_version": 2,
+                        "name": "Support Bot",
+                        "is_deployed": True,
+                    }
+                ],
+                "next_cursor": "cursor_2",
+            },
+        )
+    )
+    save_credentials(Credentials(api_key="key"))
+
+    result = cli_runner.invoke(app, ["agents", "versions", "agent_abc", "--limit", "25", "--cursor", "cursor_1"])
+
+    assert result.exit_code == 0, result.output
+    assert "version_2" in result.output
+    assert "Support Bot" in result.output
+    assert "cursor_2" in result.output
+    assert route.calls[0].request.url.params["page_size"] == "25"
+    assert route.calls[0].request.url.params["cursor"] == "cursor_1"
+
+
+@respx.mock
+def test_agents_export_writes_version_response_as_json(cli_runner: CliRunner, tmp_path: Path) -> None:
+    respx.get(f"{API_BASE}/agents/agent_abc/versions/version_2").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "version": {
+                    "id": "version_2",
+                    "agent_id": "agent_abc",
+                    "major_version": 2,
+                    "name": "Support Bot",
+                    "composition": {
+                        "complete": True,
+                        "name": "Support Bot",
+                        "model_name": "auto",
+                        "system_prompt": "Be helpful.",
+                    },
+                },
+                "changes": None,
+            },
+        )
+    )
+    save_credentials(Credentials(api_key="key"))
+    output_path = tmp_path / "agent-version.json"
+
+    result = cli_runner.invoke(
+        app,
+        ["agents", "export", "agent_abc", "version_2", "--output", str(output_path)],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["version"]["id"] == "version_2"
+    assert payload["version"]["composition"]["system_prompt"] == "Be helpful."
+
+
+@respx.mock
 def test_agents_create_posts_required_fields(cli_runner: CliRunner) -> None:
     route = respx.post(f"{API_BASE}/agents").mock(
         return_value=httpx.Response(201, json={"agent": {"id": "agent_new", "name": "Bot"}})

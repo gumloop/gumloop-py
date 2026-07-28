@@ -14,6 +14,8 @@ from gumloop.types import AgentMcpServersResponse
 from gumloop.types import AgentResponse
 from gumloop.types import AgentSkillsResponse
 from gumloop.types import AgentUpdateRequest
+from gumloop.types import AgentVersionResponse
+from gumloop.types import AgentVersionsResponse
 from gumloop.types import EvaluationConfigResponse
 from gumloop.types import EvaluationConfigUpdateRequest
 from gumloop.types import EvaluationResultListResponse
@@ -54,6 +56,35 @@ class Agents:
 
     def retrieve(self, agent_id: str) -> AgentResponse:
         return AgentResponse.model_validate(self._client.get(f"agents/{agent_id}"))
+
+    def list_versions(
+        self,
+        agent_id: str,
+        *,
+        page_size: int | None = None,
+        cursor: str | None = None,
+        team_id: str | None = None,
+    ) -> AgentVersionsResponse:
+        return AgentVersionsResponse.model_validate(
+            self._client.get(
+                f"agents/{agent_id}/versions",
+                params={"page_size": page_size, "cursor": cursor, "team_id": team_id},
+            )
+        )
+
+    def get_version(
+        self,
+        agent_id: str,
+        version_id: str,
+        *,
+        team_id: str | None = None,
+    ) -> AgentVersionResponse:
+        return AgentVersionResponse.model_validate(
+            self._client.get(
+                f"agents/{agent_id}/versions/{version_id}",
+                params={"team_id": team_id},
+            )
+        )
 
     def update(
         self,
@@ -178,6 +209,33 @@ class AsyncAgents:
 
     async def retrieve(self, agent_id: str) -> AgentResponse:
         return AgentResponse.model_validate(await self._client.get(f"agents/{agent_id}"))
+
+    async def list_versions(
+        self,
+        agent_id: str,
+        *,
+        page_size: int | None = None,
+        cursor: str | None = None,
+        team_id: str | None = None,
+    ) -> AgentVersionsResponse:
+        data = await self._client.get(
+            f"agents/{agent_id}/versions",
+            params={"page_size": page_size, "cursor": cursor, "team_id": team_id},
+        )
+        return AgentVersionsResponse.model_validate(data)
+
+    async def get_version(
+        self,
+        agent_id: str,
+        version_id: str,
+        *,
+        team_id: str | None = None,
+    ) -> AgentVersionResponse:
+        data = await self._client.get(
+            f"agents/{agent_id}/versions/{version_id}",
+            params={"team_id": team_id},
+        )
+        return AgentVersionResponse.model_validate(data)
 
     async def update(
         self,

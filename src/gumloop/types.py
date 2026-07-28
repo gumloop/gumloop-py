@@ -129,6 +129,103 @@ class AgentListResponse(_Model):
     next_cursor: str | None = None
 
 
+class AgentVersionKnowledgeSource(_Model):
+    connector_id: str
+    config: dict[str, Any] | None = None
+
+
+class AgentVersionComposition(_Model):
+    complete: bool
+    schema_version: int | None = None
+    name: str
+    description: str | None = None
+    model_name: str
+    system_prompt: str | None = None
+    tools: list[dict[str, Any]] = Field(default_factory=list)
+    resources: list[dict[str, Any]] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    skill_ids: list[str] | None = None
+    knowledge_sources: list[AgentVersionKnowledgeSource] | None = None
+
+
+class AgentVersionSummary(_Model):
+    id: str
+    agent_id: str
+    major_version: int
+    name: str
+    is_deployed: bool | None = None
+    created_at: str | None = None
+    creator: CreatorPayload | None = None
+
+
+class AgentVersion(AgentVersionSummary):
+    composition: AgentVersionComposition
+
+
+class AgentVersionTextHunk(_Model):
+    old_start: int
+    old_end: int
+    new_start: int
+    new_end: int
+    old_text: str
+    new_text: str
+
+
+class AgentVersionFieldChange(_Model):
+    field: str
+    status: str
+    old_value: Any
+    new_value: Any
+
+
+class AgentVersionTextFieldChange(_Model):
+    field: str
+    status: str
+    text_hunks: list[AgentVersionTextHunk]
+
+
+class AgentVersionCollectionItemChange(_Model):
+    identity: dict[str, Any]
+    status: str
+    old_position: int | None = None
+    new_position: int | None = None
+    old_value: Any = None
+    new_value: Any = None
+    field_changes: list[AgentVersionFieldChange] = Field(default_factory=list)
+
+
+class AgentVersionSkillChange(_Model):
+    skill_id: str
+    status: str
+
+
+class AgentVersionKnowledgeSourceChange(_Model):
+    connector_id: str
+    status: str
+    old_config: Any
+    new_config: Any
+    field_changes: list[AgentVersionFieldChange] = Field(default_factory=list)
+
+
+class AgentVersionChanges(_Model):
+    base_version_id: str
+    attachment_changes_complete: bool
+    field_changes: list[AgentVersionTextFieldChange | AgentVersionFieldChange] = Field(default_factory=list)
+    tool_changes: list[AgentVersionCollectionItemChange] = Field(default_factory=list)
+    skill_changes: list[AgentVersionSkillChange] = Field(default_factory=list)
+    knowledge_source_changes: list[AgentVersionKnowledgeSourceChange] = Field(default_factory=list)
+
+
+class AgentVersionResponse(_Model):
+    version: AgentVersion
+    changes: AgentVersionChanges | None = None
+
+
+class AgentVersionsResponse(_Model):
+    versions: list[AgentVersionSummary] = Field(default_factory=list)
+    next_cursor: str | None = None
+
+
 # ---------------------------------------------------------------------------
 # Model types
 # ---------------------------------------------------------------------------
