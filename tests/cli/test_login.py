@@ -82,6 +82,35 @@ def test_login_with_invalid_credentials_exits_nonzero_and_does_not_save(cli_runn
 
 
 @respx.mock
+def test_login_403_explains_the_tier_and_still_does_not_save(cli_runner: CliRunner) -> None:
+    # Extends test_login_with_invalid_credentials_...does_not_save to 403, which
+    # is the status the live API actually returns for a refused credential.
+    # The save guard is preserved; only the message becomes actionable.
+    respx.get(f"{API_BASE}/models").mock(return_value=httpx.Response(403, json={"error": "tier_required_pro"}))
+
+    result = cli_runner.invoke(app, ["login", "--access-token", "acct_xyz"])
+
+    assert result.exit_code != 0
+    assert load_credentials().access_token is None
+    assert "Pro plan or higher" in result.output
+
+
+@respx.mock
+def test_tier_gated_403_on_a_normal_command_explains_itself(cli_runner: CliRunner) -> None:
+    # The hint lives on the shared error path, so every command explains itself,
+    # not just `login`.
+    save_credentials(Credentials(access_token="acct_xyz", base_url=API_BASE))
+    respx.get(f"{API_BASE}/agents").mock(return_value=httpx.Response(403, json={"error": "tier_required_pro"}))
+
+    result = cli_runner.invoke(app, ["agents", "list", "--json"])
+
+    assert result.exit_code != 0
+    assert "Pro plan or higher" in result.output
+    # The machine-readable code belongs in --json, not in the prose.
+    assert '"code": "tier_required_pro"' in result.output
+
+
+@respx.mock
 def test_login_against_custom_base_url_stores_it_in_keychain(cli_runner: CliRunner) -> None:
     custom = "https://example.com/api/v1"
     respx.get(f"{custom}/models").mock(return_value=httpx.Response(200, json={"model_groups": []}))
