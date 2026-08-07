@@ -21,7 +21,10 @@ class APIStatusError(GumloopError):
         self.status_code = status_code
         self.body = body
         self.error = body.get("error") if isinstance(body, dict) else None
-        self.code = self.error.get("code") if isinstance(self.error, dict) else None
+        if isinstance(self.error, dict):
+            self.code = self.error.get("code")
+        else:
+            self.code = self.error if isinstance(self.error, str) and self.error else None
         self.type = self.error.get("type") if isinstance(self.error, dict) else None
         self.param = self.error.get("param") if isinstance(self.error, dict) else None
         self.details = self.error.get("details", {}) if isinstance(self.error, dict) else {}
@@ -35,9 +38,15 @@ def to_api_error(response: httpx.Response) -> APIStatusError:
     except ValueError:
         body = response.text
     error = body.get("error") if isinstance(body, dict) else None
-    message = (
-        str(error.get("message") or f"Gumloop API returned HTTP {response.status_code}")
-        if isinstance(error, dict)
-        else f"Gumloop API returned HTTP {response.status_code}"
-    )
+    generic = f"Gumloop API returned HTTP {response.status_code}"
+    if isinstance(error, dict):
+        message = str(error.get("message") or generic)
+    elif isinstance(error, str) and error:
+        # Backend also returns a flat {"error": "tier_required_pro"} shape;
+        # without this the code is dropped and the user only sees the status.
+        # Having the message include the error code to help the user understand what went wrong, 
+        # even if they don't know the code.
+        message = f"{generic}: {error}"
+    else:
+        message = generic
     return APIStatusError(message, status_code=response.status_code, body=body)
