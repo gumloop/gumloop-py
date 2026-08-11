@@ -11,7 +11,7 @@ def test_to_api_error_reads_flat_public_error_message_and_code() -> None:
         json={
             "error": "subscription_tier_required",
             "message": "This feature isn't available on your current plan. Upgrade to continue.",
-            "metadata": {"minimum_tier": "pro", "denied_keys": ["gumloop_api"]},
+            "metadata": {"minimum_tier": "pro"},
         },
     )
 
@@ -22,10 +22,7 @@ def test_to_api_error_reads_flat_public_error_message_and_code() -> None:
     assert str(error) == (
         "This feature isn't available on your current plan. Upgrade to continue."
     )
-    assert error.details == {
-        "minimum_tier": "pro",
-        "denied_keys": ["gumloop_api"],
-    }
+    assert error.details == {"minimum_tier": "pro"}
 
 
 def test_to_api_error_reads_nested_error_envelope() -> None:

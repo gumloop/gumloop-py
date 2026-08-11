@@ -91,10 +91,7 @@ def test_login_403_public_error_explains_tier_and_does_not_save(cli_runner: CliR
                 "message": (
                     "This feature isn't available on your current plan. Upgrade to continue."
                 ),
-                "metadata": {
-                    "minimum_tier": "pro",
-                    "denied_keys": ["gumloop_api"],
-                },
+                "metadata": {"minimum_tier": "pro"},
             },
         )
     )
