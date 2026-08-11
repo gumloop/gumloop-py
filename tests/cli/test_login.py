@@ -88,9 +88,7 @@ def test_login_403_public_error_explains_tier_and_does_not_save(cli_runner: CliR
             403,
             json={
                 "error": "subscription_tier_required",
-                "message": (
-                    "This feature isn't available on your current plan. Upgrade to continue."
-                ),
+                "message": ("This feature isn't available on your current plan. Upgrade to continue."),
                 "metadata": {"minimum_tier": "pro"},
             },
         )

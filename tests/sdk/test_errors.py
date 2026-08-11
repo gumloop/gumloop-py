@@ -19,9 +19,7 @@ def test_to_api_error_reads_flat_public_error_message_and_code() -> None:
 
     assert error.status_code == 403
     assert error.code == "subscription_tier_required"
-    assert str(error) == (
-        "This feature isn't available on your current plan. Upgrade to continue."
-    )
+    assert str(error) == ("This feature isn't available on your current plan. Upgrade to continue.")
     assert error.details == {"minimum_tier": "pro"}
 
 
