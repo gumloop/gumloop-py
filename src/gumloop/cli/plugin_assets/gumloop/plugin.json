@@ -1,0 +1,9 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "gumloop",
+  "version": "0.1.0",
+  "description": "Teaches coding agents when and how to operate Gumloop from the terminal with the gumloop CLI: agents, sessions, MCP tools, Company Brain, skills, and artifacts.",
+  "homepage": "https://docs.gumloop.com/cli/overview",
+  "repository": "https://github.com/gumloop/gumloop-py",
+  "keywords": ["gumloop", "cli", "agents", "mcp"]
+}

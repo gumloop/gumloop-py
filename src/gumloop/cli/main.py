@@ -14,6 +14,7 @@ from gumloop.cli.commands.auth import logout as logout_command
 from gumloop.cli.commands.brain import brain_app
 from gumloop.cli.commands.chat import chat_app
 from gumloop.cli.commands.mcp import mcp_app
+from gumloop.cli.commands.plugin import plugin_app
 from gumloop.cli.commands.sessions import sessions_app
 from gumloop.cli.commands.skills import skills_app
 from gumloop.cli.commands.sync import sync_app
@@ -104,6 +105,7 @@ app.add_typer(artifacts_app, name="artifacts")
 app.add_typer(chat_app, name="chat")
 app.add_typer(brain_app, name="brain")
 app.add_typer(sync_app, name="sync")
+app.add_typer(plugin_app, name="plugin")
 
 
 def _require_supported_platform() -> None:
