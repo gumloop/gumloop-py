@@ -18,24 +18,26 @@ if TYPE_CHECKING:
     from importlib.abc import Traversable
 
 plugin_app = typer.Typer(
-    help="Install the bundled Gumloop agent plugin.",
+    help="Install official Gumloop agent plugins.",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
-
-_PLUGIN_NAME = "gumloop"
 
 
 @plugin_app.command(
     "install",
     epilog=(
         "Examples:\n"
-        "  gumloop plugin install\n"
-        "  gumloop plugin install --force\n"
-        "  gumloop plugin install --dir ~/.agents/plugins"
+        "  gumloop plugin install gumloop\n"
+        "  gumloop plugin install gumloop --force\n"
+        "  gumloop plugin install gumloop --dir ~/.agents/plugins"
     ),
 )
 def install_plugin(
+    name: Annotated[
+        str,
+        typer.Argument(help="Name of the plugin to install. `gumloop` teaches coding agents the Gumloop CLI."),
+    ],
     directory: Annotated[
         Path | None,
         typer.Option(
@@ -54,20 +56,20 @@ def install_plugin(
         typer.Option("--json", help="Print the install summary as JSON."),
     ] = False,
 ) -> None:
-    """Install the Gumloop CLI skill for coding agents (Claude Code, Cursor, Codex)."""
+    """Install an official Gumloop plugin's skills for coding agents (Claude Code, Cursor, Codex)."""
     try:
-        bundled = _bundled_plugin_root()
+        bundled = _bundled_plugin_root(name)
         if directory is not None:
-            results = [_install_tree(bundled, directory.expanduser() / _PLUGIN_NAME, force=force)]
+            results = [_install_tree(bundled, directory.expanduser() / name, force=force)]
         else:
-            results = _install_skills_into_detected_targets(bundled, force=force)
+            results = _install_skills_into_detected_targets(name, bundled, force=force)
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
 
     if json_output:
         print_json(
             {
-                "plugin": _PLUGIN_NAME,
+                "plugin": name,
                 "installed": [str(path) for action, path in results if action == "installed"],
                 "skipped": [str(path) for action, path in results if action == "skipped"],
             }
@@ -83,15 +85,24 @@ def install_plugin(
         console.print("\nRestart your coding agent (or start a new session) to pick up the Gumloop CLI skill.")
 
 
-def _bundled_plugin_root() -> Traversable:
+def _bundled_plugin_names() -> list[str]:
+    assets = resources.files("gumloop.cli").joinpath("plugin_assets")
+    if not assets.is_dir():
+        return []
+    return sorted(entry.name for entry in assets.iterdir() if entry.is_dir())
+
+
+def _bundled_plugin_root(name: str) -> Traversable:
     # Chained joinpath: Traversable only accepts multiple segments from 3.11.
-    root = resources.files("gumloop.cli").joinpath("plugin_assets").joinpath(_PLUGIN_NAME)
-    if not root.is_dir():
-        raise GumloopError("The bundled Gumloop plugin is missing from this installation. Run `gumloop update`.")
+    root = resources.files("gumloop.cli").joinpath("plugin_assets").joinpath(name)
+    if name not in _bundled_plugin_names() or not root.is_dir():
+        available = ", ".join(_bundled_plugin_names()) or "none"
+        raise GumloopError(f"Unknown plugin: {name}. Available plugins: {available}.")
     return root
 
 
 def _install_skills_into_detected_targets(
+    name: str,
     bundled: Traversable,
     *,
     force: bool,
@@ -100,7 +111,7 @@ def _install_skills_into_detected_targets(
     if not targets:
         raise GumloopError(
             "No supported coding agent was detected (looked for Claude Code, Cursor, Codex, and ~/.agents). "
-            "Use `gumloop plugin install --dir <path>` to write the plugin package somewhere explicit."
+            f"Use `gumloop plugin install {name} --dir <path>` to write the plugin package somewhere explicit."
         )
     skills = [entry for entry in bundled.joinpath("skills").iterdir() if entry.is_dir()]
     # No .gumloop.json ownership marker is written on purpose: these skills

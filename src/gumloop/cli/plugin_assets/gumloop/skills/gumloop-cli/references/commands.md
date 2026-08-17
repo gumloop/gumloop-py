@@ -110,5 +110,5 @@ gumloop sync --once --non-interactive # one-shot sync; requires GUMLOOP_API_KEY 
 
 ```bash
 gumloop update                        # update the CLI in place
-gumloop plugin install                # install this skill into detected agent skill directories
+gumloop plugin install gumloop        # install this skill into detected agent skill directories
 ```
