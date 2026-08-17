@@ -7,6 +7,7 @@ from typing import Annotated
 import typer
 
 from gumloop import __version__
+from gumloop._http import set_client_product
 from gumloop.cli.commands.agents import agents_app
 from gumloop.cli.commands.artifacts import artifacts_app
 from gumloop.cli.commands.auth import login as login_command
@@ -122,6 +123,7 @@ def _require_supported_platform() -> None:
 
 def main() -> None:
     _require_supported_platform()
+    set_client_product("gumloop-cli")
     if sys.argv[1:2] != ["update"]:
         maybe_notify_update()
     app()
