@@ -22,7 +22,6 @@ from gumloop.types import StreamEvent
 
 logger = logging.getLogger(__name__)
 
-# Parsed by the backend for usage attribution; the CLI switches it to gumloop-cli.
 CLIENT_PRODUCT = "gumloop-python"
 
 
