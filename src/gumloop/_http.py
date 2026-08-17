@@ -22,19 +22,12 @@ from gumloop.types import StreamEvent
 
 logger = logging.getLogger(__name__)
 
-# The backend attributes API usage by parsing the first ``product/version``
-# User-Agent token.
-_client_product = "gumloop-python"
-
-
-def set_client_product(product: str) -> None:
-    """Set the User-Agent product token for clients built after this call."""
-    global _client_product
-    _client_product = product
+# Parsed by the backend for usage attribution; the CLI switches it to gumloop-cli.
+CLIENT_PRODUCT = "gumloop-python"
 
 
 def user_agent() -> str:
-    return f"{_client_product}/{__version__} Python/{platform.python_version()} {platform.system()}"
+    return f"{CLIENT_PRODUCT}/{__version__} Python/{platform.python_version()} {platform.system()}"
 
 
 def _inject_trace_context(request: httpx.Request) -> None:
