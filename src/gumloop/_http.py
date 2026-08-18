@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import platform
 from collections.abc import AsyncIterator
 from collections.abc import Iterator
 from collections.abc import Mapping
@@ -15,10 +16,17 @@ from pydantic import BaseModel
 from pydantic import ValidationError
 
 from gumloop._auth import auth_headers
+from gumloop._version import __version__
 from gumloop.errors import to_api_error
 from gumloop.types import StreamEvent
 
 logger = logging.getLogger(__name__)
+
+CLIENT_PRODUCT = "gumloop-python"
+
+
+def user_agent() -> str:
+    return f"{CLIENT_PRODUCT}/{__version__} Python/{platform.python_version()} {platform.system()}"
 
 
 def _inject_trace_context(request: httpx.Request) -> None:
@@ -97,7 +105,12 @@ class HttpClient:
         self.team_id = team_id
         self._stream_base_url = stream_base_url.rstrip("/")
         self._stream_timeout = stream_timeout
-        self._client = httpx.Client(base_url=base_url.rstrip("/"), timeout=timeout, event_hooks=_TRACE_EVENT_HOOKS)
+        self._client = httpx.Client(
+            base_url=base_url.rstrip("/"),
+            timeout=timeout,
+            event_hooks=_TRACE_EVENT_HOOKS,
+            headers={"User-Agent": user_agent()},
+        )
 
     def _scoped_params(self, params: dict[str, Any] | None) -> dict[str, Any] | None:
         # Team keys are validated against ``team_id``, so it rides on every request.
@@ -295,7 +308,10 @@ class AsyncHttpClient:
         self._stream_base_url = stream_base_url.rstrip("/")
         self._stream_timeout = stream_timeout
         self._client = httpx.AsyncClient(
-            base_url=base_url.rstrip("/"), timeout=timeout, event_hooks=_ASYNC_TRACE_EVENT_HOOKS
+            base_url=base_url.rstrip("/"),
+            timeout=timeout,
+            event_hooks=_ASYNC_TRACE_EVENT_HOOKS,
+            headers={"User-Agent": user_agent()},
         )
 
     def _scoped_params(self, params: dict[str, Any] | None) -> dict[str, Any] | None:

@@ -10,6 +10,7 @@ import httpx
 from gumloop._auth import EnvToken
 from gumloop._http import AsyncHttpClient
 from gumloop._http import HttpClient
+from gumloop._http import user_agent
 from gumloop.oauth import OAuth
 from gumloop.resources import MCP
 from gumloop.resources import Agents
@@ -185,6 +186,7 @@ class GumloopClient:
         self.headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
+            "User-Agent": user_agent(),
         }
         # Persistent client so the polling loop reuses one TCP connection
         # across start_pipeline + get_pl_run instead of handshaking per call.
