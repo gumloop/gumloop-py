@@ -691,6 +691,8 @@ class EvaluationConfig(_Model):
     sentiment: dict[str, Any] | None = None
     notifications: dict[str, Any] | None = None
     updated_ts: str | None = None
+    updated_at: str | None = None
+    organization_evaluations: list[Any] = Field(default_factory=list)
 
 
 class EvaluationConfigResponse(_Model):
@@ -752,12 +754,16 @@ class EvaluationRunResponse(_Model):
 
 class EvaluationResult(_Model):
     evaluation_id: str
+    id: str = Field(validation_alias=AliasChoices("id", "evaluation_id"))
     session_id: str = Field(validation_alias=AliasChoices("interaction_id", "session_id"))
     agent_id: str
     created_ts: str | None = None
+    created_at: str | None = None
     # "completed" | "failed"; grade/call_successful are null when failed.
     status: str | None = None
     grade: str | None = None
+    error_code: str | None = None
+    model_name: str | None = None
     call_successful: str | None = None
     sentiment: str | None = None
     summary: str | None = None
@@ -773,3 +779,136 @@ class EvaluationResultResponse(_Model):
 class EvaluationResultListResponse(_Model):
     evaluations: list[EvaluationResult] = Field(default_factory=list)
     next_cursor: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Organization evaluation types
+# ---------------------------------------------------------------------------
+
+
+class Organization(_Model):
+    id: str
+    name: str | None = None
+
+
+class OrganizationsResponse(_Model):
+    organizations: list[Organization] = Field(default_factory=list)
+
+
+class EvaluationRubric(_Model):
+    model_name: str | None = None
+    frequency: str | None = None
+    language: str | None = None
+    include_auto_tags: bool | None = None
+    session_types: list[str] | None = None
+    criteria: list[Any] | None = None
+    tags: list[Any] | None = None
+    data_points: list[Any] | None = None
+    sentiment: dict[str, Any] | None = None
+    notifications: dict[str, Any] | None = None
+
+
+class EvaluationTarget(_Model):
+    # "organization" | "team" | "user" | "agent"; id is omitted for "organization".
+    type: str
+    id: str | None = None
+
+
+class Evaluation(_Model):
+    id: str
+    scope: str
+    agent_id: str | None = None
+    organization_id: str | None = None
+    name: str
+    description: str | None = None
+    enabled: bool = False
+    targets: list[EvaluationTarget] = Field(default_factory=list)
+    covered_agent_count: int = 0
+    config: EvaluationRubric
+    run_summary: dict[str, Any] = Field(default_factory=dict)
+    creator: CreatorPayload | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class EvaluationResponse(_Model):
+    evaluation: Evaluation
+
+
+class EvaluationListResponse(_Model):
+    evaluations: list[Evaluation] = Field(default_factory=list)
+    next_cursor: str | None = None
+
+
+class EvaluationCreateRequest(_Model):
+    organization_id: str
+    name: str
+    description: str | None = None
+    enabled: bool | None = None
+    config: EvaluationRubric | dict[str, Any] | None = None
+
+
+class EvaluationUpdateRequest(_Model):
+    name: str | None = None
+    description: str | None = None
+    enabled: bool | None = None
+    config: EvaluationRubric | dict[str, Any] | None = None
+
+
+class EvaluationTargetsResponse(_Model):
+    targets: list[EvaluationTarget] = Field(default_factory=list)
+    covered_agent_count: int = 0
+    enabled: bool = False
+
+
+class EvaluationResultRecord(_Model):
+    id: str
+    # Null when the agent's own evaluation produced the result rather than an organization evaluation.
+    evaluation_id: str | None = None
+    session_id: str
+    agent_id: str
+    status: str
+    grade: str | None = None
+    error_code: str | None = None
+    model_name: str | None = None
+    call_successful: str | None = None
+    sentiment: str | None = None
+    summary: str | None = None
+    criteria_results: list[Any] = Field(default_factory=list)
+    data_results: list[Any] = Field(default_factory=list)
+    applied_tags: list[Any] = Field(default_factory=list)
+    created_at: str | None = None
+
+
+class EvaluationResultRecordResponse(_Model):
+    result: EvaluationResultRecord
+
+
+class EvaluationResultRecordListResponse(_Model):
+    results: list[EvaluationResultRecord] = Field(default_factory=list)
+    next_cursor: str | None = None
+
+
+class EvaluationRunResult(_Model):
+    # Null on a dry run, where nothing was queued yet.
+    id: str | None = None
+    session_id: str
+    status: str
+
+
+class EvaluationRunSkippedSession(_Model):
+    session_id: str
+    reason: str
+    result_id: str | None = None
+
+
+class EvaluationRunResponse(_Model):
+    dry_run: bool = False
+    credit_cost: int = 0
+    results: list[EvaluationRunResult] = Field(default_factory=list)
+    skipped: list[EvaluationRunSkippedSession] = Field(default_factory=list)
+
+
+class EvaluationMetricsResponse(_Model):
+    days: int
+    grades: dict[str, int] = Field(default_factory=dict)
