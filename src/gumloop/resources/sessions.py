@@ -13,6 +13,7 @@ from gumloop.types import SessionContinueRequest
 from gumloop.types import SessionCreateRequest
 from gumloop.types import SessionListResponse
 from gumloop.types import SessionResponse
+from gumloop.types import SessionUpdateRequest
 from gumloop.types import StreamEvent
 
 
@@ -144,6 +145,16 @@ class Sessions:
     def cancel(self, session_id: str) -> SessionResponse:
         return SessionResponse.model_validate(self._client.post(f"sessions/{session_id}/cancel", json={}))
 
+    def update(
+        self,
+        session_id: str,
+        request: SessionUpdateRequest | Mapping[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> SessionResponse:
+        return SessionResponse.model_validate(
+            self._client.patch(f"sessions/{session_id}", json=SessionUpdateRequest.build(request, **kwargs))
+        )
+
 
 class AsyncSessions:
     def __init__(self, client: AsyncHttpClient) -> None:
@@ -273,4 +284,13 @@ class AsyncSessions:
 
     async def cancel(self, session_id: str) -> SessionResponse:
         data = await self._client.post(f"sessions/{session_id}/cancel", json={})
+        return SessionResponse.model_validate(data)
+
+    async def update(
+        self,
+        session_id: str,
+        request: SessionUpdateRequest | Mapping[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> SessionResponse:
+        data = await self._client.patch(f"sessions/{session_id}", json=SessionUpdateRequest.build(request, **kwargs))
         return SessionResponse.model_validate(data)

@@ -268,6 +268,10 @@ class SessionContinueRequest(_Model):
     stream: bool = False
 
 
+class SessionUpdateRequest(_Model):
+    name: str
+
+
 class MessagePayload(_Model):
     id: str | None = None
     role: str | None = None
