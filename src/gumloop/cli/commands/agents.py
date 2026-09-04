@@ -644,7 +644,9 @@ def run_evaluations(
     try:
         if not session_ids:
             raise GumloopError("Pass at least one --session-id.")
-        response = cli.call_with_refresh(lambda client: client.agents.run_evaluations(agent_id, session_ids))
+        response = cli.call_with_refresh(
+            lambda client: client.agents.run_evaluations(agent_id, session_ids=session_ids)
+        )
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
 

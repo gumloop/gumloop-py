@@ -720,7 +720,7 @@ class EvaluationOptionLimits(_Model):
     notification_recipients: int
 
 
-class EvaluationOptions(_Model):
+class EvaluationOptionsResponse(_Model):
     interaction_types: list[str] = Field(default_factory=list)
     criterion_types: list[str] = Field(default_factory=list)
     criterion_priorities: list[str] = Field(default_factory=list)
@@ -730,9 +730,13 @@ class EvaluationOptions(_Model):
     limits: EvaluationOptionLimits
 
 
-class EvaluationMetrics(_Model):
+class EvaluationMetricsResponse(_Model):
     grades: dict[str, int] = Field(default_factory=dict)
     tags: dict[str, int] = Field(default_factory=dict)
+
+
+class EvaluationRunRequest(_Model):
+    session_ids: list[str]
 
 
 class EvaluationRunSkipped(_Model):
@@ -740,7 +744,7 @@ class EvaluationRunSkipped(_Model):
     in_flight: list[str] = Field(default_factory=list)
 
 
-class EvaluationRunResult(_Model):
+class EvaluationRunResponse(_Model):
     status: Literal["queued"]
     queued: int
     skipped: EvaluationRunSkipped

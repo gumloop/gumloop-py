@@ -19,11 +19,12 @@ from gumloop.types import AgentVersionResponse
 from gumloop.types import AgentVersionsResponse
 from gumloop.types import EvaluationConfigResponse
 from gumloop.types import EvaluationConfigUpdateRequest
-from gumloop.types import EvaluationMetrics
-from gumloop.types import EvaluationOptions
+from gumloop.types import EvaluationMetricsResponse
+from gumloop.types import EvaluationOptionsResponse
 from gumloop.types import EvaluationResultListResponse
 from gumloop.types import EvaluationResultResponse
-from gumloop.types import EvaluationRunResult
+from gumloop.types import EvaluationRunRequest
+from gumloop.types import EvaluationRunResponse
 from gumloop.types import ModelListResponse
 from gumloop.types import SkillListResponse
 
@@ -136,8 +137,8 @@ class Agents:
     def list_mcp_servers(self, agent_id: str) -> AgentMcpServersResponse:
         return AgentMcpServersResponse.model_validate(self._client.get(f"agents/{agent_id}/mcp-servers"))
 
-    def get_evaluation_options(self) -> EvaluationOptions:
-        return EvaluationOptions.model_validate(self._client.get("agents/evaluation-options"))
+    def get_evaluation_options(self) -> EvaluationOptionsResponse:
+        return EvaluationOptionsResponse.model_validate(self._client.get("agents/evaluation-options"))
 
     def get_evaluation_config(self, agent_id: str) -> EvaluationConfigResponse:
         return EvaluationConfigResponse.model_validate(self._client.get(f"agents/{agent_id}/evaluation-config"))
@@ -187,14 +188,19 @@ class Agents:
             )
         )
 
-    def get_evaluation_metrics(self, agent_id: str, days: int = 30) -> EvaluationMetrics:
-        return EvaluationMetrics.model_validate(
+    def get_evaluation_metrics(self, agent_id: str, days: int = 30) -> EvaluationMetricsResponse:
+        return EvaluationMetricsResponse.model_validate(
             self._client.get(f"agents/{agent_id}/evaluations/metrics", params={"days": days})
         )
 
-    def run_evaluations(self, agent_id: str, session_ids: list[str]) -> EvaluationRunResult:
-        return EvaluationRunResult.model_validate(
-            self._client.post(f"agents/{agent_id}/evaluations/run", json={"session_ids": session_ids})
+    def run_evaluations(
+        self,
+        agent_id: str,
+        request: EvaluationRunRequest | Mapping[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> EvaluationRunResponse:
+        return EvaluationRunResponse.model_validate(
+            self._client.post(f"agents/{agent_id}/evaluations/run", json=EvaluationRunRequest.build(request, **kwargs))
         )
 
     def get_evaluation(self, agent_id: str, evaluation_id: str) -> EvaluationResultResponse:
@@ -310,9 +316,9 @@ class AsyncAgents:
         data = await self._client.get(f"agents/{agent_id}/mcp-servers")
         return AgentMcpServersResponse.model_validate(data)
 
-    async def get_evaluation_options(self) -> EvaluationOptions:
+    async def get_evaluation_options(self) -> EvaluationOptionsResponse:
         data = await self._client.get("agents/evaluation-options")
-        return EvaluationOptions.model_validate(data)
+        return EvaluationOptionsResponse.model_validate(data)
 
     async def get_evaluation_config(self, agent_id: str) -> EvaluationConfigResponse:
         data = await self._client.get(f"agents/{agent_id}/evaluation-config")
@@ -361,16 +367,20 @@ class AsyncAgents:
         )
         return EvaluationResultListResponse.model_validate(data)
 
-    async def get_evaluation_metrics(self, agent_id: str, days: int = 30) -> EvaluationMetrics:
+    async def get_evaluation_metrics(self, agent_id: str, days: int = 30) -> EvaluationMetricsResponse:
         data = await self._client.get(f"agents/{agent_id}/evaluations/metrics", params={"days": days})
-        return EvaluationMetrics.model_validate(data)
+        return EvaluationMetricsResponse.model_validate(data)
 
-    async def run_evaluations(self, agent_id: str, session_ids: list[str]) -> EvaluationRunResult:
+    async def run_evaluations(
+        self,
+        agent_id: str,
+        request: EvaluationRunRequest | Mapping[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> EvaluationRunResponse:
         data = await self._client.post(
-            f"agents/{agent_id}/evaluations/run",
-            json={"session_ids": session_ids},
+            f"agents/{agent_id}/evaluations/run", json=EvaluationRunRequest.build(request, **kwargs)
         )
-        return EvaluationRunResult.model_validate(data)
+        return EvaluationRunResponse.model_validate(data)
 
     async def get_evaluation(self, agent_id: str, evaluation_id: str) -> EvaluationResultResponse:
         data = await self._client.get(f"agents/{agent_id}/evaluations/{evaluation_id}")
