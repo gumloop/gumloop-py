@@ -10,8 +10,12 @@ from gumloop.resources.brain import AsyncBrain
 from gumloop.resources.brain import Brain
 from gumloop.resources.chat import AsyncChat
 from gumloop.resources.chat import Chat
+from gumloop.resources.evaluations import AsyncEvaluations
+from gumloop.resources.evaluations import Evaluations
 from gumloop.resources.mcp import MCP
 from gumloop.resources.mcp import AsyncMCP
+from gumloop.resources.organizations import AsyncOrganizations
+from gumloop.resources.organizations import Organizations
 from gumloop.resources.sessions import AsyncSessions
 from gumloop.resources.sessions import Sessions
 from gumloop.resources.skills import AsyncSkills
@@ -28,14 +32,18 @@ __all__ = [
     "AsyncArtifacts",
     "AsyncBrain",
     "AsyncChat",
+    "AsyncEvaluations",
     "AsyncMCP",
     "AsyncModels",
+    "AsyncOrganizations",
     "AsyncSessions",
     "AsyncSkills",
     "AsyncTeams",
     "Brain",
     "Chat",
+    "Evaluations",
     "Models",
+    "Organizations",
     "Sessions",
     "Skills",
     "Sync",

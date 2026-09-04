@@ -22,6 +22,7 @@ from gumloop.types import EvaluationConfigUpdateRequest
 from gumloop.types import EvaluationMetricsResponse
 from gumloop.types import EvaluationOptionsResponse
 from gumloop.types import EvaluationResultListResponse
+from gumloop.types import EvaluationResultRecordListResponse
 from gumloop.types import EvaluationResultResponse
 from gumloop.types import EvaluationRunRequest
 from gumloop.types import EvaluationRunResponse
@@ -208,6 +209,37 @@ class Agents:
             self._client.get(f"agents/{agent_id}/evaluations/{evaluation_id}")
         )
 
+    def list_evaluation_results(
+        self,
+        agent_id: str,
+        *,
+        evaluation_id: str | None = None,
+        session_id: str | None = None,
+        grade: str | None = None,
+        status: str | None = None,
+        created_after: str | None = None,
+        created_before: str | None = None,
+        page_size: int | None = None,
+        cursor: str | None = None,
+    ) -> EvaluationResultRecordListResponse:
+        """Results from the agent's own evaluation and every organization evaluation enforced on it.
+        ``evaluation_id="agent"`` narrows to the agent's own; an organization evaluation id narrows to that one."""
+        return EvaluationResultRecordListResponse.model_validate(
+            self._client.get(
+                f"agents/{agent_id}/evaluation-results",
+                params={
+                    "evaluation_id": evaluation_id,
+                    "session_id": session_id,
+                    "grade": grade,
+                    "status": status,
+                    "created_after": created_after,
+                    "created_before": created_before,
+                    "page_size": page_size,
+                    "cursor": cursor,
+                },
+            )
+        )
+
 
 class Models:
     def __init__(self, client: HttpClient) -> None:
@@ -385,6 +417,36 @@ class AsyncAgents:
     async def get_evaluation(self, agent_id: str, evaluation_id: str) -> EvaluationResultResponse:
         data = await self._client.get(f"agents/{agent_id}/evaluations/{evaluation_id}")
         return EvaluationResultResponse.model_validate(data)
+
+    async def list_evaluation_results(
+        self,
+        agent_id: str,
+        *,
+        evaluation_id: str | None = None,
+        session_id: str | None = None,
+        grade: str | None = None,
+        status: str | None = None,
+        created_after: str | None = None,
+        created_before: str | None = None,
+        page_size: int | None = None,
+        cursor: str | None = None,
+    ) -> EvaluationResultRecordListResponse:
+        """Results from the agent's own evaluation and every organization evaluation enforced on it.
+        ``evaluation_id="agent"`` narrows to the agent's own; an organization evaluation id narrows to that one."""
+        data = await self._client.get(
+            f"agents/{agent_id}/evaluation-results",
+            params={
+                "evaluation_id": evaluation_id,
+                "session_id": session_id,
+                "grade": grade,
+                "status": status,
+                "created_after": created_after,
+                "created_before": created_before,
+                "page_size": page_size,
+                "cursor": cursor,
+            },
+        )
+        return EvaluationResultRecordListResponse.model_validate(data)
 
 
 class AsyncModels:
