@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from collections.abc import Sequence
+from datetime import datetime
 from typing import Any
 
 from gumloop._http import AsyncHttpClient
@@ -18,8 +19,12 @@ from gumloop.types import AgentVersionResponse
 from gumloop.types import AgentVersionsResponse
 from gumloop.types import EvaluationConfigResponse
 from gumloop.types import EvaluationConfigUpdateRequest
+from gumloop.types import EvaluationMetricsResponse
+from gumloop.types import EvaluationOptionsResponse
 from gumloop.types import EvaluationResultListResponse
 from gumloop.types import EvaluationResultResponse
+from gumloop.types import EvaluationRunRequest
+from gumloop.types import EvaluationRunResponse
 from gumloop.types import ModelListResponse
 from gumloop.types import SkillListResponse
 
@@ -132,6 +137,9 @@ class Agents:
     def list_mcp_servers(self, agent_id: str) -> AgentMcpServersResponse:
         return AgentMcpServersResponse.model_validate(self._client.get(f"agents/{agent_id}/mcp-servers"))
 
+    def get_evaluation_options(self) -> EvaluationOptionsResponse:
+        return EvaluationOptionsResponse.model_validate(self._client.get("agents/evaluation-options"))
+
     def get_evaluation_config(self, agent_id: str) -> EvaluationConfigResponse:
         return EvaluationConfigResponse.model_validate(self._client.get(f"agents/{agent_id}/evaluation-config"))
 
@@ -156,6 +164,10 @@ class Agents:
         agent_id: str,
         *,
         grade: str | None = None,
+        status: str | None = None,
+        created_after: datetime | None = None,
+        created_before: datetime | None = None,
+        session_id: str | None = None,
         page_size: int | None = None,
         cursor: str | None = None,
         **kwargs: Any,
@@ -163,8 +175,32 @@ class Agents:
         return EvaluationResultListResponse.model_validate(
             self._client.get(
                 f"agents/{agent_id}/evaluations",
-                params={"grade": grade, "page_size": page_size, "cursor": cursor, **kwargs},
+                params={
+                    "grade": grade,
+                    "status": status,
+                    "created_after": created_after.isoformat() if created_after is not None else None,
+                    "created_before": created_before.isoformat() if created_before is not None else None,
+                    "session_id": session_id,
+                    "page_size": page_size,
+                    "cursor": cursor,
+                    **kwargs,
+                },
             )
+        )
+
+    def get_evaluation_metrics(self, agent_id: str, days: int = 30) -> EvaluationMetricsResponse:
+        return EvaluationMetricsResponse.model_validate(
+            self._client.get(f"agents/{agent_id}/evaluations/metrics", params={"days": days})
+        )
+
+    def run_evaluations(
+        self,
+        agent_id: str,
+        request: EvaluationRunRequest | Mapping[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> EvaluationRunResponse:
+        return EvaluationRunResponse.model_validate(
+            self._client.post(f"agents/{agent_id}/evaluations/run", json=EvaluationRunRequest.build(request, **kwargs))
         )
 
     def get_evaluation(self, agent_id: str, evaluation_id: str) -> EvaluationResultResponse:
@@ -280,6 +316,10 @@ class AsyncAgents:
         data = await self._client.get(f"agents/{agent_id}/mcp-servers")
         return AgentMcpServersResponse.model_validate(data)
 
+    async def get_evaluation_options(self) -> EvaluationOptionsResponse:
+        data = await self._client.get("agents/evaluation-options")
+        return EvaluationOptionsResponse.model_validate(data)
+
     async def get_evaluation_config(self, agent_id: str) -> EvaluationConfigResponse:
         data = await self._client.get(f"agents/{agent_id}/evaluation-config")
         return EvaluationConfigResponse.model_validate(data)
@@ -304,15 +344,43 @@ class AsyncAgents:
         agent_id: str,
         *,
         grade: str | None = None,
+        status: str | None = None,
+        created_after: datetime | None = None,
+        created_before: datetime | None = None,
+        session_id: str | None = None,
         page_size: int | None = None,
         cursor: str | None = None,
         **kwargs: Any,
     ) -> EvaluationResultListResponse:
         data = await self._client.get(
             f"agents/{agent_id}/evaluations",
-            params={"grade": grade, "page_size": page_size, "cursor": cursor, **kwargs},
+            params={
+                "grade": grade,
+                "status": status,
+                "created_after": created_after.isoformat() if created_after is not None else None,
+                "created_before": created_before.isoformat() if created_before is not None else None,
+                "session_id": session_id,
+                "page_size": page_size,
+                "cursor": cursor,
+                **kwargs,
+            },
         )
         return EvaluationResultListResponse.model_validate(data)
+
+    async def get_evaluation_metrics(self, agent_id: str, days: int = 30) -> EvaluationMetricsResponse:
+        data = await self._client.get(f"agents/{agent_id}/evaluations/metrics", params={"days": days})
+        return EvaluationMetricsResponse.model_validate(data)
+
+    async def run_evaluations(
+        self,
+        agent_id: str,
+        request: EvaluationRunRequest | Mapping[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> EvaluationRunResponse:
+        data = await self._client.post(
+            f"agents/{agent_id}/evaluations/run", json=EvaluationRunRequest.build(request, **kwargs)
+        )
+        return EvaluationRunResponse.model_validate(data)
 
     async def get_evaluation(self, agent_id: str, evaluation_id: str) -> EvaluationResultResponse:
         data = await self._client.get(f"agents/{agent_id}/evaluations/{evaluation_id}")

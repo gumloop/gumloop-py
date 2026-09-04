@@ -550,3 +550,120 @@ def detach_mcp_server(
 
     console.print(f"[green]Detached[/green] MCP server {escape_markup(server_id)} from {agent_id}")
     console.print(f"  detached: {'true' if response.detached else 'false'}", markup=False, highlight=False)
+
+
+@agents_app.command("eval-options", epilog="Example:\n  gumloop agents eval-options --json")
+def get_evaluation_options(
+    ctx: typer.Context,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Print the raw SDK response as JSON."),
+    ] = False,
+) -> None:
+    """Show the available agent evaluation settings."""
+    cli: CliContext = ctx.obj
+    try:
+        response = cli.call_with_refresh(lambda client: client.agents.get_evaluation_options())
+    except GumloopError as error:
+        exit_with_error(error, json_output=json_output)
+
+    if json_output:
+        print_json(response)
+        return
+
+    for field in (
+        "interaction_types",
+        "criterion_types",
+        "criterion_priorities",
+        "data_point_types",
+        "frequencies",
+        "default_interaction_types",
+    ):
+        console.print(f"{field}: {', '.join(getattr(response, field))}", markup=False, highlight=False)
+    for name, value in response.limits.model_dump().items():
+        console.print(f"limits.{name}: {value}", markup=False, highlight=False)
+
+
+@agents_app.command(
+    "eval-metrics",
+    epilog="Example:\n  gumloop agents eval-metrics agent_abc --days 30 --json",
+)
+def get_evaluation_metrics(
+    ctx: typer.Context,
+    agent_id: Annotated[str, typer.Argument(help="ID of the agent whose evaluation metrics should be shown.")],
+    days: Annotated[
+        int,
+        typer.Option("--days", help="Number of days to include."),
+    ] = 30,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Print the raw SDK response as JSON."),
+    ] = False,
+) -> None:
+    """Show an agent's evaluation grade and tag counts."""
+    cli: CliContext = ctx.obj
+    try:
+        response = cli.call_with_refresh(lambda client: client.agents.get_evaluation_metrics(agent_id, days=days))
+    except GumloopError as error:
+        exit_with_error(error, json_output=json_output)
+
+    if json_output:
+        print_json(response)
+        return
+
+    console.print("GRADE", "COUNT", sep="\t", soft_wrap=True)
+    for grade, count in response.grades.items():
+        console.print(grade, str(count), sep="\t", soft_wrap=True)
+    console.print("TAG", "COUNT", sep="\t", soft_wrap=True)
+    for tag, count in response.tags.items():
+        console.print(tag, str(count), sep="\t", soft_wrap=True)
+
+
+@agents_app.command(
+    "eval-run",
+    epilog=(
+        "Examples:\n"
+        "  gumloop agents eval-run agent_abc --session-id session_1\n"
+        "  gumloop agents eval-run agent_abc --session-id session_1 --session-id session_2 --json"
+    ),
+)
+def run_evaluations(
+    ctx: typer.Context,
+    agent_id: Annotated[str, typer.Argument(help="ID of the agent that owns the sessions.")],
+    session_ids: Annotated[
+        list[str] | None,
+        typer.Option("--session-id", help="Session ID to evaluate. Repeat for multiple sessions."),
+    ] = None,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Print the raw SDK response as JSON."),
+    ] = False,
+) -> None:
+    """Queue evaluations for one or more agent sessions."""
+    cli: CliContext = ctx.obj
+    try:
+        if not session_ids:
+            raise GumloopError("Pass at least one --session-id.")
+        response = cli.call_with_refresh(
+            lambda client: client.agents.run_evaluations(agent_id, session_ids=session_ids)
+        )
+    except GumloopError as error:
+        exit_with_error(error, json_output=json_output)
+
+    if json_output:
+        print_json(response)
+        return
+
+    console.print(f"[green]Queued[/green] {response.queued} evaluation(s)")
+    if response.skipped.ineligible:
+        console.print(
+            f"  Ineligible: {', '.join(response.skipped.ineligible)}",
+            markup=False,
+            highlight=False,
+        )
+    if response.skipped.in_flight:
+        console.print(
+            f"  In flight: {', '.join(response.skipped.in_flight)}",
+            markup=False,
+            highlight=False,
+        )
