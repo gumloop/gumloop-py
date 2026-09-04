@@ -845,14 +845,14 @@ class EvaluationCreateRequest(_Model):
     name: str
     description: str | None = None
     enabled: bool | None = None
-    config: EvaluationRubric | dict[str, Any] | None = None
+    config: dict[str, Any] | None = None
 
 
 class EvaluationUpdateRequest(_Model):
     name: str | None = None
     description: str | None = None
     enabled: bool | None = None
-    config: EvaluationRubric | dict[str, Any] | None = None
+    config: dict[str, Any] | None = None
 
 
 class EvaluationTargetsResponse(_Model):
@@ -912,3 +912,18 @@ class EvaluationRunResponse(_Model):
 class EvaluationMetricsResponse(_Model):
     days: int
     grades: dict[str, int] = Field(default_factory=dict)
+
+
+class EvaluationOptionsResponse(_Model):
+    scopes: list[str] = Field(default_factory=list)
+    target_types: list[str] = Field(default_factory=list)
+    session_types: list[str] = Field(default_factory=list)
+    default_session_types: list[str] = Field(default_factory=list)
+    criterion_types: list[str] = Field(default_factory=list)
+    criterion_priorities: list[str] = Field(default_factory=list)
+    data_point_types: list[str] = Field(default_factory=list)
+    frequencies: list[str] = Field(default_factory=list)
+    grades: list[str] = Field(default_factory=list)
+    statuses: list[str] = Field(default_factory=list)
+    skip_reasons: list[str] = Field(default_factory=list)
+    limits: dict[str, int] = Field(default_factory=dict)

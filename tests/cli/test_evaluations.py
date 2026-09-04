@@ -123,7 +123,7 @@ def test_evaluations_targets_builds_typed_target_list(cli_runner: CliRunner) -> 
     save_credentials(Credentials(api_key="key"))
 
     result = cli_runner.invoke(
-        app, ["evaluations", "targets", "eval_1", "--team", "team_1", "--team", "team_2", "--agent", "agent_9"]
+        app, ["evaluations", "targets", "eval_1", "--team-ids", "team_1, team_2", "--agent-ids", "agent_9"]
     )
 
     assert result.exit_code == 0, result.output

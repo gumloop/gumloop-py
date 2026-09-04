@@ -22,11 +22,6 @@ evaluations_app = typer.Typer(
     rich_markup_mode="rich",
 )
 
-_ORGANIZATION_OPTION = typer.Option(
-    "--organization", help="Organization id. Defaults to the organization you belong to."
-)
-_JSON_OPTION = typer.Option("--json", help="Print the raw SDK response as JSON.")
-
 
 def _resolve_organization_id(client: Gumloop, organization_id: str | None) -> str:
     if organization_id:
@@ -89,10 +84,16 @@ def _percent(value: Any) -> str | None:
 )
 def list_evaluations(
     ctx: typer.Context,
-    organization_id: Annotated[str | None, _ORGANIZATION_OPTION] = None,
+    organization_id: Annotated[
+        str | None,
+        typer.Option("--organization", help="Organization id. Defaults to the organization you belong to."),
+    ] = None,
     limit: Annotated[int | None, typer.Option("--limit", help="Maximum number of evaluations to return.")] = None,
     cursor: Annotated[str | None, typer.Option("--cursor", help="Pagination cursor from a previous list call.")] = None,
-    json_output: Annotated[bool, _JSON_OPTION] = False,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Print the raw SDK response as JSON."),
+    ] = False,
 ) -> None:
     """List an organization's evaluations."""
     cli: CliContext = ctx.obj
@@ -135,7 +136,10 @@ def list_evaluations(
 def get_evaluation(
     ctx: typer.Context,
     evaluation_id: Annotated[str, typer.Argument(help="Evaluation id to retrieve.")],
-    json_output: Annotated[bool, _JSON_OPTION] = False,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Print the raw SDK response as JSON."),
+    ] = False,
 ) -> None:
     """Show one evaluation: rubric size, targets, coverage, and results so far."""
     cli: CliContext = ctx.obj
@@ -165,7 +169,10 @@ def create_evaluation(
     ctx: typer.Context,
     name: Annotated[str, typer.Option("--name", help="Evaluation name, unique within the organization.")],
     description: Annotated[str | None, typer.Option("--description", help="Optional description.")] = None,
-    organization_id: Annotated[str | None, _ORGANIZATION_OPTION] = None,
+    organization_id: Annotated[
+        str | None,
+        typer.Option("--organization", help="Organization id. Defaults to the organization you belong to."),
+    ] = None,
     config_json: Annotated[
         str | None,
         typer.Option("--config-json", help="Inline JSON rubric (criteria, tags, data_points, model_name, ...)."),
@@ -174,7 +181,10 @@ def create_evaluation(
         str | None,
         typer.Option("--config-file", help="Path to a JSON file containing the rubric."),
     ] = None,
-    json_output: Annotated[bool, _JSON_OPTION] = False,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Print the raw SDK response as JSON."),
+    ] = False,
 ) -> None:
     """Create an organization evaluation."""
     cli: CliContext = ctx.obj
@@ -224,7 +234,10 @@ def update_evaluation(
         str | None,
         typer.Option("--config-file", help="Path to a JSON file with rubric fields to change."),
     ] = None,
-    json_output: Annotated[bool, _JSON_OPTION] = False,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Print the raw SDK response as JSON."),
+    ] = False,
 ) -> None:
     """Change an evaluation's name, description, rubric, or on/off state."""
     cli: CliContext = ctx.obj
@@ -250,7 +263,10 @@ def update_evaluation(
 def delete_evaluation(
     ctx: typer.Context,
     evaluation_id: Annotated[str, typer.Argument(help="Evaluation id to delete.")],
-    json_output: Annotated[bool, _JSON_OPTION] = False,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Print the raw SDK response as JSON."),
+    ] = False,
 ) -> None:
     """Delete an evaluation. Past results stay attached to their sessions."""
     cli: CliContext = ctx.obj
@@ -270,10 +286,10 @@ def delete_evaluation(
     epilog=(
         "Examples:\n"
         "  gumloop evaluations targets eval_abc --whole-organization\n"
-        "  gumloop evaluations targets eval_abc --team team_1 --team team_2 --agent agent_9\n"
-        "  gumloop evaluations targets eval_abc --user user_5\n"
+        "  gumloop evaluations targets eval_abc --team-ids team_1,team_2 --agent-ids agent_9\n"
+        "  gumloop evaluations targets eval_abc --user-ids user_5\n"
         "\n"
-        "Replaces the full target set each time. --user covers a member's personal agents."
+        "Replaces the full target set each time. --user-ids covers members' personal agents."
     ),
 )
 def set_targets(
@@ -282,19 +298,19 @@ def set_targets(
     whole_organization: Annotated[
         bool, typer.Option("--whole-organization", help="Grade every agent in the organization.")
     ] = False,
-    team_ids: Annotated[list[str] | None, typer.Option("--team", help="Team id (repeatable).")] = None,
-    user_ids: Annotated[list[str] | None, typer.Option("--user", help="Member user id (repeatable).")] = None,
-    agent_ids: Annotated[list[str] | None, typer.Option("--agent", help="Agent id (repeatable).")] = None,
-    json_output: Annotated[bool, _JSON_OPTION] = False,
+    team_ids: Annotated[str | None, typer.Option("--team-ids", help="Comma-separated team ids.")] = None,
+    user_ids: Annotated[str | None, typer.Option("--user-ids", help="Comma-separated member user ids.")] = None,
+    agent_ids: Annotated[str | None, typer.Option("--agent-ids", help="Comma-separated agent ids.")] = None,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Print the raw SDK response as JSON."),
+    ] = False,
 ) -> None:
     """Choose which agents the evaluation grades."""
     cli: CliContext = ctx.obj
-    targets: list[dict[str, Any]] = []
-    if whole_organization:
-        targets.append({"type": "organization"})
-    targets += [{"type": "team", "id": team_id} for team_id in team_ids or []]
-    targets += [{"type": "user", "id": user_id} for user_id in user_ids or []]
-    targets += [{"type": "agent", "id": agent_id} for agent_id in agent_ids or []]
+    targets: list[dict[str, Any]] = [{"type": "organization"}] if whole_organization else []
+    for target_type, raw_ids in (("team", team_ids), ("user", user_ids), ("agent", agent_ids)):
+        targets += [{"type": target_type, "id": value.strip()} for value in (raw_ids or "").split(",") if value.strip()]
     try:
         response = cli.call_with_refresh(lambda client: client.evaluations.set_targets(evaluation_id, targets))
     except GumloopError as error:
@@ -327,7 +343,10 @@ def run_evaluation(
     dry_run: Annotated[
         bool, typer.Option("--dry-run", help="Report the credit cost and skipped sessions without queuing.")
     ] = False,
-    json_output: Annotated[bool, _JSON_OPTION] = False,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Print the raw SDK response as JSON."),
+    ] = False,
 ) -> None:
     """Grade past sessions with this evaluation. Runs are queued; poll results with 'evaluations results'."""
     cli: CliContext = ctx.obj
@@ -373,7 +392,10 @@ def list_results(
     until: Annotated[str | None, typer.Option("--until", help="Created before this RFC 3339 time.")] = None,
     limit: Annotated[int | None, typer.Option("--limit", help="Maximum number of results to return.")] = None,
     cursor: Annotated[str | None, typer.Option("--cursor", help="Pagination cursor from a previous call.")] = None,
-    json_output: Annotated[bool, _JSON_OPTION] = False,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Print the raw SDK response as JSON."),
+    ] = False,
 ) -> None:
     """List graded sessions for an evaluation."""
     cli: CliContext = ctx.obj
@@ -436,7 +458,10 @@ def get_metrics(
     ctx: typer.Context,
     evaluation_id: Annotated[str, typer.Argument(help="Evaluation id.")],
     days: Annotated[int | None, typer.Option("--days", help="Window in days (1-365, default 30).")] = None,
-    json_output: Annotated[bool, _JSON_OPTION] = False,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Print the raw SDK response as JSON."),
+    ] = False,
 ) -> None:
     """Grade counts for an evaluation over a time window."""
     cli: CliContext = ctx.obj

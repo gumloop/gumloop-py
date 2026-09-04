@@ -9,6 +9,7 @@ from gumloop._http import HttpClient
 from gumloop.types import EvaluationCreateRequest
 from gumloop.types import EvaluationListResponse
 from gumloop.types import EvaluationMetricsResponse
+from gumloop.types import EvaluationOptionsResponse
 from gumloop.types import EvaluationResponse
 from gumloop.types import EvaluationResultRecordListResponse
 from gumloop.types import EvaluationResultRecordResponse
@@ -53,8 +54,8 @@ class Evaluations:
     def __init__(self, client: HttpClient) -> None:
         self._client = client
 
-    def options(self) -> dict[str, Any]:
-        return self._client.get("evaluation-options")
+    def options(self) -> EvaluationOptionsResponse:
+        return EvaluationOptionsResponse.model_validate(self._client.get("evaluation-options"))
 
     def list(
         self,
@@ -168,8 +169,8 @@ class AsyncEvaluations:
     def __init__(self, client: AsyncHttpClient) -> None:
         self._client = client
 
-    async def options(self) -> dict[str, Any]:
-        return await self._client.get("evaluation-options")
+    async def options(self) -> EvaluationOptionsResponse:
+        return EvaluationOptionsResponse.model_validate(await self._client.get("evaluation-options"))
 
     async def list(
         self,

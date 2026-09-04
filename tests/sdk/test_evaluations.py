@@ -178,6 +178,18 @@ def test_evaluations_get_result_and_metrics(client: Gumloop) -> None:
 
 
 @respx.mock
+def test_evaluations_options_is_typed(client: Gumloop) -> None:
+    respx.get(f"{API_BASE}/evaluation-options").mock(
+        return_value=httpx.Response(200, json={"grades": ["pass"], "limits": {"run_session_ids": 200}, "extra": 1})
+    )
+
+    options = client.evaluations.options()
+
+    assert options.grades == ["pass"]
+    assert options.limits["run_session_ids"] == 200
+
+
+@respx.mock
 def test_async_evaluations_create_and_run() -> None:
     respx.post(f"{API_BASE}/evaluations").mock(return_value=httpx.Response(201, json={"evaluation": EVALUATION}))
     respx.post(f"{API_BASE}/evaluations/eval_1/run").mock(
