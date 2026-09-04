@@ -127,6 +127,33 @@ def test_sessions_send_requires_message_text(cli_runner: CliRunner) -> None:
 
 
 @respx.mock
+def test_sessions_rename_patches_session_name(cli_runner: CliRunner) -> None:
+    route = respx.patch(f"{API_BASE}/sessions/session_xyz").mock(
+        return_value=httpx.Response(
+            200, json={"session": {"id": "session_xyz", "agent_id": "agent_abc", "name": "Q3 planning"}}
+        )
+    )
+    save_credentials(Credentials(api_key="key"))
+
+    result = cli_runner.invoke(app, ["sessions", "rename", "session_xyz", "Q3 planning"])
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(route.calls[0].request.content) == {"name": "Q3 planning"}
+    assert "Q3 planning" in result.output
+
+
+@respx.mock
+def test_sessions_rename_rejects_blank_name(cli_runner: CliRunner) -> None:
+    route = respx.patch(f"{API_BASE}/sessions/session_xyz")
+    save_credentials(Credentials(api_key="key"))
+
+    result = cli_runner.invoke(app, ["sessions", "rename", "session_xyz", "   ", "--json"])
+
+    assert result.exit_code != 0
+    assert not route.called
+
+
+@respx.mock
 def test_sessions_cancel_posts_to_cancel_endpoint(cli_runner: CliRunner) -> None:
     route = respx.post(f"{API_BASE}/sessions/session_xyz/cancel").mock(
         return_value=httpx.Response(

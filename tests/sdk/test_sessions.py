@@ -120,6 +120,27 @@ def test_sessions_list_forwards_filters_and_returns_envelope(client: Gumloop) ->
     assert "trigger_id" not in params
 
 
+@respx.mock
+def test_sessions_update_patches_name(client: Gumloop) -> None:
+    route = respx.patch(f"{API_BASE}/sessions/session_123").mock(
+        return_value=httpx.Response(
+            200, json={"session": {"id": "session_123", "agent_id": "agent_123", "name": "Q3 planning"}}
+        )
+    )
+
+    result = client.sessions.update("session_123", name="Q3 planning")
+
+    assert result.session.name == "Q3 planning"
+    assert request_json(route.calls[0].request) == {"name": "Q3 planning"}
+
+
+def test_sessions_update_requires_name() -> None:
+    client = Gumloop(access_token="token")
+
+    with pytest.raises(ValueError):
+        client.sessions.update("session_123")
+
+
 def test_sessions_send_requires_input_or_message() -> None:
     client = Gumloop(access_token="token")
 
@@ -204,6 +225,11 @@ def test_async_sessions_methods() -> None:
     respx.get(f"{API_BASE}/agents/agent_123/sessions").mock(
         return_value=httpx.Response(200, json={"sessions": [{"id": "session_123", "agent_id": "agent_123"}]})
     )
+    update_route = respx.patch(f"{API_BASE}/sessions/session_123").mock(
+        return_value=httpx.Response(
+            200, json={"session": {"id": "session_123", "agent_id": "agent_123", "name": "Renamed"}}
+        )
+    )
 
     async def run() -> None:
         async with AsyncGumloop(access_token="token") as client:
@@ -213,6 +239,8 @@ def test_async_sessions_methods() -> None:
             assert (await client.sessions.cancel("session_123")).session.id == "session_123"
             listed = await client.sessions.list("agent_123", state="completed")
             assert [s.id for s in listed.sessions] == ["session_123"]
+            assert (await client.sessions.update("session_123", name="Renamed")).session.name == "Renamed"
+            assert request_json(update_route.calls[0].request) == {"name": "Renamed"}
 
     asyncio.run(run())
 

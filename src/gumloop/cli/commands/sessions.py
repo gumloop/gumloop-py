@@ -283,6 +283,33 @@ def send_session(
             console.print(f"  [{m.role or ''}] {content[:200]}", markup=False, highlight=False)
 
 
+@sessions_app.command("rename", epilog="Example:\n  gumloop sessions rename session_abc 'Q3 planning'")
+def rename_session(
+    ctx: typer.Context,
+    session_id: Annotated[str, typer.Argument(help="Session id to rename.")],
+    name: Annotated[str, typer.Argument(help="New session name (1-256 characters).")],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Print the raw SDK response as JSON."),
+    ] = False,
+) -> None:
+    """Rename a session."""
+    cli: CliContext = ctx.obj
+    try:
+        if not name.strip():
+            raise GumloopError("Pass a non-empty name.")
+        response = cli.call_with_refresh(lambda client: client.sessions.update(session_id, name=name))
+    except GumloopError as error:
+        exit_with_error(error, json_output=json_output)
+
+    if json_output:
+        print_json(response)
+        return
+
+    console.print(f"[green]Renamed[/green] session {escape_markup(session_id)} to ", markup=True, end="")
+    console.print(response.session.name or name, markup=False, highlight=False)
+
+
 @sessions_app.command("cancel", epilog="Example:\n  gumloop sessions cancel session_abc")
 def cancel_session(
     ctx: typer.Context,
