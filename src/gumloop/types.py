@@ -685,6 +685,7 @@ class EvaluationConfig(_Model):
     tags: list[Any] = Field(default_factory=list)
     data_points: list[Any] = Field(default_factory=list)
     sentiment: dict[str, Any] | None = None
+    notifications: dict[str, Any] | None = None
     updated_ts: str | None = None
 
 
@@ -703,6 +704,42 @@ class EvaluationConfigUpdateRequest(_Model):
     tags: list[Any] | None = None
     data_points: list[Any] | None = None
     sentiment: dict[str, Any] | None = None
+    notifications: dict[str, Any] | None = None
+
+
+class EvaluationOptionLimits(_Model):
+    criteria: int
+    tags: int
+    data_points: int
+    tag_name_max_len: int
+    tag_description_max_len: int
+    notification_recipients: int
+
+
+class EvaluationOptions(_Model):
+    interaction_types: list[str] = Field(default_factory=list)
+    criterion_types: list[str] = Field(default_factory=list)
+    criterion_priorities: list[str] = Field(default_factory=list)
+    data_point_types: list[str] = Field(default_factory=list)
+    frequencies: list[str] = Field(default_factory=list)
+    default_interaction_types: list[str] = Field(default_factory=list)
+    limits: EvaluationOptionLimits
+
+
+class EvaluationMetrics(_Model):
+    grades: dict[str, int] = Field(default_factory=dict)
+    tags: dict[str, int] = Field(default_factory=dict)
+
+
+class EvaluationRunSkipped(_Model):
+    ineligible: list[str] = Field(default_factory=list)
+    in_flight: list[str] = Field(default_factory=list)
+
+
+class EvaluationRunResult(_Model):
+    status: Literal["queued"]
+    queued: int
+    skipped: EvaluationRunSkipped
 
 
 class EvaluationResult(_Model):
