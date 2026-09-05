@@ -395,14 +395,39 @@ def test_agents_list_evaluations_sends_filters(client: Gumloop) -> None:
         )
     )
 
-    result = client.agents.list_evaluations("agent_123", grade="needs_review", page_size=10, cursor="cursor_1")
+    result = client.agents.list_evaluations(
+        "agent_123", grade="needs_review", organization_evaluation_id="oe_1", page_size=10, cursor="cursor_1"
+    )
 
     assert result.evaluations[0].evaluation_id == "eval_1"
     assert result.next_cursor == "cursor_2"
     params = route.calls[0].request.url.params
     assert params["grade"] == "needs_review"
+    assert params["organization_evaluation_id"] == "oe_1"
     assert params["page_size"] == "10"
     assert params["cursor"] == "cursor_1"
+
+
+@respx.mock
+def test_agents_run_evaluations_supports_dry_run(client: Gumloop) -> None:
+    route = respx.post(f"{API_BASE}/agents/agent_123/evaluations/run").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "dry_run": True,
+                "credit_cost": 1,
+                "results": [{"id": None, "session_id": "session_1", "status": "planned"}],
+                "skipped": [{"session_id": "session_2", "reason": "ineligible", "result_id": None}],
+            },
+        )
+    )
+
+    result = client.agents.run_evaluations("agent_123", session_ids=["session_1", "session_2"], dry_run=True)
+
+    assert request_json(route.calls[0].request) == {"session_ids": ["session_1", "session_2"], "dry_run": True}
+    assert result.dry_run is True
+    assert [item.status for item in result.results] == ["planned"]
+    assert result.skipped[0].reason == "ineligible"
 
 
 @respx.mock
