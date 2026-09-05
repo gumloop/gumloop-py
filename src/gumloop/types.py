@@ -722,7 +722,7 @@ class EvaluationOptionLimits(_Model):
     notification_recipients: int
 
 
-class EvaluationOptionsResponse(_Model):
+class AgentEvaluationOptionsResponse(_Model):
     interaction_types: list[str] = Field(default_factory=list)
     criterion_types: list[str] = Field(default_factory=list)
     criterion_priorities: list[str] = Field(default_factory=list)
@@ -732,24 +732,15 @@ class EvaluationOptionsResponse(_Model):
     limits: EvaluationOptionLimits
 
 
-class EvaluationMetricsResponse(_Model):
+class AgentEvaluationMetricsResponse(_Model):
+    days: int
     grades: dict[str, int] = Field(default_factory=dict)
     tags: dict[str, int] = Field(default_factory=dict)
 
 
 class EvaluationRunRequest(_Model):
     session_ids: list[str]
-
-
-class EvaluationRunSkipped(_Model):
-    ineligible: list[str] = Field(default_factory=list)
-    in_flight: list[str] = Field(default_factory=list)
-
-
-class EvaluationRunResponse(_Model):
-    status: Literal["queued"]
-    queued: int
-    skipped: EvaluationRunSkipped
+    dry_run: bool = False
 
 
 class EvaluationResult(_Model):
@@ -759,6 +750,8 @@ class EvaluationResult(_Model):
     agent_id: str
     created_ts: str | None = None
     created_at: str | None = None
+    # Null when the agent's own evaluation produced the result rather than an organization evaluation.
+    organization_evaluation_id: str | None = None
     # "completed" | "failed"; grade/call_successful are null when failed.
     status: str | None = None
     grade: str | None = None

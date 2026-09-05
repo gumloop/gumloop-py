@@ -627,7 +627,7 @@ def get_evaluation_metrics(
     epilog=(
         "Examples:\n"
         "  gumloop agents eval-run agent_abc --session-id session_1\n"
-        "  gumloop agents eval-run agent_abc --session-id session_1 --session-id session_2 --json"
+        "  gumloop agents eval-run agent_abc --session-id session_1 --session-id session_2 --dry-run"
     ),
 )
 def run_evaluations(
@@ -637,6 +637,9 @@ def run_evaluations(
         list[str] | None,
         typer.Option("--session-id", help="Session ID to evaluate. Repeat for multiple sessions."),
     ] = None,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Report the credit cost and skipped sessions without queuing.")
+    ] = False,
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Print the raw SDK response as JSON."),
@@ -648,7 +651,7 @@ def run_evaluations(
         if not session_ids:
             raise GumloopError("Pass at least one --session-id.")
         response = cli.call_with_refresh(
-            lambda client: client.agents.run_evaluations(agent_id, session_ids=session_ids)
+            lambda client: client.agents.run_evaluations(agent_id, session_ids=session_ids, dry_run=dry_run)
         )
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
@@ -657,16 +660,9 @@ def run_evaluations(
         print_json(response)
         return
 
-    console.print(f"[green]Queued[/green] {response.queued} evaluation(s)")
-    if response.skipped.ineligible:
-        console.print(
-            f"  Ineligible: {', '.join(response.skipped.ineligible)}",
-            markup=False,
-            highlight=False,
-        )
-    if response.skipped.in_flight:
-        console.print(
-            f"  In flight: {', '.join(response.skipped.in_flight)}",
-            markup=False,
-            highlight=False,
-        )
+    verb = "Would queue" if response.dry_run else "Queued"
+    console.print(f"[green]{verb}[/green] {len(response.results)} session(s) for {response.credit_cost} credit(s)")
+    for result in response.results:
+        console.print(f"  {result.session_id}\t{result.status}\t{result.id or ''}", markup=False, highlight=False)
+    for skipped in response.skipped:
+        console.print(f"  {skipped.session_id}\tskipped: {skipped.reason}", markup=False, highlight=False)
