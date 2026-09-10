@@ -49,7 +49,7 @@ class CreatorPayload(_Model):
 
 class AgentCreateRequest(_Model):
     name: str
-    model_name: str
+    model_name: str | None = None
     description: str | None = None
     system_prompt: str | None = None
     tools: list[dict[str, Any]] = Field(default_factory=list)

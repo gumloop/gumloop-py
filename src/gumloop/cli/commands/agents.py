@@ -123,7 +123,10 @@ def get_agent(
 def create_agent(
     ctx: typer.Context,
     name: Annotated[str, typer.Option("--name", help="Display name for the new agent.")],
-    model: Annotated[str, typer.Option("--model", help="Model name (for example 'auto').")],
+    model: Annotated[
+        str | None,
+        typer.Option("--model", help="Model name (for example 'auto'). Defaults to Gumloop's Auto router."),
+    ] = None,
     description: Annotated[
         str | None,
         typer.Option("--description", help="Optional short description."),
