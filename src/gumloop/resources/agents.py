@@ -8,6 +8,8 @@ from typing import Any
 from gumloop._http import AsyncHttpClient
 from gumloop._http import HttpClient
 from gumloop.types import AgentCreateRequest
+from gumloop.types import AgentEvaluationMetricsResponse
+from gumloop.types import AgentEvaluationOptionsResponse
 from gumloop.types import AgentListResponse
 from gumloop.types import AgentMcpServerDetachResponse
 from gumloop.types import AgentMcpServerResponse
@@ -19,8 +21,6 @@ from gumloop.types import AgentVersionResponse
 from gumloop.types import AgentVersionsResponse
 from gumloop.types import EvaluationConfigResponse
 from gumloop.types import EvaluationConfigUpdateRequest
-from gumloop.types import EvaluationMetricsResponse
-from gumloop.types import EvaluationOptionsResponse
 from gumloop.types import EvaluationResultListResponse
 from gumloop.types import EvaluationResultResponse
 from gumloop.types import EvaluationRunRequest
@@ -137,8 +137,8 @@ class Agents:
     def list_mcp_servers(self, agent_id: str) -> AgentMcpServersResponse:
         return AgentMcpServersResponse.model_validate(self._client.get(f"agents/{agent_id}/mcp-servers"))
 
-    def get_evaluation_options(self) -> EvaluationOptionsResponse:
-        return EvaluationOptionsResponse.model_validate(self._client.get("agents/evaluation-options"))
+    def get_evaluation_options(self) -> AgentEvaluationOptionsResponse:
+        return AgentEvaluationOptionsResponse.model_validate(self._client.get("agents/evaluation-options"))
 
     def get_evaluation_config(self, agent_id: str) -> EvaluationConfigResponse:
         return EvaluationConfigResponse.model_validate(self._client.get(f"agents/{agent_id}/evaluation-config"))
@@ -168,10 +168,13 @@ class Agents:
         created_after: datetime | None = None,
         created_before: datetime | None = None,
         session_id: str | None = None,
+        organization_evaluation_id: str | None = None,
         page_size: int | None = None,
         cursor: str | None = None,
         **kwargs: Any,
     ) -> EvaluationResultListResponse:
+        """Results from the agent's own evaluation by default; ``organization_evaluation_id`` selects the
+        results one organization evaluation produced for this agent instead."""
         return EvaluationResultListResponse.model_validate(
             self._client.get(
                 f"agents/{agent_id}/evaluations",
@@ -181,6 +184,7 @@ class Agents:
                     "created_after": created_after.isoformat() if created_after is not None else None,
                     "created_before": created_before.isoformat() if created_before is not None else None,
                     "session_id": session_id,
+                    "organization_evaluation_id": organization_evaluation_id,
                     "page_size": page_size,
                     "cursor": cursor,
                     **kwargs,
@@ -188,8 +192,8 @@ class Agents:
             )
         )
 
-    def get_evaluation_metrics(self, agent_id: str, days: int = 30) -> EvaluationMetricsResponse:
-        return EvaluationMetricsResponse.model_validate(
+    def get_evaluation_metrics(self, agent_id: str, days: int = 30) -> AgentEvaluationMetricsResponse:
+        return AgentEvaluationMetricsResponse.model_validate(
             self._client.get(f"agents/{agent_id}/evaluations/metrics", params={"days": days})
         )
 
@@ -316,9 +320,9 @@ class AsyncAgents:
         data = await self._client.get(f"agents/{agent_id}/mcp-servers")
         return AgentMcpServersResponse.model_validate(data)
 
-    async def get_evaluation_options(self) -> EvaluationOptionsResponse:
+    async def get_evaluation_options(self) -> AgentEvaluationOptionsResponse:
         data = await self._client.get("agents/evaluation-options")
-        return EvaluationOptionsResponse.model_validate(data)
+        return AgentEvaluationOptionsResponse.model_validate(data)
 
     async def get_evaluation_config(self, agent_id: str) -> EvaluationConfigResponse:
         data = await self._client.get(f"agents/{agent_id}/evaluation-config")
@@ -348,10 +352,13 @@ class AsyncAgents:
         created_after: datetime | None = None,
         created_before: datetime | None = None,
         session_id: str | None = None,
+        organization_evaluation_id: str | None = None,
         page_size: int | None = None,
         cursor: str | None = None,
         **kwargs: Any,
     ) -> EvaluationResultListResponse:
+        """Results from the agent's own evaluation by default; ``organization_evaluation_id`` selects the
+        results one organization evaluation produced for this agent instead."""
         data = await self._client.get(
             f"agents/{agent_id}/evaluations",
             params={
@@ -360,6 +367,7 @@ class AsyncAgents:
                 "created_after": created_after.isoformat() if created_after is not None else None,
                 "created_before": created_before.isoformat() if created_before is not None else None,
                 "session_id": session_id,
+                "organization_evaluation_id": organization_evaluation_id,
                 "page_size": page_size,
                 "cursor": cursor,
                 **kwargs,
@@ -367,9 +375,9 @@ class AsyncAgents:
         )
         return EvaluationResultListResponse.model_validate(data)
 
-    async def get_evaluation_metrics(self, agent_id: str, days: int = 30) -> EvaluationMetricsResponse:
+    async def get_evaluation_metrics(self, agent_id: str, days: int = 30) -> AgentEvaluationMetricsResponse:
         data = await self._client.get(f"agents/{agent_id}/evaluations/metrics", params={"days": days})
-        return EvaluationMetricsResponse.model_validate(data)
+        return AgentEvaluationMetricsResponse.model_validate(data)
 
     async def run_evaluations(
         self,

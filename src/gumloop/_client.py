@@ -19,14 +19,18 @@ from gumloop.resources import AsyncAgents
 from gumloop.resources import AsyncArtifacts
 from gumloop.resources import AsyncBrain
 from gumloop.resources import AsyncChat
+from gumloop.resources import AsyncEvaluations
 from gumloop.resources import AsyncMCP
 from gumloop.resources import AsyncModels
+from gumloop.resources import AsyncOrganizations
 from gumloop.resources import AsyncSessions
 from gumloop.resources import AsyncSkills
 from gumloop.resources import AsyncTeams
 from gumloop.resources import Brain
 from gumloop.resources import Chat
+from gumloop.resources import Evaluations
 from gumloop.resources import Models
+from gumloop.resources import Organizations
 from gumloop.resources import Sessions
 from gumloop.resources import Skills
 from gumloop.resources import Sync
@@ -46,7 +50,8 @@ def _derive_stream_base_url(base_url: str) -> str:
 class Gumloop:
     """Sync Gumloop SDK client. Composes an :class:`HttpClient` with the
     resource classes (``agents``, ``sessions``, ``mcp``, ``teams``,
-    ``skills``, ``artifacts``, ``brain``, ``models``). The :attr:`oauth`
+    ``organizations``, ``evaluations``, ``skills``, ``artifacts``, ``brain``,
+    ``models``). The :attr:`oauth`
     attribute holds OAuth helpers — kept off the transport because it
     bootstraps the bearer token rather than consuming one."""
 
@@ -92,6 +97,8 @@ class Gumloop:
         self.models = Models(self._http)
         self.mcp = MCP(self._http)
         self.teams = Teams(self._http)
+        self.organizations = Organizations(self._http)
+        self.evaluations = Evaluations(self._http)
         self.skills = Skills(self._http)
         self.sync = Sync(self._http)
         self.artifacts = Artifacts(self._http)
@@ -151,6 +158,8 @@ class AsyncGumloop:
         self.models = AsyncModels(self._http)
         self.mcp = AsyncMCP(self._http)
         self.teams = AsyncTeams(self._http)
+        self.organizations = AsyncOrganizations(self._http)
+        self.evaluations = AsyncEvaluations(self._http)
         self.skills = AsyncSkills(self._http)
         self.artifacts = AsyncArtifacts(self._http)
         self.brain = AsyncBrain(self._http)
