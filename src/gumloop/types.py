@@ -235,6 +235,39 @@ class ModelListResponse(_Model):
     model_groups: list[dict[str, Any]] = Field(default_factory=list)
 
 
+class ModelRouteRequest(_Model):
+    input: str | list[Any] | None = None
+    message: str | list[Any] | None = None
+    models: list[str] | None = None
+    history: list[dict[str, Any]] | None = None
+    agent: dict[str, Any] | None = None
+    team_id: str | None = None
+
+
+class ModelRouteCandidate(_Model):
+    requested_model: str
+    model: str
+    lanes: list[str] = Field(default_factory=list)
+    lane_basis: str | None = None
+    status: str
+
+
+class ModelRouteDecision(_Model):
+    model: str
+    lane: str
+    verdict_lane: str
+    adjustment: str | None = None
+    reasoning_effort: str | None = None
+    fallback_models: list[str] = Field(default_factory=list)
+    fail_closed: bool = False
+
+
+class ModelRouteResponse(_Model):
+    router: str
+    route: ModelRouteDecision
+    candidates: list[ModelRouteCandidate] = Field(default_factory=list)
+
+
 # ---------------------------------------------------------------------------
 # Team types
 # ---------------------------------------------------------------------------

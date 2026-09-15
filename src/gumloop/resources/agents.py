@@ -26,6 +26,8 @@ from gumloop.types import EvaluationResultResponse
 from gumloop.types import EvaluationRunRequest
 from gumloop.types import EvaluationRunResponse
 from gumloop.types import ModelListResponse
+from gumloop.types import ModelRouteRequest
+from gumloop.types import ModelRouteResponse
 from gumloop.types import SkillListResponse
 
 
@@ -220,6 +222,16 @@ class Models:
     def list(self, **kwargs: Any) -> ModelListResponse:
         return ModelListResponse.model_validate(self._client.get("models", params=kwargs))
 
+    def route(
+        self,
+        request: ModelRouteRequest | Mapping[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> ModelRouteResponse:
+        body = ModelRouteRequest.build(request, **kwargs)
+        if body.get("input") is None and body.get("message") is None:
+            raise ValueError("input or message is required")
+        return ModelRouteResponse.model_validate(self._client.post("models/route", json=body))
+
 
 class AsyncAgents:
     def __init__(self, client: AsyncHttpClient) -> None:
@@ -401,3 +413,14 @@ class AsyncModels:
 
     async def list(self, **kwargs: Any) -> ModelListResponse:
         return ModelListResponse.model_validate(await self._client.get("models", params=kwargs))
+
+    async def route(
+        self,
+        request: ModelRouteRequest | Mapping[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> ModelRouteResponse:
+        body = ModelRouteRequest.build(request, **kwargs)
+        if body.get("input") is None and body.get("message") is None:
+            raise ValueError("input or message is required")
+        data = await self._client.post("models/route", json=body)
+        return ModelRouteResponse.model_validate(data)
