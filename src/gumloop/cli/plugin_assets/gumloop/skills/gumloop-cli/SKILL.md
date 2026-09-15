@@ -47,6 +47,7 @@ If it fails with an authentication error:
 | --- | --- |
 | `gumloop login` / `logout` | Manage stored credentials |
 | `gumloop agents list\|get\|versions\|export\|create\|update` | Manage agents and export agent versions |
+| `gumloop models list\|route` | List available models; ask Gumloop Chew which of your models should run a task |
 | `gumloop sessions create\|get\|send\|cancel` | Run conversations with an agent |
 | `gumloop chat completions create` | Chat completion against any supported model |
 | `gumloop mcp list\|get\|tools\|call` | Explore connected MCP servers and execute their tools |

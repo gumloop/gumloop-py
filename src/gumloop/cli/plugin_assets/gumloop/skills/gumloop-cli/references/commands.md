@@ -37,6 +37,17 @@ gumloop agents update <agent_id> [same flags as create] [--is-active | --inactiv
 
 `--model` accepts `auto` or a slug like `anthropic/claude-sonnet-4`. To learn the tool-config shape, run `gumloop agents get <id> --json` on an existing agent and copy its `tools` array. `--inactive` retires the agent irreversibly.
 
+## Models
+
+```bash
+gumloop models list [--json]
+gumloop models route "task text" [--model id]... [--agent-name n] [--agent-description d]
+    [--system-prompt s | --system-prompt-file f] [--json]
+cat task.txt | gumloop models route --input-stdin - --model gpt-5.6-luna --model claude-opus-5
+```
+
+`models route` asks Gumloop Chew which of your candidate models should run a task and returns the pick, its lane, ACL-filtered fallbacks, and every candidate's status. It is decision-only: nothing runs. Omit `--model` to route across the full Chew catalog. Each call bills one small classifier completion.
+
 ## Sessions
 
 ```bash

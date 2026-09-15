@@ -16,6 +16,7 @@ from gumloop.cli.commands.brain import brain_app
 from gumloop.cli.commands.chat import chat_app
 from gumloop.cli.commands.evaluations import evaluations_app
 from gumloop.cli.commands.mcp import mcp_app
+from gumloop.cli.commands.models import models_app
 from gumloop.cli.commands.plugin import plugin_app
 from gumloop.cli.commands.sessions import sessions_app
 from gumloop.cli.commands.skills import skills_app
@@ -101,6 +102,7 @@ app.command("logout")(logout_command)
 app.command("update")(update_command)
 app.add_typer(mcp_app, name="mcp")
 app.add_typer(agents_app, name="agents")
+app.add_typer(models_app, name="models")
 app.add_typer(sessions_app, name="sessions")
 app.add_typer(evaluations_app, name="evaluations")
 app.add_typer(skills_app, name="skills")

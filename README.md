@@ -90,3 +90,22 @@ async def main() -> None:
 
 asyncio.run(main())
 ```
+
+## Route a task to the right model
+
+Ask Gumloop Chew which of your candidate models should handle a task. Decision only — nothing runs.
+
+```python
+from gumloop import Gumloop
+
+client = Gumloop(api_key="your_api_key", user_id="your_user_id")
+
+decision = client.models.route(
+    input="Summarize this email thread and draft a reply",
+    models=["gpt-5.6-luna", "x-ai/grok-4.6", "claude-opus-5"],
+)
+
+print(decision.route.model, decision.route.lane, decision.route.fallback_models)
+```
+
+Omit `models` to route across the full Chew catalog. Each call bills one small classifier completion.
