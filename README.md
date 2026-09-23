@@ -16,9 +16,9 @@ The installer is fully self-contained under `~/.gumloop` — it ships its own Py
 gumloop update
 ```
 
-### Import browser logins for agents
+### Import sites into a browser profile
 
-Gumloop agents that use the Browser ability keep their logins in a **login profile**. Import the sites you are already signed into locally (Chrome, Brave, Edge, Chromium, Arc, Firefox on macOS or Linux) without an extension:
+Gumloop agents that use the Browser ability keep their sign-ins in a **browser profile**. Import the sites you are already signed into locally (Chrome, Brave, Edge, Chromium, Arc, Firefox on macOS or Linux) without an extension:
 
 ```bash
 gumloop browser import-logins --url https://github.com                 # into your personal default profile

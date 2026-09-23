@@ -22,11 +22,11 @@ from gumloop.resources.browser_profiles import DEFAULT_PROFILE
 from gumloop.types import BrowserProfile
 
 browser_app = typer.Typer(
-    help="Bring your browser logins to Gumloop agents.",
+    help="Bring your browser sign-ins to Gumloop agents.",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
-profiles_app = typer.Typer(help="Manage browser login profiles.", no_args_is_help=True, rich_markup_mode="rich")
+profiles_app = typer.Typer(help="Manage browser profiles.", no_args_is_help=True, rich_markup_mode="rich")
 browser_app.add_typer(profiles_app, name="profiles")
 
 
@@ -63,9 +63,7 @@ def _resolve_target(cli: CliContext, into: str | None, team_id: str | None) -> s
     for profile in listed.profiles:
         if profile.profile_id == into or profile.name.casefold() == into.casefold():
             return profile.profile_id
-    raise GumloopError(
-        f"No browser login profile named or identified by '{into}'. Run `gumloop browser profiles list`."
-    )
+    raise GumloopError(f"No browser profile named or identified by '{into}'. Run `gumloop browser profiles list`.")
 
 
 def _print_profile_rows(profiles: list[BrowserProfile]) -> None:
@@ -100,7 +98,7 @@ def import_logins(
     url: Annotated[str, typer.Option("--url", help="The site whose login to import, e.g. https://github.com.")],
     into: Annotated[
         str | None,
-        typer.Option("--into", help="Target login profile id or name. Default: your personal default profile."),
+        typer.Option("--into", help="Target browser profile id or name. Default: your personal default profile."),
     ] = None,
     team: Annotated[
         str | None,
@@ -117,7 +115,7 @@ def import_logins(
     yes: Annotated[bool, typer.Option("--yes", "-y", help="Do not ask for confirmation.")] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Print the result as JSON.")] = False,
 ) -> None:
-    """Copy this machine's cookies for one site into a Gumloop browser login profile.
+    """Copy this machine's cookies for one site into a Gumloop browser profile.
 
     Only cookies for the site you name leave this machine, and only counts are ever printed.
     On macOS the system asks for Keychain access to the browser's cookie key; that prompt is
@@ -151,7 +149,7 @@ def import_logins(
         )
         exit_with_error(
             GumloopError(
-                f"No logins for {site} were found in {local.label}. Log in to the site in that browser first.{hint}"
+                f"No cookies for {site} were found in {local.label}. Sign in to the site in that browser first.{hint}"
             ),
             json_output=json_output,
         )
@@ -166,7 +164,7 @@ def import_logins(
         if extracted.undecryptable:
             console.print(f"  [dim]{extracted.undecryptable} cookie(s) could not be decrypted and were skipped.[/dim]")
         if not yes:
-            confirmed = questionary.confirm("Send these cookies to your Gumloop login profile?", default=True).ask()
+            confirmed = questionary.confirm("Send these cookies to your Gumloop browser profile?", default=True).ask()
             if not confirmed:
                 console.print("Cancelled; nothing was sent.")
                 raise typer.Exit(1)
@@ -208,7 +206,7 @@ def list_profiles(
     team: Annotated[str | None, typer.Option("--team", help="List a team's profiles instead of your own.")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Print the raw SDK response as JSON.")] = False,
 ) -> None:
-    """List browser login profiles and the sites they hold."""
+    """List browser profiles and the sites they hold."""
     cli: CliContext = ctx.obj
     try:
         response = cli.call_with_refresh(lambda client: client.browser_profiles.list(project_id=team))
@@ -228,12 +226,10 @@ def delete_profile(
     yes: Annotated[bool, typer.Option("--yes", "-y", help="Do not ask for confirmation.")] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Print the result as JSON.")] = False,
 ) -> None:
-    """Delete a login profile and every login it holds."""
+    """Delete a browser profile and every site it holds."""
     cli: CliContext = ctx.obj
     if not yes and not json_output:
-        if not questionary.confirm(
-            f"Delete browser login profile {profile_id} and all of its logins?", default=False
-        ).ask():
+        if not questionary.confirm(f"Delete browser profile {profile_id} and all of its sites?", default=False).ask():
             raise typer.Exit(1)
     try:
         cli.call_with_refresh(lambda client: client.browser_profiles.delete(profile_id, project_id=team))
@@ -242,7 +238,7 @@ def delete_profile(
     if json_output:
         print_json({"deleted": True, "profile_id": profile_id})
         return
-    console.print(f"Deleted browser login profile {profile_id}.")
+    console.print(f"Deleted browser profile {profile_id}.")
 
 
 @profiles_app.command("remove-site", epilog="Examples:\n  gumloop browser profiles remove-site <profile_id> github.com")
@@ -253,7 +249,7 @@ def remove_site(
     team: Annotated[str | None, typer.Option("--team", help="Team id when the profile belongs to a team.")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Print the raw SDK response as JSON.")] = False,
 ) -> None:
-    """Remove one site's logins from a profile."""
+    """Remove one site from a profile."""
     cli: CliContext = ctx.obj
     try:
         profile = cli.call_with_refresh(

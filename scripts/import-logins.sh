@@ -1,5 +1,5 @@
 #!/bin/sh
-# Bring a site's login from this machine's browser to your Gumloop agents:
+# Bring a site's sign-in from this machine's browser into your Gumloop browser profile:
 #   GUMLOOP_LOGIN_URL='https://app.example.com' sh -c 'curl -fsSL https://gumloop.com/cli/import-logins.sh | sh'
 
 set -eu
@@ -61,7 +61,7 @@ if [ -z "$CLI" ]; then
 fi
 
 if ! "$CLI" browser --help >/dev/null 2>&1; then
-    step "Updating the Gumloop CLI (this version cannot import logins)"
+    step "Updating the Gumloop CLI (this version cannot import sites)"
     "$CLI" update >/dev/null 2>&1 || fail "could not update the Gumloop CLI; run '$CLI update' and retry."
 fi
 
@@ -81,7 +81,7 @@ set -- browser import-logins --url "$url" --yes
 [ -n "${GUMLOOP_TEAM_ID:-}" ] && set -- "$@" --team "$GUMLOOP_TEAM_ID"
 [ -n "${GUMLOOP_BROWSER:-}" ] && set -- "$@" --browser "$GUMLOOP_BROWSER"
 
-step "Importing your login for ${url}"
+step "Importing your sign-in for ${url}"
 if has_tty; then
     "$CLI" "$@" < /dev/tty
 else
