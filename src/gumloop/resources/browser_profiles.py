@@ -66,7 +66,7 @@ class BrowserProfiles:
         self,
         profile_id: str,
         *,
-        url: str,
+        url: str | None = None,
         cookies: list[dict[str, Any]],
         project_id: str | None = None,
     ) -> BrowserProfileImportResponse:
@@ -123,7 +123,7 @@ class AsyncBrowserProfiles:
         self,
         profile_id: str,
         *,
-        url: str,
+        url: str | None = None,
         cookies: list[dict[str, Any]],
         project_id: str | None = None,
     ) -> BrowserProfileImportResponse:

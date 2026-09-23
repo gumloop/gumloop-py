@@ -1,5 +1,7 @@
 #!/bin/sh
-# Bring a site's sign-in from this machine's browser into your Gumloop browser profile:
+# Bring this machine's browser sign-ins into your Gumloop browser profile (every site, cookies only):
+#   curl -fsSL https://gumloop.com/cli/import-logins.sh | sh
+# One site only:
 #   GUMLOOP_LOGIN_URL='https://app.example.com' sh -c 'curl -fsSL https://gumloop.com/cli/import-logins.sh | sh'
 
 set -eu
@@ -21,15 +23,6 @@ fail() { printf '%serror:%s %s\n' "${RED}" "${RESET}" "$1" >&2; exit 1; }
 
 # Prompts read /dev/tty, not stdin: under `curl | sh` stdin is the script.
 has_tty() { ( : < /dev/tty ) 2>/dev/null; }
-
-prompt() {
-    has_tty || fail "$2 is not set and there is no terminal to ask on. Set $2 and re-run."
-    printf '%s ' "$1"
-    answer=""
-    read -r answer < /dev/tty || fail "no input"
-    [ -n "$answer" ] || fail "nothing entered"
-    printf '%s' "$answer"
-}
 
 case "$(uname -s)" in
     Darwin|Linux) ;;
@@ -66,7 +59,6 @@ if ! "$CLI" browser --help >/dev/null 2>&1; then
 fi
 
 url="${GUMLOOP_LOGIN_URL:-}"
-[ -n "$url" ] || url="$(prompt 'Which site should the agent be logged in to (e.g. https://app.example.com)?' GUMLOOP_LOGIN_URL)"
 
 if [ -z "${GUMLOOP_API_KEY:-}" ] && [ -z "${GUMLOOP_ACCESS_TOKEN:-}" ]; then
     if ! "$CLI" browser profiles list --json >/dev/null 2>&1; then
@@ -76,12 +68,24 @@ if [ -z "${GUMLOOP_API_KEY:-}" ] && [ -z "${GUMLOOP_ACCESS_TOKEN:-}" ]; then
     fi
 fi
 
-set -- browser import-logins --url "$url" --yes
+set -- browser import-logins
+if [ -n "$url" ]; then
+    set -- "$@" --url "$url" --yes
+else
+    # A whole profile is previewed and confirmed on the terminal; headless runs have already opted in.
+    has_tty || set -- "$@" --yes
+    for domain in $(printf '%s' "${GUMLOOP_INCLUDE_DOMAINS:-}" | tr ',' ' '); do set -- "$@" --include-domain "$domain"; done
+    for domain in $(printf '%s' "${GUMLOOP_EXCLUDE_DOMAINS:-}" | tr ',' ' '); do set -- "$@" --exclude-domain "$domain"; done
+fi
 [ -n "${GUMLOOP_BROWSER_PROFILE_ID:-}" ] && set -- "$@" --into "$GUMLOOP_BROWSER_PROFILE_ID"
 [ -n "${GUMLOOP_TEAM_ID:-}" ] && set -- "$@" --team "$GUMLOOP_TEAM_ID"
 [ -n "${GUMLOOP_BROWSER:-}" ] && set -- "$@" --browser "$GUMLOOP_BROWSER"
 
-step "Importing your sign-in for ${url}"
+if [ -n "$url" ]; then
+    step "Importing your sign-in for ${url}"
+else
+    step "Importing your browser's sign-ins"
+fi
 if has_tty; then
     "$CLI" "$@" < /dev/tty
 else

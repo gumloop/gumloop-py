@@ -309,7 +309,7 @@ class BrowserProfilesResponse(_Model):
 
 
 class BrowserProfileImportSummary(_Model):
-    site: str
+    site: str | None = None
     cookie_count: int
     skipped: int = 0
     sites: list[str] = Field(default_factory=list)

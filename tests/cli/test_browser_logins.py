@@ -18,9 +18,11 @@ from gumloop.browser_logins import BrowserKind
 from gumloop.browser_logins import LocalProfile
 from gumloop.browser_logins import chromium_cookies
 from gumloop.browser_logins import discover_profiles
+from gumloop.browser_logins import extract_profile_cookies
 from gumloop.browser_logins import extract_site_cookies
 from gumloop.browser_logins.filter import registrable_domain
 from gumloop.browser_logins.filter import site_of_url
+from gumloop.cli.commands import browser as browser_command
 from gumloop.cli.credentials import Credentials
 from gumloop.cli.credentials import save_credentials
 from gumloop.cli.main import app
@@ -115,6 +117,24 @@ def test_extract_decrypts_only_the_sites_cookies(tmp_path: Path, monkeypatch):
     assert by_name["plain"]["value"] == "visible" and "expires" not in by_name["plain"]
     assert result.expired == 1 and result.undecryptable == 1
     assert result.per_domain == {".github.com": 1, "api.github.com": 1}
+
+
+def test_extract_profile_cookies_takes_every_site_and_honours_domain_filters(tmp_path: Path, monkeypatch):
+    profile_dir = _make_chrome_profile(tmp_path / "chrome", _chrome_rows())
+    monkeypatch.setattr(chromium_cookies, "resolve_key", lambda browser, platform=None: KEY)
+    profile = LocalProfile(BrowserKind.CHROME, "Default", "Person 1", profile_dir)
+
+    everything = extract_profile_cookies(profile, platform="linux")
+    assert everything.site is None
+    assert sorted(c["name"] for c in everything.cookies) == ["other", "plain", "sid"]
+    assert everything.per_site == {"github.com": 2, "google.com": 1}
+    assert everything.expired == 1 and everything.undecryptable == 1
+
+    only_google = extract_profile_cookies(profile, include=["google.com"], platform="linux")
+    assert [c["name"] for c in only_google.cookies] == ["other"]
+
+    without_google = extract_profile_cookies(profile, exclude=[".google.com"], platform="linux")
+    assert sorted(c["name"] for c in without_google.cookies) == ["plain", "sid"]
 
 
 def test_decrypt_value_handles_legacy_values_and_rejects_garbage():
@@ -281,3 +301,75 @@ def test_profiles_list_and_remove_site(cli_runner: CliRunner):
 
     removed = cli_runner.invoke(app, ["browser", "profiles", "remove-site", "bp_1", "github.com"])
     assert removed.exit_code == 0 and removal.called
+
+
+def _import_response(profile_id: str, *, site: str | None, cookie_count: int, sites: list[str]) -> httpx.Response:
+    return httpx.Response(
+        200,
+        json={
+            "profile": {
+                "profile_id": profile_id,
+                "owner_id": "u",
+                "owner_scope": "personal",
+                "name": "Default",
+                "is_default": True,
+                "version": 1,
+                "sites": [{"domain": s, "cookie_count": 1} for s in sites],
+            },
+            "imported": {"site": site, "cookie_count": cookie_count, "skipped": 0, "sites": sites},
+        },
+    )
+
+
+def _patch_local_chrome(tmp_path: Path, monkeypatch) -> None:
+    profile_dir = _make_chrome_profile(tmp_path / "chrome", _chrome_rows())
+    monkeypatch.setattr(chromium_cookies, "resolve_key", lambda browser, platform=None: KEY)
+    monkeypatch.setattr(
+        "gumloop.cli.commands.browser.discover_profiles",
+        lambda browsers=None: [LocalProfile(BrowserKind.CHROME, "Default", "Person 1", profile_dir)],
+    )
+
+
+@respx.mock
+def test_import_logins_without_url_posts_every_site(cli_runner: CliRunner, tmp_path: Path, monkeypatch):
+    _patch_local_chrome(tmp_path, monkeypatch)
+    route = respx.post(f"{API_BASE}/browser-profiles/default/cookies").mock(
+        return_value=_import_response("bp_1", site=None, cookie_count=3, sites=["github.com", "google.com"])
+    )
+    save_credentials(Credentials(api_key="key", user_id="u"))
+
+    result = cli_runner.invoke(app, ["browser", "import-logins", "--yes"])
+
+    assert result.exit_code == 0, result.output
+    body = json.loads(route.calls[0].request.content)
+    assert "url" not in body
+    assert sorted(c["name"] for c in body["cookies"]) == ["other", "plain", "sid"]
+    assert "across 2 site(s)" in result.output
+    assert "secret-1" not in result.output and "not-yours" not in result.output
+
+
+@respx.mock
+def test_import_logins_uploads_a_large_profile_in_chunks(cli_runner: CliRunner, tmp_path: Path, monkeypatch):
+    _patch_local_chrome(tmp_path, monkeypatch)
+    monkeypatch.setattr(browser_command, "_IMPORT_CHUNK", 2)
+    first = respx.post(f"{API_BASE}/browser-profiles/default/cookies").mock(
+        return_value=_import_response("bp_1", site=None, cookie_count=2, sites=["github.com"])
+    )
+    second = respx.post(f"{API_BASE}/browser-profiles/bp_1/cookies").mock(
+        return_value=_import_response("bp_1", site=None, cookie_count=1, sites=["google.com"])
+    )
+    save_credentials(Credentials(api_key="key", user_id="u"))
+
+    result = cli_runner.invoke(app, ["browser", "import-logins", "--yes"])
+
+    assert result.exit_code == 0, result.output
+    assert first.call_count == 1 and second.call_count == 1
+    assert "Imported 3 cookie(s) across 2 site(s)" in result.output
+
+
+def test_import_logins_rejects_url_with_domain_filters(cli_runner: CliRunner):
+    result = cli_runner.invoke(
+        app, ["browser", "import-logins", "--url", "https://github.com", "--include-domain", "github.com", "--yes"]
+    )
+    assert result.exit_code == 1
+    assert "--include-domain" in result.output

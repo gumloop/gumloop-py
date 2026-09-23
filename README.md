@@ -16,26 +16,27 @@ The installer is fully self-contained under `~/.gumloop` — it ships its own Py
 gumloop update
 ```
 
-### Import sites into a browser profile
+### Import your browser sign-ins into a browser profile
 
-Gumloop agents that use the Browser ability keep their sign-ins in a **browser profile**. Import the sites you are already signed into locally (Chrome, Brave, Edge, Chromium, Arc, Firefox on macOS or Linux) without an extension:
+Gumloop agents that use the Browser ability keep their sign-ins in a **browser profile**. Import the sites you are already signed into locally (Chrome, Brave, Edge, Chromium, Arc, Firefox on macOS or Linux) without an extension. By default every site in the local browser profile you pick comes across; you see the sites and cookie counts and confirm before anything is sent:
 
 ```bash
-gumloop browser import-logins --url https://github.com                 # into your personal default profile
-gumloop browser import-logins --url https://app.linear.app --browser brave --into 'Work'
-gumloop browser import-logins --url https://mail.google.com --team <team_id> --into 'Ops inbox'
+gumloop browser import-logins                                          # every site, into your personal default profile
+gumloop browser import-logins --browser brave --exclude-domain doubleclick.net
+gumloop browser import-logins --include-domain github.com --include-domain linear.app
+gumloop browser import-logins --url https://mail.google.com --team <team_id> --into 'Ops inbox'   # one site
 gumloop browser profiles list
 gumloop browser profiles remove-site <profile_id> github.com
 gumloop browser profiles delete <profile_id>
 ```
 
-Or, without installing anything first:
+Or, without installing anything first (set `GUMLOOP_LOGIN_URL` to import a single site, `GUMLOOP_EXCLUDE_DOMAINS` / `GUMLOOP_INCLUDE_DOMAINS` to narrow a whole-profile import):
 
 ```bash
 curl -fsSL https://gumloop.com/cli/import-logins.sh | sh
 ```
 
-Only cookies for the sites you choose leave your machine; they are encrypted with the profile's own key before storage and are never shown back in the UI or API. Session cookies you import are what the agent's browser starts with, and logins the agent picks up while running are saved back to the same profile.
+Cookies only: local storage and IndexedDB stay on your machine, so sites that keep the session there ask the agent to sign in once, after which the agent's browser keeps it. Imported cookies are encrypted with the profile's own key before storage and are never shown back in the UI or API; sign-ins the agent picks up while running are saved back to the same profile.
 
 ## SDK
 
