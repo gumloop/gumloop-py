@@ -26,8 +26,6 @@ gumloop browser import-logins --browser brave --exclude-domain doubleclick.net
 gumloop browser import-logins --include-domain github.com --include-domain linear.app
 gumloop browser import-logins --url https://mail.google.com --team <team_id> --into 'Ops inbox'   # one site
 gumloop browser profiles list
-gumloop browser profiles remove-site <profile_id> github.com
-gumloop browser profiles delete <profile_id>
 ```
 
 Or, without installing anything first (set `GUMLOOP_LOGIN_URL` to import a single site, `GUMLOOP_EXCLUDE_DOMAINS` / `GUMLOOP_INCLUDE_DOMAINS` to narrow a whole-profile import):
@@ -36,7 +34,7 @@ Or, without installing anything first (set `GUMLOOP_LOGIN_URL` to import a singl
 curl -fsSL https://gumloop.com/cli/import-logins.sh | sh
 ```
 
-Cookies only: local storage and IndexedDB stay on your machine, so sites that keep the session there ask the agent to sign in once, after which the agent's browser keeps it. Imported cookies are encrypted with the profile's own key before storage and are never shown back in the UI or API; sign-ins the agent picks up while running are saved back to the same profile.
+Cookies only: local storage and IndexedDB stay on your machine, so sites that keep the session there ask the agent to sign in once, after which the agent's browser keeps it. Imported cookies are encrypted with the profile's own key before storage and are never shown back in the UI or API; sign-ins the agent picks up while running are saved back to the same profile. Rename, remove sites from, or delete profiles on the Secrets page in Gumloop.
 
 ## SDK
 

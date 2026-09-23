@@ -31,7 +31,7 @@ browser_app = typer.Typer(
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
-profiles_app = typer.Typer(help="Manage browser profiles.", no_args_is_help=True, rich_markup_mode="rich")
+profiles_app = typer.Typer(help="List browser profiles.", no_args_is_help=True, rich_markup_mode="rich")
 browser_app.add_typer(profiles_app, name="profiles")
 
 
@@ -285,49 +285,4 @@ def list_profiles(
         print_json(response)
         return
     _print_profile_rows(response.profiles)
-
-
-@profiles_app.command("delete", epilog="Examples:\n  gumloop browser profiles delete <profile_id>")
-def delete_profile(
-    ctx: typer.Context,
-    profile_id: Annotated[str, typer.Argument(help="Profile id, or 'default' for your personal default.")],
-    team: Annotated[str | None, typer.Option("--team", help="Team id when the profile belongs to a team.")] = None,
-    yes: Annotated[bool, typer.Option("--yes", "-y", help="Do not ask for confirmation.")] = False,
-    json_output: Annotated[bool, typer.Option("--json", help="Print the result as JSON.")] = False,
-) -> None:
-    """Delete a browser profile and every site it holds."""
-    cli: CliContext = ctx.obj
-    if not yes and not json_output:
-        if not questionary.confirm(f"Delete browser profile {profile_id} and all of its sites?", default=False).ask():
-            raise typer.Exit(1)
-    try:
-        cli.call_with_refresh(lambda client: client.browser_profiles.delete(profile_id, project_id=team))
-    except GumloopError as error:
-        exit_with_error(error, json_output=json_output)
-    if json_output:
-        print_json({"deleted": True, "profile_id": profile_id})
-        return
-    console.print(f"Deleted browser profile {profile_id}.")
-
-
-@profiles_app.command("remove-site", epilog="Examples:\n  gumloop browser profiles remove-site <profile_id> github.com")
-def remove_site(
-    ctx: typer.Context,
-    profile_id: Annotated[str, typer.Argument(help="Profile id, or 'default' for your personal default.")],
-    site: Annotated[str, typer.Argument(help="Site to forget, e.g. github.com.")],
-    team: Annotated[str | None, typer.Option("--team", help="Team id when the profile belongs to a team.")] = None,
-    json_output: Annotated[bool, typer.Option("--json", help="Print the raw SDK response as JSON.")] = False,
-) -> None:
-    """Remove one site from a profile."""
-    cli: CliContext = ctx.obj
-    try:
-        profile = cli.call_with_refresh(
-            lambda client: client.browser_profiles.remove_site(profile_id, site, project_id=team)
-        )
-    except GumloopError as error:
-        exit_with_error(error, json_output=json_output)
-    if json_output:
-        print_json(profile)
-        return
-    console.print(f"Removed {escape_markup(site)} from '{escape_markup(profile.name)}'.")
-    _print_profile_rows([profile])
+    console.print("[dim]Rename, remove sites from, or delete profiles on the Secrets page in Gumloop.[/dim]")

@@ -1,19 +1,13 @@
 from __future__ import annotations
 
 from typing import Any
-from urllib.parse import urlencode
 
 from gumloop._http import AsyncHttpClient
 from gumloop._http import HttpClient
-from gumloop.types import BrowserProfile
 from gumloop.types import BrowserProfileImportResponse
 from gumloop.types import BrowserProfilesResponse
 
 DEFAULT_PROFILE = "default"
-
-
-def _scoped(path: str, project_id: str | None) -> str:
-    return f"{path}?{urlencode({'project_id': project_id})}" if project_id else path
 
 
 def _body(project_id: str | None, **fields: Any) -> dict[str, Any]:
@@ -30,36 +24,6 @@ class BrowserProfiles:
     def list(self, *, project_id: str | None = None) -> BrowserProfilesResponse:
         return BrowserProfilesResponse.model_validate(
             self._client.get("browser-profiles", params={"project_id": project_id})
-        )
-
-    def get(self, profile_id: str, *, project_id: str | None = None) -> BrowserProfile:
-        return BrowserProfile.model_validate(
-            self._client.get(f"browser-profiles/{profile_id}", params={"project_id": project_id})
-        )
-
-    def create(self, name: str, *, project_id: str | None = None) -> BrowserProfile:
-        return BrowserProfile.model_validate(self._client.post("browser-profiles", json=_body(project_id, name=name)))
-
-    def update(
-        self,
-        profile_id: str,
-        *,
-        name: str | None = None,
-        is_default: bool | None = None,
-        project_id: str | None = None,
-    ) -> BrowserProfile:
-        return BrowserProfile.model_validate(
-            self._client.patch(
-                f"browser-profiles/{profile_id}", json=_body(project_id, name=name, is_default=is_default)
-            )
-        )
-
-    def delete(self, profile_id: str, *, project_id: str | None = None) -> None:
-        self._client.delete(_scoped(f"browser-profiles/{profile_id}", project_id))
-
-    def remove_site(self, profile_id: str, site: str, *, project_id: str | None = None) -> BrowserProfile:
-        return BrowserProfile.model_validate(
-            self._client.delete(_scoped(f"browser-profiles/{profile_id}/sites/{site}", project_id))
         )
 
     def import_cookies(
@@ -85,38 +49,6 @@ class AsyncBrowserProfiles:
     async def list(self, *, project_id: str | None = None) -> BrowserProfilesResponse:
         return BrowserProfilesResponse.model_validate(
             await self._client.get("browser-profiles", params={"project_id": project_id})
-        )
-
-    async def get(self, profile_id: str, *, project_id: str | None = None) -> BrowserProfile:
-        return BrowserProfile.model_validate(
-            await self._client.get(f"browser-profiles/{profile_id}", params={"project_id": project_id})
-        )
-
-    async def create(self, name: str, *, project_id: str | None = None) -> BrowserProfile:
-        return BrowserProfile.model_validate(
-            await self._client.post("browser-profiles", json=_body(project_id, name=name))
-        )
-
-    async def update(
-        self,
-        profile_id: str,
-        *,
-        name: str | None = None,
-        is_default: bool | None = None,
-        project_id: str | None = None,
-    ) -> BrowserProfile:
-        return BrowserProfile.model_validate(
-            await self._client.patch(
-                f"browser-profiles/{profile_id}", json=_body(project_id, name=name, is_default=is_default)
-            )
-        )
-
-    async def delete(self, profile_id: str, *, project_id: str | None = None) -> None:
-        await self._client.delete(_scoped(f"browser-profiles/{profile_id}", project_id))
-
-    async def remove_site(self, profile_id: str, site: str, *, project_id: str | None = None) -> BrowserProfile:
-        return BrowserProfile.model_validate(
-            await self._client.delete(_scoped(f"browser-profiles/{profile_id}/sites/{site}", project_id))
         )
 
     async def import_cookies(

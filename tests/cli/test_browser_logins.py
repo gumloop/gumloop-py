@@ -263,7 +263,7 @@ def test_import_logins_with_no_site_cookies_fails_before_any_request(
 
 
 @respx.mock
-def test_profiles_list_and_remove_site(cli_runner: CliRunner):
+def test_profiles_list(cli_runner: CliRunner):
     respx.get(f"{API_BASE}/browser-profiles").mock(
         return_value=httpx.Response(
             200,
@@ -281,26 +281,10 @@ def test_profiles_list_and_remove_site(cli_runner: CliRunner):
             },
         )
     )
-    removal = respx.delete(f"{API_BASE}/browser-profiles/bp_1/sites/github.com").mock(
-        return_value=httpx.Response(
-            200,
-            json={
-                "profile_id": "bp_1",
-                "owner_id": "u",
-                "owner_scope": "personal",
-                "name": "Default",
-                "is_default": True,
-                "sites": [],
-            },
-        )
-    )
     save_credentials(Credentials(api_key="key", user_id="u"))
 
     listed = cli_runner.invoke(app, ["browser", "profiles", "list"])
     assert listed.exit_code == 0 and "github.com" in listed.output
-
-    removed = cli_runner.invoke(app, ["browser", "profiles", "remove-site", "bp_1", "github.com"])
-    assert removed.exit_code == 0 and removal.called
 
 
 def _import_response(profile_id: str, *, site: str | None, cookie_count: int, sites: list[str]) -> httpx.Response:
