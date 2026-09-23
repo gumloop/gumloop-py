@@ -283,6 +283,49 @@ class TeamsResponse(_Model):
 
 
 # ---------------------------------------------------------------------------
+# Browser login profile types
+# ---------------------------------------------------------------------------
+
+
+class BrowserProfileSite(_Model):
+    domain: str
+    cookie_count: int = 0
+    updated_ts: str | None = None
+
+
+class BrowserProfile(_Model):
+    profile_id: str
+    owner_id: str
+    owner_scope: str
+    name: str
+    is_default: bool = False
+    version: int = 0
+    sites: list[BrowserProfileSite] = Field(default_factory=list)
+    size_bytes: int = 0
+    has_storage: bool = False
+    created_by_user_id: str | None = None
+    created_ts: str | None = None
+    updated_ts: str | None = None
+    last_used_ts: str | None = None
+
+
+class BrowserProfilesResponse(_Model):
+    profiles: list[BrowserProfile] = Field(default_factory=list)
+
+
+class BrowserProfileImportSummary(_Model):
+    site: str
+    cookie_count: int
+    skipped: int = 0
+    sites: list[str] = Field(default_factory=list)
+
+
+class BrowserProfileImportResponse(_Model):
+    profile: BrowserProfile
+    imported: BrowserProfileImportSummary
+
+
+# ---------------------------------------------------------------------------
 # Session types
 # ---------------------------------------------------------------------------
 
