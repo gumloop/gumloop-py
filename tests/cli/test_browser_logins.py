@@ -1,5 +1,3 @@
-"""Local cookie extraction and the ``gumloop browser`` commands."""
-
 from __future__ import annotations
 
 import hashlib

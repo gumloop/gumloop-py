@@ -1,10 +1,7 @@
-"""Which cookies belong to the site a URL names."""
-
 from __future__ import annotations
 
 from urllib.parse import urlsplit
 
-# Second-level public suffixes common enough that "last two labels" would be wrong.
 _TWO_LABEL_SUFFIXES = {
     "co.uk",
     "org.uk",
@@ -63,11 +60,7 @@ _TWO_LABEL_SUFFIXES = {
 
 
 def registrable_domain(host: str) -> str:
-    """``app.foo.co.uk`` -> ``foo.co.uk``; bare hosts (localhost, IPs) stay whole.
-
-    The backend applies the full public suffix list; this only needs to be close enough that
-    the cookies it keeps are a superset of what the backend accepts for the site.
-    """
+    """Approximate: it only has to keep a superset of what the backend's public-suffix check accepts."""
     host = (host or "").strip().lower().rstrip(".").lstrip(".")
     labels = [label for label in host.split(".") if label]
     if len(labels) <= 2 or all(label.isdigit() for label in labels):

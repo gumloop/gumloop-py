@@ -279,7 +279,6 @@ case "$login_state" in
         printf 'or install a keychain (e.g. apt install gnome-keyring libsecret-1-0) and run `gumloop login`.\n\n'
         ;;
     *)
-        # A wrapping script (import-logins.sh) signs in itself once the install is done.
         if [ -z "${GUMLOOP_SKIP_LOGIN:-}" ] && has_tty && confirm "Log in to Gumloop now?"; then
             "$SHIM_PATH" login < /dev/tty || true
         fi

@@ -1,5 +1,3 @@
-"""One site's cookies from one local profile, ready for the import endpoint."""
-
 from __future__ import annotations
 
 import time
@@ -31,7 +29,6 @@ class ExtractResult:
 
 
 def extract_site_cookies(profile: LocalProfile, url: str, *, platform: str | None = None) -> ExtractResult:
-    """Never returns values for other sites; they are dropped before the result exists."""
     site = site_of_url(url)
     db_path = profile.cookies_db
     if db_path is None:

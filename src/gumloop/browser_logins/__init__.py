@@ -1,11 +1,3 @@
-"""Read logins (cookies) out of the browsers installed on this machine.
-
-The equivalent of Browser Use's ``profile-use``: copy the browser's cookie database, decrypt it
-with the OS keychain, keep the cookies for one site, and hand them to the Gumloop API so an
-agent's sandbox browser starts logged in. Cookie values never leave this process except in
-that request.
-"""
-
 from __future__ import annotations
 
 from gumloop.browser_logins.discovery import BrowserKind

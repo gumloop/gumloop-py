@@ -1,17 +1,6 @@
 #!/bin/sh
 # Bring a site's login from this machine's browser to your Gumloop agents:
 #   GUMLOOP_LOGIN_URL='https://app.example.com' sh -c 'curl -fsSL https://gumloop.com/cli/import-logins.sh | sh'
-#
-# Installs the Gumloop CLI when it is missing (same installer as gumloop.com/cli/install.sh),
-# signs you in when needed, then runs `gumloop browser import-logins`. Only cookies for the site
-# you name are sent, and only counts are printed. On macOS, the system asks for Keychain access
-# to your browser's cookie key; that prompt is the consent step.
-#
-# Optional:
-#   GUMLOOP_BROWSER_PROFILE_ID=<id|name>   target login profile (default: your personal default)
-#   GUMLOOP_TEAM_ID=<team_id>              when the target profile belongs to a team
-#   GUMLOOP_BROWSER=chrome|brave|edge|arc|chromium|firefox
-#   GUMLOOP_INSTALL_URL=<url>              alternative installer (defaults to gumloop.com/cli/install.sh)
 
 set -eu
 
@@ -60,7 +49,6 @@ find_cli() {
 CLI="$(find_cli || true)"
 if [ -z "$CLI" ]; then
     step "Installing the Gumloop CLI"
-    # The installer prompts on /dev/tty itself; GUMLOOP_SKIP_LOGIN keeps it from opening a browser mid-script.
     if command -v curl >/dev/null 2>&1; then
         curl -fsSL "$INSTALL_URL" | GUMLOOP_SKIP_LOGIN=1 sh
     elif command -v wget >/dev/null 2>&1; then
@@ -80,7 +68,6 @@ fi
 url="${GUMLOOP_LOGIN_URL:-}"
 [ -n "$url" ] || url="$(prompt 'Which site should the agent be logged in to (e.g. https://app.example.com)?' GUMLOOP_LOGIN_URL)"
 
-# Env credentials (GUMLOOP_API_KEY + GUMLOOP_USER_ID) work headless; otherwise sign in once.
 if [ -z "${GUMLOOP_API_KEY:-}" ] && [ -z "${GUMLOOP_ACCESS_TOKEN:-}" ]; then
     if ! "$CLI" browser profiles list --json >/dev/null 2>&1; then
         step "Signing in to Gumloop"

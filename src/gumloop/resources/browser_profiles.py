@@ -1,9 +1,3 @@
-"""Browser login profiles: the cookies and site storage an agent's sandbox browser restores.
-
-Owner scope follows variables: no ``project_id`` means the caller's personal profiles.
-``profile_id="default"`` addresses the caller's personal default profile.
-"""
-
 from __future__ import annotations
 
 from typing import Any

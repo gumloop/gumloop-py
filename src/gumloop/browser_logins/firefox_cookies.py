@@ -1,5 +1,3 @@
-"""Read a Firefox ``cookies.sqlite`` (values are stored in the clear)."""
-
 from __future__ import annotations
 
 import shutil

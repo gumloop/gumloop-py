@@ -282,11 +282,6 @@ class TeamsResponse(_Model):
     teams: list[Team] = Field(default_factory=list)
 
 
-# ---------------------------------------------------------------------------
-# Browser login profile types
-# ---------------------------------------------------------------------------
-
-
 class BrowserProfileSite(_Model):
     domain: str
     cookie_count: int = 0

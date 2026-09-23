@@ -1,5 +1,3 @@
-"""Find browser profiles on this machine (macOS and Linux)."""
-
 from __future__ import annotations
 
 import configparser
@@ -36,7 +34,6 @@ class BrowserKind(str, Enum):
 
     @property
     def safe_storage_service(self) -> str:
-        """The macOS Keychain item (and Linux Secret Service label) holding the cookie key."""
         return {
             BrowserKind.CHROME: "Chrome Safe Storage",
             BrowserKind.CHROMIUM: "Chromium Safe Storage",
@@ -144,7 +141,6 @@ def discover_profiles(
     platform: str | None = None,
     browsers: list[BrowserKind] | None = None,
 ) -> list[LocalProfile]:
-    """Every profile with a cookie database, Chromium family first."""
     home = home or Path.home()
     platform = platform or sys.platform
     wanted = set(browsers) if browsers else set(BrowserKind)

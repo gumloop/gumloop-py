@@ -1,5 +1,3 @@
-"""Read and decrypt a Chromium-family cookie database (macOS and Linux)."""
-
 from __future__ import annotations
 
 import hashlib
@@ -53,7 +51,6 @@ class ChromiumReadResult:
 def macos_safe_storage_password(
     service: str, runner: Callable[..., subprocess.CompletedProcess] = subprocess.run
 ) -> bytes:
-    """Ask the login keychain; this is the system prompt the user sees."""
     completed = runner(
         ["security", "find-generic-password", "-w", "-s", service],
         capture_output=True,
@@ -69,7 +66,6 @@ def macos_safe_storage_password(
 
 
 def linux_safe_storage_password(service: str) -> bytes:
-    """Secret Service when a desktop keyring holds the key, else Chromium's built-in default."""
     try:
         import secretstorage  # type: ignore[import-not-found]  # noqa: PLC0415 - optional, desktop-only dependency
 
@@ -98,7 +94,7 @@ def resolve_key(browser: BrowserKind, *, platform: str | None = None) -> bytes:
 
 
 def decrypt_value(encrypted: bytes, key: bytes, host_key: str) -> str | None:
-    """``v10``/``v11`` AES-128-CBC; Chrome 130+ prefixes the plaintext with SHA-256(host_key)."""
+    """Chrome 130+ prefixes the plaintext with SHA-256(host_key)."""
     if len(encrypted) < 3:
         return None
     prefix, body = encrypted[:3], encrypted[3:]

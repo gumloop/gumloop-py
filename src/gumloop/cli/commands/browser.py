@@ -1,5 +1,3 @@
-"""``gumloop browser``: move logins from this machine's browser into a Gumloop login profile."""
-
 from __future__ import annotations
 
 import sys
@@ -59,7 +57,6 @@ def _pick_local_profile(browser: str | None, browser_profile: str | None, *, non
 
 
 def _resolve_target(cli: CliContext, into: str | None, team_id: str | None) -> str:
-    """A profile id passes through; a name is looked up under the owner scope."""
     if not into or into == DEFAULT_PROFILE:
         return DEFAULT_PROFILE
     listed = cli.call_with_refresh(lambda client: client.browser_profiles.list(project_id=team_id))
