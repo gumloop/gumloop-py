@@ -48,7 +48,7 @@ def _pick_local_profile(browser: str | None, browser_profile: str | None, *, non
     if not candidates:
         where = f"{BrowserKind(browser).display_name} " if browser else ""
         raise GumloopError(
-            f"No {where}browser profile with saved cookies was found on this machine. "
+            f"No {where}browser profile was found on this machine. "
             "Supported: Chrome, Chromium, Brave, Edge, Arc and Firefox on macOS and Linux."
         )
 
@@ -56,7 +56,7 @@ def _pick_local_profile(browser: str | None, browser_profile: str | None, *, non
         return candidates[0]
 
     choice = questionary.select(
-        "Which browser profile holds the login?",
+        "Which browser profile do you want to import?",
         choices=[questionary.Choice(candidate.label, value=index) for index, candidate in enumerate(candidates)],
     ).ask()
     if choice is None:
@@ -79,7 +79,7 @@ def _resolve_target(cli: CliContext, into: str | None, team_id: str | None) -> s
 
 def _print_profile_rows(profiles: list[BrowserProfile]) -> None:
     if not profiles:
-        console.print("No browser login profiles yet. Import one with `gumloop browser import-logins --url <site>`.")
+        console.print("No browser profiles yet. Import one with `gumloop browser import-logins`.")
         return
 
     console.print("ID", "NAME", "SCOPE", "DEFAULT", "SITES", "UPDATED", sep="\t", soft_wrap=True)
@@ -184,22 +184,25 @@ def import_logins(
 
     if not extracted.cookies:
         hint = (
-            " Some cookies could not be decrypted; open the site in that browser and try again."
+            " Some cookies could not be decrypted; open that browser and try again."
             if extracted.undecryptable
             else ""
         )
-        where = f"for {site} " if site else ""
-        exit_with_error(
-            GumloopError(
-                f"No cookies {where}were found in {local.label}. Sign in to the site in that browser first.{hint}"
-            ),
-            json_output=json_output,
-        )
+        if site:
+            message = f"No sign-ins for {site} were found in {local.label}. Sign in there in that browser first.{hint}"
+        else:
+            message = f"No sign-ins were found in {local.label}.{hint}"
+        exit_with_error(GumloopError(message), json_output=json_output)
 
     if not json_output:
         _print_import_preview(extracted, local)
         if not yes:
-            confirmed = questionary.confirm("Send these cookies to your Gumloop browser profile?", default=True).ask()
+            prompt = (
+                "Import this site into your Gumloop browser profile?"
+                if extracted.site
+                else "Import these sites into your Gumloop browser profile?"
+            )
+            confirmed = questionary.confirm(prompt, default=True).ask()
             if not confirmed:
                 console.print("Cancelled; nothing was sent.")
                 raise typer.Exit(1)

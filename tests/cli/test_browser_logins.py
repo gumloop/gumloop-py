@@ -261,7 +261,7 @@ def test_import_logins_with_no_site_cookies_fails_before_any_request(
     result = cli_runner.invoke(app, ["browser", "import-logins", "--url", "https://linear.app", "--yes"])
 
     assert result.exit_code == 1
-    assert "No cookies for linear.app" in result.output
+    assert "No sign-ins for linear.app" in result.output
 
 
 @respx.mock
