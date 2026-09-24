@@ -184,9 +184,7 @@ def import_logins(
 
     if not extracted.cookies:
         hint = (
-            " Some cookies could not be decrypted; open that browser and try again."
-            if extracted.undecryptable
-            else ""
+            " Some cookies could not be decrypted; open that browser and try again." if extracted.undecryptable else ""
         )
         if site:
             message = f"No sign-ins for {site} were found in {local.label}. Sign in there in that browser first.{hint}"
