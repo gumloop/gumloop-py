@@ -32,10 +32,6 @@ _QUERY = (
     "SELECT host_key, name, value, encrypted_value, path, expires_utc, is_secure, is_httponly, "
     "samesite, has_expires, top_frame_site_key FROM cookies"
 )
-_LEGACY_QUERY = (
-    "SELECT host_key, name, value, encrypted_value, path, expires_utc, is_secure, is_httponly, "
-    "samesite, has_expires, '' FROM cookies"
-)
 
 
 class KeychainAccessError(RuntimeError):
@@ -151,10 +147,7 @@ def read_cookies(db_path: Path, key: bytes | None, *, keep: Callable[[str], bool
     try:
         connection = sqlite3.connect(f"file:{copied}?mode=ro", uri=True)
         try:
-            try:
-                rows = connection.execute(_QUERY).fetchall()
-            except sqlite3.OperationalError:
-                rows = connection.execute(_LEGACY_QUERY).fetchall()
+            rows = connection.execute(_QUERY).fetchall()
         finally:
             connection.close()
     finally:
