@@ -34,7 +34,10 @@ def read_cookies(db_path: Path) -> list[dict[str, Any]]:
         }
         if _SAME_SITE.get(same_site):
             cookie["sameSite"] = _SAME_SITE[same_site]
+
         if expiry:
             cookie["expires"] = float(expiry)
+
         cookies.append(cookie)
+
     return cookies

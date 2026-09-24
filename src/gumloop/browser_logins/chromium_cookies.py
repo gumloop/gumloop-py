@@ -62,6 +62,7 @@ def macos_safe_storage_password(
             f"macOS Keychain did not release the '{service}' key (was the prompt denied?). "
             "Allow access when macOS asks, or use the Gumloop Chrome extension instead."
         )
+
     return completed.stdout.strip().encode("utf-8")
 
 
@@ -78,6 +79,7 @@ def linux_safe_storage_password(service: str) -> bytes:
                     return bytes(secret)
     except Exception:  # noqa: BLE001 - no bus, no keyring, no secretstorage: fall back to the default key
         pass
+
     return _LINUX_DEFAULT_PASSWORD
 
 
@@ -90,6 +92,7 @@ def resolve_key(browser: BrowserKind, *, platform: str | None = None) -> bytes:
     platform = platform or sys.platform
     if platform == "darwin":
         return derive_key(macos_safe_storage_password(browser.safe_storage_service), iterations=_MAC_ITERATIONS)
+
     return derive_key(linux_safe_storage_password(browser.safe_storage_service), iterations=_LINUX_ITERATIONS)
 
 
@@ -97,20 +100,25 @@ def decrypt_value(encrypted: bytes, key: bytes, host_key: str) -> str | None:
     """Chrome 130+ prefixes the plaintext with SHA-256(host_key)."""
     if len(encrypted) < 3:
         return None
+
     prefix, body = encrypted[:3], encrypted[3:]
     if prefix not in (b"v10", b"v11"):
         return None
+
     if len(body) % 16 != 0 or not body:
         return None
+
     decryptor = Cipher(algorithms.AES(key), modes.CBC(_IV)).decryptor()
     padded = decryptor.update(body) + decryptor.finalize()
     pad = padded[-1]
     if pad < 1 or pad > 16 or padded[-pad:] != bytes([pad]) * pad:
         return None
+
     plain = padded[:-pad]
     host_hash = hashlib.sha256(host_key.encode("utf-8")).digest()
     if plain[:32] == host_hash:
         plain = plain[32:]
+
     try:
         return plain.decode("utf-8")
     except UnicodeDecodeError:
@@ -120,6 +128,7 @@ def decrypt_value(encrypted: bytes, key: bytes, host_key: str) -> str | None:
 def _webkit_to_unix(expires_utc: int) -> float | None:
     if not expires_utc:
         return None
+
     return (expires_utc - _WEBKIT_EPOCH_OFFSET_US) / 1_000_000
 
 
@@ -132,6 +141,7 @@ def copy_database(db_path: Path) -> tuple[Path, Path]:
         sidecar = db_path.with_name(db_path.name + suffix)
         if sidecar.exists():
             shutil.copy2(sidecar, temp_dir / sidecar.name)
+
     return temp_dir, copied
 
 
@@ -167,13 +177,16 @@ def read_cookies(db_path: Path, key: bytes | None, *, keep: Callable[[str], bool
     ) in rows:
         if keep is not None and not keep(host_key):
             continue
+
         plain = value or ""
         if not plain and encrypted_value:
             decrypted = decrypt_value(bytes(encrypted_value), key, host_key) if key is not None else None
             if decrypted is None:
                 undecryptable += 1
                 continue
+
             plain = decrypted
+
         cookie: dict[str, Any] = {
             "name": name,
             "value": plain,
@@ -185,11 +198,15 @@ def read_cookies(db_path: Path, key: bytes | None, *, keep: Callable[[str], bool
         same_site = _SAME_SITE.get(samesite)
         if same_site:
             cookie["sameSite"] = same_site
+
         if has_expires:
             expires = _webkit_to_unix(expires_utc)
             if expires:
                 cookie["expires"] = expires
+
         if top_frame:
             cookie["partitionKey"] = {"topLevelSite": top_frame}
+
         cookies.append(cookie)
+
     return ChromiumReadResult(cookies=cookies, undecryptable=undecryptable)

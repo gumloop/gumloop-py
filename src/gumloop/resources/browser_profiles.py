@@ -14,6 +14,7 @@ def _body(team_id: str | None, **fields: Any) -> dict[str, Any]:
     body = {key: value for key, value in fields.items() if value is not None}
     if team_id:
         body["team_id"] = team_id
+
     return body
 
 

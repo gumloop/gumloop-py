@@ -44,30 +44,36 @@ def _pick_local_profile(browser: str | None, browser_profile: str | None, *, non
             for p in candidates
             if p.name.lower() == browser_profile.lower() or p.display_name.lower() == browser_profile.lower()
         ]
+
     if not candidates:
         where = f"{BrowserKind(browser).display_name} " if browser else ""
         raise GumloopError(
             f"No {where}browser profile with saved cookies was found on this machine. "
             "Supported: Chrome, Chromium, Brave, Edge, Arc and Firefox on macOS and Linux."
         )
+
     if len(candidates) == 1 or non_interactive:
         return candidates[0]
+
     choice = questionary.select(
         "Which browser profile holds the login?",
         choices=[questionary.Choice(candidate.label, value=index) for index, candidate in enumerate(candidates)],
     ).ask()
     if choice is None:
         raise typer.Exit(1)
+
     return candidates[choice]
 
 
 def _resolve_target(cli: CliContext, into: str | None, team_id: str | None) -> str:
     if not into or into == DEFAULT_PROFILE:
         return DEFAULT_PROFILE
+
     listed = cli.call_with_refresh(lambda client: client.browser_profiles.list(team_id=team_id))
     for profile in listed.profiles:
         if profile.profile_id == into or profile.name.casefold() == into.casefold():
             return profile.profile_id
+
     raise GumloopError(f"No browser profile named or identified by '{into}'. Run `gumloop browser profiles list`.")
 
 
@@ -75,6 +81,7 @@ def _print_profile_rows(profiles: list[BrowserProfile]) -> None:
     if not profiles:
         console.print("No browser login profiles yet. Import one with `gumloop browser import-logins --url <site>`.")
         return
+
     console.print("ID", "NAME", "SCOPE", "DEFAULT", "SITES", "UPDATED", sep="\t", soft_wrap=True)
     for profile in profiles:
         console.print(
@@ -149,11 +156,13 @@ def import_logins(
             GumloopError(f"Unknown browser '{browser}'. Use one of: " + ", ".join(k.value for k in BrowserKind)),
             json_output=json_output,
         )
+
     if url and (include_domain or exclude_domain):
         exit_with_error(
             GumloopError("Use --url for one site, or --include-domain / --exclude-domain for a whole profile."),
             json_output=json_output,
         )
+
     try:
         site = site_of_url(url) if url else None
         local = _pick_local_profile(browser, browser_profile, non_interactive=yes or json_output)
@@ -162,6 +171,7 @@ def import_logins(
                 f"[dim]macOS will ask for Keychain access to '{local.browser.safe_storage_service}' "
                 "so the cookies can be read. Allow it to continue.[/dim]"
             )
+
         if url:
             extracted = extract_site_cookies(local, url)
         else:
@@ -169,6 +179,7 @@ def import_logins(
     except (GumloopError, KeychainAccessError, ValueError, FileNotFoundError, typer.Exit) as error:
         if isinstance(error, typer.Exit):
             raise
+
         exit_with_error(GumloopError(str(error)), json_output=json_output)
 
     if not extracted.cookies:
@@ -201,14 +212,17 @@ def import_logins(
     if json_output:
         print_json(response)
         return
+
     imported = response.imported
     target = f"'{escape_markup(response.profile.name)}' (profile {response.profile.profile_id})"
     if imported.site:
         console.print(f"Imported {imported.cookie_count} cookie(s) for {escape_markup(imported.site)} into {target}.")
     else:
         console.print(f"Imported {imported.cookie_count} cookie(s) across {len(imported.sites)} site(s) into {target}.")
+
     if imported.skipped:
         console.print(f"[dim]{imported.skipped} cookie(s) were skipped as expired or unusable.[/dim]")
+
     console.print(
         "[dim]Agents using this profile start signed in on their next browser call. Sites that keep the session "
         "in local storage, or bind it to your device or network, may still ask the agent to sign in.[/dim]"
@@ -225,10 +239,13 @@ def _print_import_preview(extracted: ExtractResult, local: LocalProfile) -> None
     else:
         rows = extracted.per_site
         console.print(f"Found {len(extracted.cookies)} cookie(s) across {len(rows)} site(s) in {label}:")
+
     for domain, count in list(rows.items())[:_PREVIEW_SITES]:
         console.print(f"  {escape_markup(domain)}\t{count}")
+
     if len(rows) > _PREVIEW_SITES:
         console.print(f"  [dim]…and {len(rows) - _PREVIEW_SITES} more site(s)[/dim]")
+
     if extracted.undecryptable:
         console.print(f"  [dim]{extracted.undecryptable} cookie(s) could not be decrypted and were skipped.[/dim]")
 
@@ -254,8 +271,10 @@ def _upload_cookies(
                 )
             )
         )
+
     if len(responses) == 1:
         return responses[0]
+
     return BrowserProfileImportResponse(
         profile=responses[-1].profile,
         imported=BrowserProfileImportSummary(
@@ -281,8 +300,10 @@ def list_profiles(
         response = cli.call_with_refresh(lambda client: client.browser_profiles.list(team_id=team))
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
+
     if json_output:
         print_json(response)
         return
+
     _print_profile_rows(response.profiles)
     console.print("[dim]Rename, remove sites from, or delete profiles on the Secrets page in Gumloop.[/dim]")

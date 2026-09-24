@@ -38,6 +38,7 @@ def _encrypt(value: str, host_key: str, *, with_hash: bool = True) -> bytes:
     padder = padding.PKCS7(128).padder()
     padded = padder.update(plain) + padder.finalize()
     encryptor = Cipher(algorithms.AES(KEY), modes.CBC(b" " * 16)).encryptor()
+
     return b"v10" + encryptor.update(padded) + encryptor.finalize()
 
 
@@ -54,6 +55,7 @@ def _make_chrome_profile(user_data: Path, rows: list[tuple]) -> Path:
     db.executemany("INSERT INTO cookies VALUES (?,?,?,?,?,?,?,?,?,?,?)", rows)
     db.commit()
     db.close()
+
     return profile
 
 

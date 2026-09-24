@@ -28,6 +28,7 @@ class ExtractResult:
         counts: dict[str, int] = {}
         for cookie in self.cookies:
             counts[cookie["domain"]] = counts.get(cookie["domain"], 0) + 1
+
         return dict(sorted(counts.items()))
 
     @property
@@ -36,6 +37,7 @@ class ExtractResult:
         for cookie in self.cookies:
             site = registrable_domain(cookie["domain"])
             counts[site] = counts.get(site, 0) + 1
+
         return dict(sorted(counts.items(), key=lambda item: (-item[1], item[0])))
 
 
@@ -57,6 +59,7 @@ def extract_profile_cookies(
     def keep(host: str) -> bool:
         if any(cookie_belongs_to_site(host, domain) for domain in excluded):
             return False
+
         return not included or any(cookie_belongs_to_site(host, domain) for domain in included)
 
     return _extract(profile, site=None, keep=keep, platform=platform)
@@ -91,9 +94,12 @@ def _extract(
     for cookie in all_cookies:
         if not keep(cookie["domain"]):
             continue
+
         expires = cookie.get("expires")
         if isinstance(expires, (int, float)) and expires <= now:
             expired += 1
             continue
+
         kept.append(cookie)
+
     return ExtractResult(site=site, cookies=kept, undecryptable=undecryptable, expired=expired)

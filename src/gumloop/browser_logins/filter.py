@@ -65,8 +65,10 @@ def registrable_domain(host: str) -> str:
     labels = [label for label in host.split(".") if label]
     if len(labels) <= 2 or all(label.isdigit() for label in labels):
         return ".".join(labels)
+
     if ".".join(labels[-2:]) in _TWO_LABEL_SUFFIXES and len(labels) >= 3:
         return ".".join(labels[-3:])
+
     return ".".join(labels[-2:])
 
 
@@ -74,6 +76,7 @@ def site_of_url(url: str) -> str:
     parts = urlsplit(url if "://" in url else f"https://{url}")
     if parts.scheme not in ("http", "https") or not parts.hostname:
         raise ValueError("Enter the site as an http(s) address, for example https://app.example.com")
+
     return registrable_domain(parts.hostname)
 
 
