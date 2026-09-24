@@ -19,6 +19,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
+    "cryptography>=42.0.0",
     "httpx>=0.24.1",
     "httpx-sse>=0.4.0",
     "keyring>=24",

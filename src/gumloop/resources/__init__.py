@@ -8,6 +8,8 @@ from gumloop.resources.artifacts import Artifacts
 from gumloop.resources.artifacts import AsyncArtifacts
 from gumloop.resources.brain import AsyncBrain
 from gumloop.resources.brain import Brain
+from gumloop.resources.browser_profiles import AsyncBrowserProfiles
+from gumloop.resources.browser_profiles import BrowserProfiles
 from gumloop.resources.chat import AsyncChat
 from gumloop.resources.chat import Chat
 from gumloop.resources.evaluations import AsyncEvaluations
@@ -31,6 +33,7 @@ __all__ = [
     "AsyncAgents",
     "AsyncArtifacts",
     "AsyncBrain",
+    "AsyncBrowserProfiles",
     "AsyncChat",
     "AsyncEvaluations",
     "AsyncMCP",
@@ -40,6 +43,7 @@ __all__ = [
     "AsyncSkills",
     "AsyncTeams",
     "Brain",
+    "BrowserProfiles",
     "Chat",
     "Evaluations",
     "Models",

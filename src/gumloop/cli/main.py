@@ -13,6 +13,7 @@ from gumloop.cli.commands.artifacts import artifacts_app
 from gumloop.cli.commands.auth import login as login_command
 from gumloop.cli.commands.auth import logout as logout_command
 from gumloop.cli.commands.brain import brain_app
+from gumloop.cli.commands.browser import browser_app
 from gumloop.cli.commands.chat import chat_app
 from gumloop.cli.commands.evaluations import evaluations_app
 from gumloop.cli.commands.mcp import mcp_app
@@ -109,6 +110,7 @@ app.add_typer(skills_app, name="skills")
 app.add_typer(artifacts_app, name="artifacts")
 app.add_typer(chat_app, name="chat")
 app.add_typer(brain_app, name="brain")
+app.add_typer(browser_app, name="browser")
 app.add_typer(sync_app, name="sync")
 app.add_typer(plugin_app, name="plugin")
 

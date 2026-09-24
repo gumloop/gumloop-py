@@ -25,10 +25,12 @@ jobs:
       - run: uv run --frozen ruff format --check .
       - run: uv run --frozen ruff check .
       - run: uv lock --check
-      - name: Check install.sh syntax
+      - name: Check installer script syntax
         run: |
-          sh -n scripts/install.sh
-          bash -n scripts/install.sh
+          for script in scripts/install.sh scripts/import-logins.sh; do
+            sh -n "$script"
+            bash -n "$script"
+          done
 
   typecheck:
     runs-on: ubuntu-latest

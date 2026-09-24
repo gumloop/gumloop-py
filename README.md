@@ -16,6 +16,26 @@ The installer is fully self-contained under `~/.gumloop` — it ships its own Py
 gumloop update
 ```
 
+### Import your browser sign-ins into a browser profile
+
+Gumloop agents that use the Browser ability keep their sign-ins in a **browser profile**. Import the sites you are already signed into locally (Chrome, Brave, Edge, Chromium, Arc, Firefox on macOS or Linux) without an extension. By default every site in the local browser profile you pick comes across; you see the sites and cookie counts and confirm before anything is sent:
+
+```bash
+gumloop browser import-logins                                          # every site, into your personal default profile
+gumloop browser import-logins --browser brave --exclude-domain doubleclick.net
+gumloop browser import-logins --include-domain github.com --include-domain linear.app
+gumloop browser import-logins --url https://mail.google.com --team <team_id> --into 'Ops inbox'   # one site
+gumloop browser profiles list
+```
+
+Or, without installing anything first (set `GUMLOOP_LOGIN_URL` to import a single site, `GUMLOOP_EXCLUDE_DOMAINS` / `GUMLOOP_INCLUDE_DOMAINS` to narrow a whole-profile import):
+
+```bash
+curl -fsSL https://gumloop.com/cli/import-logins.sh | sh
+```
+
+Cookies only: local storage and IndexedDB stay on your machine, so sites that keep the session there ask the agent to sign in once, after which the agent's browser keeps it. Imported cookies are encrypted with the profile's own key before storage and are never shown back in the UI or API; sign-ins the agent picks up while running are saved back to the same profile. Rename, remove sites from, or delete profiles on the Secrets page in Gumloop.
+
 ## SDK
 
 To use the client as a library in your own Python project:
