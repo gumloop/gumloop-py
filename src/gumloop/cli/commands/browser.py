@@ -64,7 +64,7 @@ def _pick_local_profile(browser: str | None, browser_profile: str | None, *, non
 def _resolve_target(cli: CliContext, into: str | None, team_id: str | None) -> str:
     if not into or into == DEFAULT_PROFILE:
         return DEFAULT_PROFILE
-    listed = cli.call_with_refresh(lambda client: client.browser_profiles.list(project_id=team_id))
+    listed = cli.call_with_refresh(lambda client: client.browser_profiles.list(team_id=team_id))
     for profile in listed.profiles:
         if profile.profile_id == into or profile.name.casefold() == into.casefold():
             return profile.profile_id
@@ -250,7 +250,7 @@ def _upload_cookies(
                     profile_id,
                     url=url,
                     cookies=chunk,
-                    project_id=team,
+                    team_id=team,
                 )
             )
         )
@@ -278,7 +278,7 @@ def list_profiles(
     """List browser profiles and the sites they hold."""
     cli: CliContext = ctx.obj
     try:
-        response = cli.call_with_refresh(lambda client: client.browser_profiles.list(project_id=team))
+        response = cli.call_with_refresh(lambda client: client.browser_profiles.list(team_id=team))
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
     if json_output:

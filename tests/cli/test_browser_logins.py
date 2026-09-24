@@ -242,7 +242,7 @@ def test_import_logins_resolves_a_named_team_profile(cli_runner: CliRunner, tmp_
     )
 
     assert result.exit_code == 0, result.output
-    assert json.loads(route.calls[0].request.content)["project_id"] == "proj"
+    assert json.loads(route.calls[0].request.content)["team_id"] == "proj"
 
 
 def test_import_logins_with_no_site_cookies_fails_before_any_request(
