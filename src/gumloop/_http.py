@@ -59,6 +59,20 @@ class ResponseSizeExceededError(Exception):
     """Raised when a streamed response body exceeds the caller's byte limit."""
 
 
+UploadFile = tuple[str, bytes | str] | tuple[str, bytes | str, str]
+
+
+def multipart_files(files: Mapping[str, bytes | str] | list[UploadFile]) -> list[tuple[str, Any]]:
+    """``(filename, content[, media_type])`` items or a ``{filename: content}`` map as the ``files`` multipart field."""
+    items = files.items() if isinstance(files, Mapping) else files
+    multipart = []
+    for item in items:
+        filename, content, *rest = item
+        media_type = rest[0] if rest else "application/octet-stream"
+        multipart.append(("files", (filename, content, media_type)))
+    return multipart
+
+
 def _omit_none_params(params: Mapping[str, Any] | None) -> dict[str, Any] | None:
     # Backend treats absent ``?foo`` and ``?foo=`` as different signals
     # ("not provided" vs "empty string"); drop None values so the wire URL

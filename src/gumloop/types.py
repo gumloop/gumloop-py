@@ -542,6 +542,85 @@ class BrainSearchResponse(_Model):
     results: list[BrainSearchResult] = Field(default_factory=list)
 
 
+class BrainSourceCreateRequest(_Model):
+    name: str
+    source_type: str | None = None
+    scope: str | None = None
+    team_id: str | None = None
+    require_approval: bool | None = None
+
+
+class BrainSource(_Model):
+    id: str
+    name: str
+    source_type: str
+    status: str
+    scope: str
+    team_id: str | None = None
+    created_by_user_id: str | None = None
+    created_at: str | None = None
+
+
+class BrainSourceResponse(_Model):
+    source: BrainSource
+
+
+class BrainSourceListResponse(_Model):
+    sources: list[BrainSource] = Field(default_factory=list)
+    next_cursor: str | None = None
+
+
+class BrainSourceDeleteResponse(_Model):
+    deleted: bool
+
+
+class BrainFile(_Model):
+    id: str
+    file_name: str
+    mime_type: str | None = None
+    size_bytes: int | None = None
+    sha256: str | None = None
+    status: str
+    error: str | None = None
+    document_id: str | None = None
+    created_at: str | None = None
+    indexed_at: str | None = None
+
+
+class BrainFileRejection(_Model):
+    file_name: str
+    error: str
+
+
+class BrainFileListResponse(_Model):
+    files: list[BrainFile] = Field(default_factory=list)
+    next_cursor: str | None = None
+
+
+class BrainFileUploadResponse(_Model):
+    files: list[BrainFile] = Field(default_factory=list)
+    rejected: list[BrainFileRejection] = Field(default_factory=list)
+    sync_run_id: str | None = None
+
+
+class BrainFileDeleteResponse(_Model):
+    deleted: bool
+
+
+class BrainSourceEstimate(_Model):
+    sync_run_id: str
+    status: str
+    estimated_tokens: int
+    estimated_credits: int
+    document_count: int
+
+
+class BrainSourceEstimateResponse(_Model):
+    source_id: str
+    status: str
+    estimate: BrainSourceEstimate | None = None
+
+
 # ---------------------------------------------------------------------------
 # Artifact types
 # ---------------------------------------------------------------------------
