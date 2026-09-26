@@ -36,6 +36,22 @@ curl -fsSL https://gumloop.com/cli/import-logins.sh | sh
 
 Cookies only: local storage and IndexedDB stay on your machine, so sites that keep the session there ask the agent to sign in once, after which the agent's browser keeps it. Imported cookies are encrypted with the profile's own key before storage and are never shown back in the UI or API; sign-ins the agent picks up while running are saved back to the same profile. Rename, remove sites from, or delete profiles on the Secrets page in Gumloop.
 
+### Sync a folder into your Brain
+
+Mirror a local directory into a file-upload Brain source. Files are compared by name and sha256, so a re-run uploads only what changed; indexing starts on its own after each upload.
+
+```bash
+gumloop brain sync ./docs --create "Engineering docs"                 # personal source
+gumloop brain sync ./docs --source <source_id> --prune                # existing source, delete remote files that are gone locally
+gumloop brain sync ./runbooks --create "Runbooks" --team-id <team_id> # team source
+gumloop brain sync ./policies --create "Policies" --scope organization --require-approval --approve
+gumloop brain sources list
+gumloop brain files list <source_id>
+gumloop brain search "expense policy"
+```
+
+`--require-approval` creates the source as a draft that only estimates credits; `gumloop brain sources estimate <source_id>` shows the number and `gumloop brain sources approve <source_id>` (or `--approve`) starts indexing. Without it the source is active and indexes on the first upload.
+
 ## SDK
 
 To use the client as a library in your own Python project:
@@ -129,3 +145,19 @@ print(decision.route.model, decision.route.lane, decision.route.fallback_models)
 ```
 
 Omit `models` to route across the full Chew catalog. Each call bills one small classifier completion.
+
+## Put files into your Brain
+
+```python
+from gumloop import Gumloop
+
+client = Gumloop(api_key="your_api_key", user_id="your_user_id")
+
+source = client.brain.create_source("Engineering docs").source
+upload = client.brain.upload_files(source.id, {"handbook.pdf": open("handbook.pdf", "rb").read()})
+
+print([f.status for f in upload.files], upload.rejected)
+print(client.brain.search("onboarding checklist").results[0].title)
+```
+
+Every file carries its `sha256`, so `client.brain.list_files(source.id)` is enough to diff a local folder against the source. Only file-upload sources can be created through the API; Notion, Drive and other connected sources are set up in the Gumloop app.
