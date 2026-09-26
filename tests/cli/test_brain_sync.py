@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 
 import httpx
@@ -173,7 +174,8 @@ def test_brain_sync_treats_all_rejected_batch_as_skips(cli_runner: CliRunner, tm
 def test_brain_sync_create_requires_exactly_one_target(cli_runner: CliRunner, tmp_path: Path) -> None:
     save_credentials(Credentials(api_key="key"))
 
-    result = cli_runner.invoke(app, ["brain", "sync", str(tmp_path)])
+    result = cli_runner.invoke(app, ["brain", "sync", str(tmp_path)], env={"COLUMNS": "200"})
 
-    assert result.exit_code != 0
-    assert "exactly one of --source or --create" in result.output
+    assert result.exit_code == 2
+    plain = re.sub(r"\x1b\[[0-9;]*m", "", result.output)
+    assert "exactly one of --source or --create" in plain
