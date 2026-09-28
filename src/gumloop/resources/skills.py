@@ -5,28 +5,20 @@ from typing import Any
 
 from gumloop._http import AsyncHttpClient
 from gumloop._http import HttpClient
+from gumloop._http import UploadFile
+from gumloop._http import multipart_files
 from gumloop.types import SkillDeleteResponse
 from gumloop.types import SkillDownloadResponse
 from gumloop.types import SkillListResponse
 from gumloop.types import SkillResponse
 
-SkillFile = tuple[str, bytes | str] | tuple[str, bytes | str, str]
+SkillFile = UploadFile
 
 
 def _skill_delete_response(data: Any) -> SkillDeleteResponse:
     if data is None:
         return SkillDeleteResponse(deleted=True)
     return SkillDeleteResponse.model_validate(data)
-
-
-def _multipart_files(files: Mapping[str, bytes | str] | list[SkillFile]) -> list[tuple[str, Any]]:
-    items = files.items() if isinstance(files, Mapping) else files
-    multipart = []
-    for item in items:
-        filename, content, *rest = item
-        media_type = rest[0] if rest else "application/octet-stream"
-        multipart.append(("files", (filename, content, media_type)))
-    return multipart
 
 
 class Skills:
@@ -76,7 +68,7 @@ class Skills:
             self._client.post(
                 "skills",
                 data={"team_id": team_id, **kwargs},
-                files=_multipart_files(files),
+                files=multipart_files(files),
             )
         )
 
@@ -85,7 +77,7 @@ class Skills:
         skill_id: str,
         files: Mapping[str, bytes | str] | list[SkillFile],
     ) -> SkillResponse:
-        return SkillResponse.model_validate(self._client.patch(f"skills/{skill_id}", files=_multipart_files(files)))
+        return SkillResponse.model_validate(self._client.patch(f"skills/{skill_id}", files=multipart_files(files)))
 
     def download(self, skill_id: str, *, version_id: str | None = None, **kwargs: Any) -> SkillDownloadResponse:
         return SkillDownloadResponse.model_validate(
@@ -141,7 +133,7 @@ class AsyncSkills:
         data = await self._client.post(
             "skills",
             data={"team_id": team_id, **kwargs},
-            files=_multipart_files(files),
+            files=multipart_files(files),
         )
         return SkillResponse.model_validate(data)
 
@@ -150,7 +142,7 @@ class AsyncSkills:
         skill_id: str,
         files: Mapping[str, bytes | str] | list[SkillFile],
     ) -> SkillResponse:
-        data = await self._client.patch(f"skills/{skill_id}", files=_multipart_files(files))
+        data = await self._client.patch(f"skills/{skill_id}", files=multipart_files(files))
         return SkillResponse.model_validate(data)
 
     async def download(self, skill_id: str, *, version_id: str | None = None, **kwargs: Any) -> SkillDownloadResponse:
