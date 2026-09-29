@@ -51,11 +51,15 @@ cat task.txt | gumloop models route --input-stdin - --model gpt-5.6-luna --model
 ## Sessions
 
 ```bash
-gumloop sessions create <agent_id> [--input text | --input-stdin -] [--session-id id] [--json]
+gumloop sessions create <agent_id> [--input text | --input-stdin -] [--session-id id] [--name name] [--json]
+gumloop sessions list <agent_id> [--search text] [--state s] [--type t] [--sort order] [--limit n] [--json]
 gumloop sessions get <session_id> [--json]          # --json returns the full transcript
 gumloop sessions send <session_id> [--input text | --input-stdin -] [--json]
+gumloop sessions rename <session_id> <name>
 gumloop sessions cancel <session_id>
 ```
+
+`--name` sets the name shown in the sidebar; without it the session keeps the agent's name until renamed. `list --search` matches session names (and message content), so named sessions are findable by name.
 
 ## Chat completions
 

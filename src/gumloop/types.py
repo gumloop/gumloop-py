@@ -329,6 +329,7 @@ class SessionCreateRequest(_Model):
     input: str | list[Any] | None = None
     message: str | list[Any] | None = None
     session_id: str | None = None
+    name: str | None = None
     metadata: dict[str, Any] | None = None
     stream: bool = False
 

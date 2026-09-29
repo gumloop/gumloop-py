@@ -30,6 +30,38 @@ def test_sessions_create_posts_to_per_agent_endpoint_with_inline_input(cli_runne
 
 
 @respx.mock
+def test_sessions_create_sends_name(cli_runner: CliRunner) -> None:
+    route = respx.post(f"{API_BASE}/agents/agent_abc/sessions").mock(
+        return_value=httpx.Response(
+            201,
+            json={"session": {"id": "session_xyz", "agent_id": "agent_abc", "name": "CDE Lightband ebff4bf3"}},
+        )
+    )
+    save_credentials(Credentials(api_key="key"))
+
+    result = cli_runner.invoke(
+        app,
+        ["sessions", "create", "agent_abc", "--name", "CDE Lightband ebff4bf3", "--input", "start"],
+    )
+
+    assert result.exit_code == 0, result.output
+    sent = json.loads(route.calls[0].request.content)
+    assert sent["name"] == "CDE Lightband ebff4bf3"
+    assert "CDE Lightband ebff4bf3" in result.output
+
+
+@respx.mock
+def test_sessions_create_rejects_blank_name(cli_runner: CliRunner) -> None:
+    route = respx.post(f"{API_BASE}/agents/agent_abc/sessions")
+    save_credentials(Credentials(api_key="key"))
+
+    result = cli_runner.invoke(app, ["sessions", "create", "agent_abc", "--name", "  ", "--json"])
+
+    assert result.exit_code != 0
+    assert not route.called
+
+
+@respx.mock
 def test_sessions_create_reads_input_from_stdin(cli_runner: CliRunner) -> None:
     route = respx.post(f"{API_BASE}/agents/agent_abc/sessions").mock(
         return_value=httpx.Response(201, json={"session": {"id": "session_xyz", "agent_id": "agent_abc"}})

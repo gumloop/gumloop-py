@@ -24,6 +24,7 @@ sessions_app = typer.Typer(
     epilog=(
         "Examples:\n"
         "  gumloop sessions create agent_abc --input 'Hello!'\n"
+        "  gumloop sessions create agent_abc --name 'Invoice 4471' --input 'Reconcile invoice 4471'\n"
         "  echo 'Hi from a file' | gumloop sessions create agent_abc --input-stdin -"
     ),
 )
@@ -42,6 +43,10 @@ def create_session(
         str | None,
         typer.Option("--session-id", help="Optional client-side id for the new session."),
     ] = None,
+    name: Annotated[
+        str | None,
+        typer.Option("--name", help="Session name shown in the sidebar (1-256 characters)."),
+    ] = None,
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Print the raw SDK response as JSON."),
@@ -56,6 +61,8 @@ def create_session(
             raise GumloopError("Pass at most one of --input or --input-stdin.")
         if input_stdin is not None and input_stdin != "-":
             raise GumloopError("--input-stdin only accepts '-' (reads from stdin).")
+        if name is not None and not name.strip():
+            raise GumloopError("Pass a non-empty --name.")
         message = sys.stdin.read() if input_stdin == "-" else input_text
 
         # cast narrows SessionResponse | Iterator to the non-streaming branch
@@ -67,6 +74,7 @@ def create_session(
                     agent_id,
                     input=message,
                     session_id=session_id,
+                    name=name,
                 )
             ),
         )
@@ -82,7 +90,7 @@ def create_session(
     # message bodies go through rich.text.Text.
     session = response.session
     console.print(f"[bold]Session {escape_markup(session.id)}[/bold]", markup=True, highlight=False)
-    for field in ("agent_id", "agent_name", "state", "created_at"):
+    for field in ("name", "agent_id", "agent_name", "state", "created_at"):
         value = getattr(session, field, None)
         if value not in (None, ""):
             console.print(f"  {field}: {value}", markup=False, highlight=False)
@@ -208,7 +216,7 @@ def get_session(
 
     session = response.session
     console.print(f"[bold]Session {escape_markup(session.id)}[/bold]", markup=True, highlight=False)
-    for field in ("agent_id", "agent_name", "state", "created_at"):
+    for field in ("name", "agent_id", "agent_name", "state", "created_at"):
         value = getattr(session, field, None)
         if value not in (None, ""):
             console.print(f"  {field}: {value}", markup=False, highlight=False)
@@ -272,7 +280,7 @@ def send_session(
         return
 
     console.print(f"[bold]Session {escape_markup(session.id)}[/bold]", markup=True, highlight=False)
-    for field in ("agent_id", "agent_name", "state", "created_at"):
+    for field in ("name", "agent_id", "agent_name", "state", "created_at"):
         value = getattr(session, field, None)
         if value not in (None, ""):
             console.print(f"  {field}: {value}", markup=False, highlight=False)
