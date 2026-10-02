@@ -81,7 +81,9 @@ class Gumloop:
         self.team_id = team_id or os.environ.get("GUMLOOP_TEAM_ID")
         # Defaults to production; GUMLOOP_BASE_URL is an optional override.
         self.base_url = (base_url or os.environ.get("GUMLOOP_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
-        self.stream_base_url = (stream_base_url or _derive_stream_base_url(self.base_url)).rstrip("/")
+        self.stream_base_url = (
+            stream_base_url or os.environ.get("GUMLOOP_STREAM_BASE_URL") or _derive_stream_base_url(self.base_url)
+        ).rstrip("/")
         self.timeout = timeout
         self.stream_timeout = stream_timeout
 
@@ -144,7 +146,9 @@ class AsyncGumloop:
         self.team_id = team_id or os.environ.get("GUMLOOP_TEAM_ID")
         # Defaults to production; GUMLOOP_BASE_URL is an optional override.
         self.base_url = (base_url or os.environ.get("GUMLOOP_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
-        self.stream_base_url = (stream_base_url or _derive_stream_base_url(self.base_url)).rstrip("/")
+        self.stream_base_url = (
+            stream_base_url or os.environ.get("GUMLOOP_STREAM_BASE_URL") or _derive_stream_base_url(self.base_url)
+        ).rstrip("/")
         self.timeout = timeout
         self.stream_timeout = stream_timeout
 
