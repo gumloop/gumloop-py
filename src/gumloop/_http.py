@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import platform
+import time
 from collections.abc import AsyncIterator
 from collections.abc import Iterator
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
 from typing import TypeVar
 
@@ -57,6 +60,24 @@ _T = TypeVar("_T", bound=BaseModel)
 
 class ResponseSizeExceededError(Exception):
     """Raised when a streamed response body exceeds the caller's byte limit."""
+
+
+@dataclass(frozen=True)
+class RateLimitRetry:
+    """429 only. Waits Retry-After seconds when the server sends it (capped), else 1s·2^attempt."""
+
+    max_attempts: int = 3
+    max_wait_s: float = 30.0
+
+    def wait_s(self, response: httpx.Response, attempt: int) -> float:
+        try:
+            delay = float(response.headers["Retry-After"])
+        except (KeyError, ValueError):
+            delay = 2.0**attempt
+        return min(max(delay, 0.0), self.max_wait_s)
+
+    def should_retry(self, response: httpx.Response, attempt: int) -> bool:
+        return response.status_code == 429 and attempt + 1 < self.max_attempts
 
 
 UploadFile = tuple[str, bytes | str] | tuple[str, bytes | str, str]
@@ -154,6 +175,7 @@ class HttpClient:
         data: Mapping[str, Any] | None = None,
         files: list[tuple[str, Any]] | None = None,
         extra_headers: Mapping[str, str] | None = None,
+        retry: RateLimitRetry | None = None,
     ) -> Any:
         return self._request(
             "POST",
@@ -162,6 +184,7 @@ class HttpClient:
             data=_omit_none_params(data),
             files=files,
             extra_headers=extra_headers,
+            retry=retry,
         )
 
     def patch(
@@ -286,17 +309,24 @@ class HttpClient:
         path: str,
         *,
         extra_headers: Mapping[str, str] | None = None,
+        retry: RateLimitRetry | None = None,
         **kwargs: Any,
     ) -> Any:
-        # Headers are rebuilt per request so ``access_token`` / ``user_id``
-        # can be rotated on a live client without reconstructing it.
-        headers = auth_headers(self.access_token, self.user_id)
-        if not kwargs.get("files"):
-            headers["Content-Type"] = "application/json"
-        if extra_headers:
-            headers.update(extra_headers)
         kwargs["params"] = self._scoped_params(kwargs.get("params"))
-        response = self._client.request(method, path, headers=headers, **kwargs)
+        attempt = 0
+        while True:
+            # Headers are rebuilt per request so ``access_token`` / ``user_id``
+            # can be rotated on a live client without reconstructing it.
+            headers = auth_headers(self.access_token, self.user_id)
+            if not kwargs.get("files"):
+                headers["Content-Type"] = "application/json"
+            if extra_headers:
+                headers.update(extra_headers)
+            response = self._client.request(method, path, headers=headers, **kwargs)
+            if retry is None or not retry.should_retry(response, attempt):
+                break
+            time.sleep(retry.wait_s(response, attempt))
+            attempt += 1
         if response.status_code >= 400:
             raise to_api_error(response)
         return response.json() if response.content else None
@@ -355,8 +385,9 @@ class AsyncHttpClient:
         json: Any = None,
         data: Mapping[str, Any] | None = None,
         files: list[tuple[str, Any]] | None = None,
+        retry: RateLimitRetry | None = None,
     ) -> Any:
-        return await self._request("POST", path, json=json, data=_omit_none_params(data), files=files)
+        return await self._request("POST", path, json=json, data=_omit_none_params(data), files=files, retry=retry)
 
     async def patch(
         self,
@@ -444,12 +475,18 @@ class AsyncHttpClient:
                     logger.debug("dropped non-%s SSE: %s", response_model.__name__, event.data)
                     continue
 
-    async def _request(self, method: str, path: str, **kwargs: Any) -> Any:
-        headers = auth_headers(self.access_token, self.user_id)
-        if not kwargs.get("files"):
-            headers["Content-Type"] = "application/json"
+    async def _request(self, method: str, path: str, *, retry: RateLimitRetry | None = None, **kwargs: Any) -> Any:
         kwargs["params"] = self._scoped_params(kwargs.get("params"))
-        response = await self._client.request(method, path, headers=headers, **kwargs)
+        attempt = 0
+        while True:
+            headers = auth_headers(self.access_token, self.user_id)
+            if not kwargs.get("files"):
+                headers["Content-Type"] = "application/json"
+            response = await self._client.request(method, path, headers=headers, **kwargs)
+            if retry is None or not retry.should_retry(response, attempt):
+                break
+            await asyncio.sleep(retry.wait_s(response, attempt))
+            attempt += 1
         if response.status_code >= 400:
             raise to_api_error(response)
         return response.json() if response.content else None
