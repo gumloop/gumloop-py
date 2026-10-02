@@ -146,6 +146,28 @@ print(decision.route.model, decision.route.lane, decision.route.fallback_models)
 
 Omit `models` to route across the full Chew catalog. Each call bills one small classifier completion.
 
+## Answer many questions about one document
+
+Ask a decision model named yes/no, pick-one, or rating questions about a shared state. Each answer comes back as a probability.
+
+```python
+from gumloop import Gumloop
+
+client = Gumloop(api_key="your_api_key", user_id="your_user_id")
+
+verdicts = client.decisions.create(
+    model="typesafe/jev-1.13",
+    state={"accounts": accounts},
+    questions={
+        f"churn_{a['id']}": {"type": "noul", "instructions": f"Is account {a['id']} at churn risk?"} for a in accounts
+    },
+)
+
+print([qid for qid, a in verdicts.answers.items() if a.type == "noul" and a.noul > 0.7])
+```
+
+A 429 is retried with `Retry-After` backoff. Any other failure raises `APIStatusError`.
+
 ## Put files into your Brain
 
 ```python
