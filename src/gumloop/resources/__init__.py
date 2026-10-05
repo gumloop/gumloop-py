@@ -12,6 +12,8 @@ from gumloop.resources.browser_profiles import AsyncBrowserProfiles
 from gumloop.resources.browser_profiles import BrowserProfiles
 from gumloop.resources.chat import AsyncChat
 from gumloop.resources.chat import Chat
+from gumloop.resources.decisions import AsyncDecisions
+from gumloop.resources.decisions import Decisions
 from gumloop.resources.evaluations import AsyncEvaluations
 from gumloop.resources.evaluations import Evaluations
 from gumloop.resources.mcp import MCP
@@ -35,6 +37,7 @@ __all__ = [
     "AsyncBrain",
     "AsyncBrowserProfiles",
     "AsyncChat",
+    "AsyncDecisions",
     "AsyncEvaluations",
     "AsyncMCP",
     "AsyncModels",
@@ -45,6 +48,7 @@ __all__ = [
     "Brain",
     "BrowserProfiles",
     "Chat",
+    "Decisions",
     "Evaluations",
     "Models",
     "Organizations",

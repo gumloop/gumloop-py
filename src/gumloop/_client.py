@@ -20,6 +20,7 @@ from gumloop.resources import AsyncArtifacts
 from gumloop.resources import AsyncBrain
 from gumloop.resources import AsyncBrowserProfiles
 from gumloop.resources import AsyncChat
+from gumloop.resources import AsyncDecisions
 from gumloop.resources import AsyncEvaluations
 from gumloop.resources import AsyncMCP
 from gumloop.resources import AsyncModels
@@ -30,6 +31,7 @@ from gumloop.resources import AsyncTeams
 from gumloop.resources import Brain
 from gumloop.resources import BrowserProfiles
 from gumloop.resources import Chat
+from gumloop.resources import Decisions
 from gumloop.resources import Evaluations
 from gumloop.resources import Models
 from gumloop.resources import Organizations
@@ -79,7 +81,9 @@ class Gumloop:
         self.team_id = team_id or os.environ.get("GUMLOOP_TEAM_ID")
         # Defaults to production; GUMLOOP_BASE_URL is an optional override.
         self.base_url = (base_url or os.environ.get("GUMLOOP_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
-        self.stream_base_url = (stream_base_url or _derive_stream_base_url(self.base_url)).rstrip("/")
+        self.stream_base_url = (
+            stream_base_url or os.environ.get("GUMLOOP_STREAM_BASE_URL") or _derive_stream_base_url(self.base_url)
+        ).rstrip("/")
         self.timeout = timeout
         self.stream_timeout = stream_timeout
 
@@ -96,6 +100,7 @@ class Gumloop:
         self.agents = Agents(self._http)
         self.sessions = Sessions(self._http)
         self.chat = Chat(self._http)
+        self.decisions = Decisions(self._http)
         self.models = Models(self._http)
         self.mcp = MCP(self._http)
         self.teams = Teams(self._http)
@@ -141,7 +146,9 @@ class AsyncGumloop:
         self.team_id = team_id or os.environ.get("GUMLOOP_TEAM_ID")
         # Defaults to production; GUMLOOP_BASE_URL is an optional override.
         self.base_url = (base_url or os.environ.get("GUMLOOP_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
-        self.stream_base_url = (stream_base_url or _derive_stream_base_url(self.base_url)).rstrip("/")
+        self.stream_base_url = (
+            stream_base_url or os.environ.get("GUMLOOP_STREAM_BASE_URL") or _derive_stream_base_url(self.base_url)
+        ).rstrip("/")
         self.timeout = timeout
         self.stream_timeout = stream_timeout
 
@@ -158,6 +165,7 @@ class AsyncGumloop:
         self.agents = AsyncAgents(self._http)
         self.sessions = AsyncSessions(self._http)
         self.chat = AsyncChat(self._http)
+        self.decisions = AsyncDecisions(self._http)
         self.models = AsyncModels(self._http)
         self.mcp = AsyncMCP(self._http)
         self.teams = AsyncTeams(self._http)
