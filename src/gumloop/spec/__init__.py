@@ -17,6 +17,20 @@ from openrouter.components import ProviderPreferences
 from openrouter.components import ResponseHealingPlugin
 from openrouter.components import WebSearchPlugin
 
+from gumloop.spec._decisions import DecisionsAnswer
+from gumloop.spec._decisions import DecisionsChoiceAnswer
+from gumloop.spec._decisions import DecisionsChoiceQuestion
+from gumloop.spec._decisions import DecisionsNoulAnswer
+from gumloop.spec._decisions import DecisionsNoulQuestion
+from gumloop.spec._decisions import DecisionsNoulQuestionCriteria
+from gumloop.spec._decisions import DecisionsQuestion
+from gumloop.spec._decisions import DecisionsRequest
+from gumloop.spec._decisions import DecisionsResponse
+from gumloop.spec._decisions import DecisionsResponseUsage
+from gumloop.spec._decisions import DecisionsScoreAnswer
+from gumloop.spec._decisions import DecisionsScoreQuestion
+from gumloop.spec._decisions import TraceConfig
+
 # ChatStreamDelta/ChatStreamChoice/ChatStreamChunk/ChatUsage subclassed to add
 # fields Speakeasy 0.9.1 drops + Gumloop-only `gumloop_extensions` bucket.
 from gumloop.spec._extensions import ChatStreamChunk
@@ -36,9 +50,22 @@ __all__ = [
     "ChatStreamDelta",
     "ChatToolChoice",
     "ChatUsage",
+    "DecisionsAnswer",
+    "DecisionsChoiceAnswer",
+    "DecisionsChoiceQuestion",
+    "DecisionsNoulAnswer",
+    "DecisionsNoulQuestion",
+    "DecisionsNoulQuestionCriteria",
+    "DecisionsQuestion",
+    "DecisionsRequest",
+    "DecisionsResponse",
+    "DecisionsResponseUsage",
+    "DecisionsScoreAnswer",
+    "DecisionsScoreQuestion",
     "FormatJSONObjectConfig",
     "ImageConfig",
     "ProviderPreferences",
     "ResponseHealingPlugin",
+    "TraceConfig",
     "WebSearchPlugin",
 ]
