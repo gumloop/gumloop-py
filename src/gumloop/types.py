@@ -47,15 +47,329 @@ class CreatorPayload(_Model):
 # ---------------------------------------------------------------------------
 
 
+class AgentTool(_Model):
+    """One entry of an agent's ``tools`` list. ``type`` picks which fields apply:
+    connectors (``gumcp_server``, ``gumstack_server``) use ``server_id`` and the
+    approval/credential fields; a custom MCP server (``mcp_server``) is keyed by its
+    secret; native abilities (``web_search``, ``web_fetch``, ``image_generator``,
+    ``interaction_search``, ``human_input``, ``browser``, ``manage_evals``) carry
+    their settings in ``metadata``. Any other ``type`` is a remembered "don't ask
+    again" decision for a native tool family (for example ``trigger_creation``) and
+    carries only ``approval_mode`` and ``tool_approval_modes``. Prefer
+    ``update_abilities`` and ``attach_mcp_server`` over editing this list directly."""
+
+    type: str | None = None
+    name: str | None = None
+    server_id: str | None = None
+    secret_id: str | None = None
+    saved_item_id: str | None = None
+    credentials_to_use: dict[str, dict[str, Any]] | None = None
+    credential_mode: Literal["end_user", "agent_owned"] | None = None
+    approval_mode: Literal["inherit", "off", "all", "write", "custom"] | None = None
+    tool_approval_modes: dict[str, str] | None = None
+    restricted_tools: list[str] | None = None
+    is_incognito: bool | None = None
+    is_disabled: bool | None = None
+    metadata: dict[str, Any] | None = None
+
+
+class AgentEnabledSetting(_Model):
+    enabled: bool | None = None
+
+
+class AgentCreationSetting(_Model):
+    creation_enabled: bool | None = None
+
+
+class AgentToolDiscoverySetting(_Model):
+    mode: Literal["auto", "enabled"] | None = None
+
+
+class AgentToolApprovalSetting(_Model):
+    default_mode: Literal["inherit", "off", "all", "write", "custom"] | None = None
+    reason: str | None = None
+    approver_user_id: str | None = None
+
+
+class AgentSubagentSetting(_Model):
+    allow_self_clone: bool | None = None
+    allowed_gummie_ids: list[str] | None = None
+
+
+class AgentArtifactSetting(_Model):
+    default_access: Literal["default", "organization", "anyone"] | None = None
+
+
+class AgentVoiceSetting(_Model):
+    enabled: bool | None = None
+    voice: str | None = None
+
+
+class AgentSlackSetting(_Model):
+    thread_response_trigger: str | None = None
+    attribution_stamp_enabled: bool | None = None
+    show_detailed_steps: bool | None = None
+
+
+class AgentEmailSetting(_Model):
+    attribution_stamp_enabled: bool | None = None
+
+
+class AgentCompactionSetting(_Model):
+    override_auto_compaction: bool | None = None
+    summary_model: str | None = None
+    context_limit: int | None = None
+    output_reserve_tokens: int | None = None
+    prune_protect_tokens: int | None = None
+    summary_max_tokens: int | None = None
+    proactive_trigger_percent: int | None = None
+
+
+class AgentFallbackSetting(_Model):
+    enabled: bool | None = None
+    override_auto_fallback: bool | None = None
+    fallback_models: list[str] | None = None
+
+
+class AgentImageGenerationSetting(_Model):
+    model: str | None = None
+
+
+class AgentSuggestedPromptServer(_Model):
+    server_id: str
+    server_type: str
+
+
+class AgentSuggestedPrompt(_Model):
+    title: str
+    message: str
+    icon: str | None = None
+    servers: list[AgentSuggestedPromptServer] | None = None
+
+
+class AgentSelfImprovementSetting(_Model):
+    enabled: bool | None = None
+    cron_expression: str | None = None
+    timezone: str | None = None
+
+
+class AgentMetadata(_Model):
+    """Agent settings. On update the backend merges objects and replaces arrays and
+    scalars, so send only the sections you want to change."""
+
+    icon_url: str | None = None
+    suggested_prompts: list[AgentSuggestedPrompt] | None = None
+    max_steps: int | float | None = None
+    model_settings: dict[str, Any] | None = None
+    compaction: AgentCompactionSetting | None = None
+    fallback: AgentFallbackSetting | None = None
+    image_generation: AgentImageGenerationSetting | None = None
+    skills: AgentCreationSetting | None = None
+    triggers: AgentCreationSetting | None = None
+    app_rules: AgentCreationSetting | None = None
+    app_discovery: AgentEnabledSetting | None = None
+    tool_discovery: AgentToolDiscoverySetting | None = None
+    tool_approval: AgentToolApprovalSetting | None = None
+    self_modification: AgentEnabledSetting | None = None
+    self_improvement: AgentSelfImprovementSetting | None = None
+    subagent: AgentSubagentSetting | None = None
+    artifacts: AgentArtifactSetting | None = None
+    voice: AgentVoiceSetting | None = None
+    slack: AgentSlackSetting | None = None
+    email: AgentEmailSetting | None = None
+
+
+class AbilityToggle(_Model):
+    enabled: bool
+
+
+class ProviderAbility(AbilityToggle):
+    provider: str | None = None
+
+
+class ImageGenerationAbility(AbilityToggle):
+    model: str | None = None
+
+
+class ToolDiscoveryAbility(_Model):
+    mode: Literal["auto", "enabled"]
+
+
+class BrowserAbility(AbilityToggle):
+    """Pinning ``profile_id`` switches the browser to agent-owned credentials; ``None`` clears both."""
+
+    proxy_country: str | None = None
+    profile_id: str | None = None
+
+
+class AgentAbilities(_Model):
+    web_search: ProviderAbility | None = None
+    web_fetch: ProviderAbility | None = None
+    image_generation: ImageGenerationAbility | None = None
+    search_past_conversations: AbilityToggle | None = None
+    ask_question: AbilityToggle | None = None
+    tool_discovery: ToolDiscoveryAbility | None = None
+    manage_evaluations: AbilityToggle | None = None
+    browser: BrowserAbility | None = None
+
+
+class AgentAbilitiesUpdateRequest(AgentAbilities):
+    version: int | None = None
+
+
+class AgentAbilitiesResponse(_Model):
+    agent_id: str
+    abilities: AgentAbilities
+    version: int | None = None
+
+
+class KnowledgeScopeRule(_Model):
+    type: Literal["container", "document"]
+    id: str
+    name: str | None = None
+
+
+class KnowledgeSourceScope(_Model):
+    """``None`` means the whole source. ``include_only`` keeps only ``inclusions``;
+    the default denylist keeps everything except ``exclusions``."""
+
+    mode: Literal["denylist", "include_only"] | None = None
+    inclusions: list[KnowledgeScopeRule] | None = None
+    exclusions: list[KnowledgeScopeRule] | None = None
+
+
+class AgentKnowledgeSourceAttachment(_Model):
+    connector_id: str
+    config: KnowledgeSourceScope | None = None
+
+
+class AgentKnowledgeSource(_Model):
+    connector_id: str
+    config: KnowledgeSourceScope | None = None
+
+
+class AgentKnowledgeSourceResponse(_Model):
+    agent_id: str
+    knowledge_source: AgentKnowledgeSource
+    outcome: str
+
+
+class AgentKnowledgeSourceDetachResponse(_Model):
+    agent_id: str
+    connector_id: str
+    detached: bool = False
+
+
+class AgentKnowledgeSourcesResponse(_Model):
+    agent_id: str
+    knowledge_sources: list[AgentKnowledgeSource] = Field(default_factory=list)
+
+
+class AgentSubagentsResponse(_Model):
+    agent_id: str
+    subagent_ids: list[str] = Field(default_factory=list)
+    changed: bool = False
+
+
+class AgentDeleteResponse(_Model):
+    agent_id: str
+    deleted: bool = False
+
+
+class AgentTriggerCreateRequest(_Model):
+    """``schedule`` takes exactly one of ``cron_expression`` or ``run_at`` (ISO 8601);
+    ``webhook`` takes only ``prompt`` and returns ``webhook_url`` once, on create."""
+
+    type: Literal["schedule", "webhook"]
+    prompt: str
+    name: str | None = None
+    cron_expression: str | None = None
+    run_at: str | None = None
+    timezone: str | None = None
+    pass_raw_data: bool | None = None
+    enabled: bool | None = None
+    max_failures: int | None = None
+
+
+class AgentTriggerUpdateRequest(_Model):
+    """``name``, ``prompt``, ``enabled`` and ``max_failures`` apply to any trigger; the
+    schedule fields only to ``schedule`` triggers and ``pass_raw_data`` only to ``webhook``."""
+
+    prompt: str | None = None
+    name: str | None = None
+    cron_expression: str | None = None
+    run_at: str | None = None
+    timezone: str | None = None
+    pass_raw_data: bool | None = None
+    enabled: bool | None = None
+    max_failures: int | None = None
+
+
+class AgentTrigger(_Model):
+    id: str
+    agent_id: str
+    type: str
+    name: str | None = None
+    prompt: str | None = None
+    cron_expression: str | None = None
+    run_at: str | None = None
+    timezone: str | None = None
+    pass_raw_data: bool | None = None
+    enabled: bool = False
+    status: str | None = None
+    max_failures: int | None = None
+    webhook_url: str | None = None
+    created_at: str | None = None
+    last_run_at: str | None = None
+
+
+class AgentTriggerResponse(_Model):
+    trigger: AgentTrigger
+
+
+class AgentTriggersResponse(_Model):
+    agent_id: str
+    triggers: list[AgentTrigger] = Field(default_factory=list)
+    next_cursor: str | None = None
+
+
+class AgentTriggerWebhookUrlResponse(_Model):
+    agent_id: str
+    trigger_id: str
+    webhook_url: str | None = None
+
+
+class AgentTriggerDeleteResponse(_Model):
+    agent_id: str
+    trigger_id: str
+    deleted: bool = False
+
+
+class AgentAppRule(_Model):
+    id: str
+    name: str | None = None
+    description: str | None = None
+    status: str | None = None
+    server_id: str | None = None
+    config: dict[str, Any] = Field(default_factory=dict)
+    priority: int | None = None
+
+
+class AgentAppRulesResponse(_Model):
+    agent_id: str
+    app_rules: list[AgentAppRule] = Field(default_factory=list)
+
+
 class AgentCreateRequest(_Model):
     name: str
     model_name: str | None = None
     description: str | None = None
     system_prompt: str | None = None
-    tools: list[dict[str, Any]] = Field(default_factory=list)
+    tools: list[AgentTool] = Field(default_factory=list)
     resources: list[dict[str, Any]] = Field(default_factory=list)
     skill_ids: list[str] | None = None
-    metadata: dict[str, Any] | None = None
+    knowledge_sources: list[AgentKnowledgeSourceAttachment] | None = None
+    metadata: AgentMetadata | None = None
     folder_id: str | None = None
     is_active: bool = True
     agent_id: str | None = None
@@ -63,15 +377,19 @@ class AgentCreateRequest(_Model):
 
 
 class AgentUpdateRequest(_Model):
+    """``version`` is optional optimistic concurrency: send the ``version`` you read and
+    the update is refused with ``agent_version_conflict`` if the agent changed since."""
+
     name: str | None = None
     model_name: str | None = None
     description: str | None = None
     system_prompt: str | None = None
-    tools: list[dict[str, Any]] | None = None
+    tools: list[AgentTool] | None = None
     resources: list[dict[str, Any]] | None = None
-    metadata: dict[str, Any] | None = None
+    metadata: AgentMetadata | None = None
     is_active: bool | None = None
     team_id: str | None = None
+    version: int | None = None
 
 
 class Agent(_Model):
@@ -80,15 +398,21 @@ class Agent(_Model):
     description: str | None = None
     team_id: str | None = None
     is_active: bool = False
-    tools: list[dict[str, Any]] = Field(default_factory=list)
+    tools: list[AgentTool] = Field(default_factory=list)
     resources: list[dict[str, Any]] = Field(default_factory=list)
     skill_ids: list[str] | None = None
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    abilities: AgentAbilities | None = None
+    knowledge_sources: list[AgentKnowledgeSource] | None = None
+    triggers: list[AgentTrigger] | None = None
+    version: int | None = None
+    metadata: AgentMetadata = Field(default_factory=AgentMetadata)
     model_name: str | None = None
     system_prompt: str | None = None
     folder_id: str | None = None
     type: str | None = None
     created_at: str | None = None
+    last_used_at: str | None = None
+    last_updated_at: str | None = None
     active_trigger_count: int | None = None
     creator: CreatorPayload | None = None
 
@@ -104,9 +428,10 @@ class AgentSkillsResponse(_Model):
 
 class AgentMcpServerResponse(_Model):
     agent_id: str
-    mcp_server: dict[str, Any] = Field(default_factory=dict)
+    mcp_server: AgentTool | None = None
     created: bool = False
     auth_status: str | None = None
+    version: int | None = None
 
 
 class AgentMcpServerDetachResponse(_Model):
@@ -117,7 +442,7 @@ class AgentMcpServerDetachResponse(_Model):
 
 class AgentMcpServersResponse(_Model):
     agent_id: str
-    mcp_servers: list[dict[str, Any]] = Field(default_factory=list)
+    mcp_servers: list[AgentTool] = Field(default_factory=list)
 
 
 class AgentResponse(_Model):

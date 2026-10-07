@@ -129,17 +129,19 @@ class TestAgentMcpServers:
         response = dev_client.agents.attach_mcp_server(agent.id, "gmail", approval_mode="off")
 
         assert response.created is True
-        assert response.mcp_server.get("server_id") == "gmail"
-        assert response.mcp_server.get("approval_mode") == "off"
+        assert response.mcp_server is not None
+        assert response.mcp_server.server_id == "gmail"
+        assert response.mcp_server.approval_mode == "off"
 
     def test_attach_again_updates_config_in_place(self, dev_client: Gumloop, make_agent) -> None:
         agent = make_agent()
         dev_client.agents.attach_mcp_server(agent.id, "gmail", approval_mode="off")
 
-        response = dev_client.agents.attach_mcp_server(agent.id, "gmail", approval_mode="always")
+        response = dev_client.agents.attach_mcp_server(agent.id, "gmail", approval_mode="all")
 
         assert response.created is False
-        assert response.mcp_server.get("approval_mode") == "always"
+        assert response.mcp_server is not None
+        assert response.mcp_server.approval_mode == "all"
 
     def test_identity_keys_cannot_be_spoofed_and_secrets_never_round_trip(
         self,
@@ -155,9 +157,11 @@ class TestAgentMcpServers:
             secret_id="spoofed",
         )
 
-        assert response.mcp_server.get("server_id") == "gmail"
-        assert "secret_id" not in response.mcp_server
-        assert response.mcp_server.get("mcp_server_url") is None
+        assert response.mcp_server is not None
+        assert response.mcp_server.server_id == "gmail"
+        assert response.mcp_server.secret_id is None
+        assert "secret_id" not in response.mcp_server.model_dump(exclude_unset=True)
+        assert response.mcp_server.model_dump(exclude_unset=True).get("mcp_server_url") is None
 
     def test_unknown_server_id_is_a_loud_404(self, dev_client: Gumloop, make_agent) -> None:
         agent = make_agent()
