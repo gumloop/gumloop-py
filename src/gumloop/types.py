@@ -53,8 +53,10 @@ class AgentTool(_Model):
     approval/credential fields; a custom MCP server (``mcp_server``) is keyed by its
     secret; native abilities (``web_search``, ``web_fetch``, ``image_generator``,
     ``interaction_search``, ``human_input``, ``browser``, ``manage_evals``) carry
-    their settings in ``metadata``. Prefer ``update_abilities`` and
-    ``attach_mcp_server`` over editing this list directly."""
+    their settings in ``metadata``. Any other ``type`` is a remembered "don't ask
+    again" decision for a native tool family (for example ``trigger_creation``) and
+    carries only ``approval_mode`` and ``tool_approval_modes``. Prefer
+    ``update_abilities`` and ``attach_mcp_server`` over editing this list directly."""
 
     type: str | None = None
     name: str | None = None
@@ -194,6 +196,8 @@ class ToolDiscoveryAbility(_Model):
 
 
 class BrowserAbility(AbilityToggle):
+    """Pinning ``profile_id`` switches the browser to agent-owned credentials; ``None`` clears both."""
+
     proxy_country: str | None = None
     profile_id: str | None = None
 
@@ -288,6 +292,9 @@ class AgentTriggerCreateRequest(_Model):
 
 
 class AgentTriggerUpdateRequest(_Model):
+    """``name``, ``prompt``, ``enabled`` and ``max_failures`` apply to any trigger; the
+    schedule fields only to ``schedule`` triggers and ``pass_raw_data`` only to ``webhook``."""
+
     prompt: str | None = None
     name: str | None = None
     cron_expression: str | None = None
