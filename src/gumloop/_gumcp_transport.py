@@ -146,9 +146,59 @@ def _error_result(
     )
 
 
+def _structured_error(message: str) -> dict[str, Any] | None:
+    """guMCP reports a session-scope deny as a JSON object with a ``code``; the client may wrap it in prose."""
+    start = message.find("{")
+    if start < 0:
+        return None
+    try:
+        parsed = json.loads(message[start:])
+    except json.JSONDecodeError:
+        return None
+    if isinstance(parsed, dict) and isinstance(parsed.get("code"), str):
+        return parsed
+    return None
+
+
+def _tool_not_allowed_result(
+    *, ref: str, server_id: str, tool_name: str, allowed_tools: list[str] | None
+) -> McpToolCallResult:
+    scope = "" if allowed_tools is None else f" Scope of this run: {', '.join(allowed_tools) or 'none'}."
+    details: dict[str, Any] = {"server_id": server_id, "tool_name": tool_name}
+    if allowed_tools is not None:
+        details["allowed_tools"] = allowed_tools
+    return _error_result(
+        ref=ref,
+        server_id=server_id,
+        tool_name=tool_name,
+        status="error",
+        code="tool_not_allowed",
+        message=(
+            f"Tool '{tool_name}' on '{server_id}' is outside this run's tool scope. The scope is built from the "
+            f"literal client.mcp.execute('{server_id}', '{tool_name}', {{...}}) calls in the code being run: a helper "
+            "defined in an earlier cell, a server or tool name held in a variable, or a call reached through "
+            "runpy, subprocess, or exec is not seen. Put the literal call in this cell, or run the file with "
+            f"`python <script.py>`, and run again. Retrying unchanged fails the same way.{scope}"
+        ),
+        error_type="permission_error",
+        details=details,
+    )
+
+
 def _map_exception(exc: BaseException, *, ref: str, server_id: str, tool_name: str) -> McpToolCallResult:
     message = str(exc)
     lower = message.lower()
+
+    structured = _structured_error(message)
+    if structured is not None and structured["code"] == "tool_not_allowed":
+        details = structured.get("details") if isinstance(structured.get("details"), dict) else {}
+        allowed = details.get("allowed_tools")
+        return _tool_not_allowed_result(
+            ref=ref,
+            server_id=server_id,
+            tool_name=tool_name,
+            allowed_tools=[str(t) for t in allowed] if isinstance(allowed, list) else None,
+        )
 
     if "credentials_not_found" in message or "authentication required" in lower:
         return _error_result(
@@ -169,22 +219,7 @@ def _map_exception(exc: BaseException, *, ref: str, server_id: str, tool_name: s
         or "tool_not_allowed" in lower
         or "scoped_allowed_tools" in lower
     ):
-        return _error_result(
-            ref=ref,
-            server_id=server_id,
-            tool_name=tool_name,
-            status="error",
-            code="tool_not_allowed",
-            message=(
-                "This tool isn't in this run's allowed set. If you believe this "
-                "tool should be allowed, ensure you are passing literal server and "
-                "tool names to client.mcp.execute('server', 'tool', {...}), running "
-                "scripts with `python <script.py>`, and pulling in other files with a "
-                "direct `import` (not runpy, subprocess, or exec)."
-            ),
-            error_type="permission_error",
-            details={"server_id": server_id, "tool_name": tool_name},
-        )
+        return _tool_not_allowed_result(ref=ref, server_id=server_id, tool_name=tool_name, allowed_tools=None)
 
     if "cancel scope" in lower or isinstance(exc, asyncio.CancelledError):
         return _error_result(
