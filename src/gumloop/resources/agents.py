@@ -255,7 +255,9 @@ class Agents:
         )
 
     def delete_trigger(self, agent_id: str, trigger_id: str) -> AgentTriggerDeleteResponse:
-        return AgentTriggerDeleteResponse.model_validate(self._client.delete(f"agents/{agent_id}/triggers/{trigger_id}"))
+        return AgentTriggerDeleteResponse.model_validate(
+            self._client.delete(f"agents/{agent_id}/triggers/{trigger_id}")
+        )
 
     def get_trigger_webhook_url(self, agent_id: str, trigger_id: str) -> AgentTriggerWebhookUrlResponse:
         """The webhook URL embeds its secret; fetch it on demand rather than storing it."""

@@ -293,7 +293,7 @@ def test_agents_attach_mcp_server_puts_config(client: Gumloop) -> None:
 
     assert result.created is True
     assert result.auth_status == "connected"
-    assert result.mcp_server["server_id"] == "gmail"
+    assert result.mcp_server is not None and result.mcp_server.server_id == "gmail"
     assert request_json(route.calls[0].request) == {"approval_mode": "off"}
 
 
@@ -319,7 +319,7 @@ def test_agents_list_mcp_servers(client: Gumloop) -> None:
     result = client.agents.list_mcp_servers("agent_123")
 
     assert result.agent_id == "agent_123"
-    assert result.mcp_servers == [{"server_id": "gmail"}]
+    assert [server.server_id for server in result.mcp_servers] == ["gmail"]
 
 
 @respx.mock
@@ -571,7 +571,10 @@ def test_agents_retrieve_parses_whole_configuration(client: Gumloop) -> None:
                     "version": 2,
                     "tools": [{"type": "gumcp_server", "server_id": "slack", "approval_mode": "write"}],
                     "metadata": {"voice": {"enabled": True}, "future_section": {"x": 1}},
-                    "abilities": {"web_search": {"enabled": True, "provider": "exa"}, "ask_question": {"enabled": False}},
+                    "abilities": {
+                        "web_search": {"enabled": True, "provider": "exa"},
+                        "ask_question": {"enabled": False},
+                    },
                     "knowledge_sources": [{"connector_id": "conn_1", "config": None}],
                     "triggers": [{"id": "trg_1", "agent_id": "agent_123", "type": "schedule", "enabled": True}],
                 }
@@ -600,13 +603,19 @@ def test_agents_create_sends_knowledge_sources_without_scope_as_null(client: Gum
         name="A",
         knowledge_sources=[
             {"connector_id": "conn_1"},
-            {"connector_id": "conn_2", "config": {"mode": "include_only", "inclusions": [{"type": "container", "id": "f"}]}},
+            {
+                "connector_id": "conn_2",
+                "config": {"mode": "include_only", "inclusions": [{"type": "container", "id": "f"}]},
+            },
         ],
     )
 
     assert request_json(route.calls[0].request)["knowledge_sources"] == [
         {"connector_id": "conn_1"},
-        {"connector_id": "conn_2", "config": {"mode": "include_only", "inclusions": [{"type": "container", "id": "f"}]}},
+        {
+            "connector_id": "conn_2",
+            "config": {"mode": "include_only", "inclusions": [{"type": "container", "id": "f"}]},
+        },
     ]
 
 
@@ -650,12 +659,18 @@ def test_agents_knowledge_source_attach_sends_config_key_even_when_whole_source(
     whole = respx.put(f"{API_BASE}/agents/agent_123/knowledge-sources/conn_1").mock(
         return_value=httpx.Response(
             200,
-            json={"agent_id": "agent_123", "knowledge_source": {"connector_id": "conn_1", "config": None}, "outcome": "attached"},
+            json={
+                "agent_id": "agent_123",
+                "knowledge_source": {"connector_id": "conn_1", "config": None},
+                "outcome": "attached",
+            },
         )
     )
 
     result = client.agents.attach_knowledge_source("agent_123", "conn_1")
-    client.agents.attach_knowledge_source("agent_123", "conn_1", config={"exclusions": [{"type": "document", "id": "d"}]})
+    client.agents.attach_knowledge_source(
+        "agent_123", "conn_1", config={"exclusions": [{"type": "document", "id": "d"}]}
+    )
 
     assert result.outcome == "attached"
     assert request_json(whole.calls[0].request) == {"config": None}
@@ -738,7 +753,8 @@ def test_agents_triggers_create_update_list_delete_and_reveal(client: Gumloop) -
 def test_agents_list_app_rules(client: Gumloop) -> None:
     respx.get(f"{API_BASE}/agents/agent_123/app-rules").mock(
         return_value=httpx.Response(
-            200, json={"agent_id": "agent_123", "app_rules": [{"id": "pol_1", "name": "No deletes", "server_id": "gmail"}]}
+            200,
+            json={"agent_id": "agent_123", "app_rules": [{"id": "pol_1", "name": "No deletes", "server_id": "gmail"}]},
         )
     )
 
@@ -777,14 +793,17 @@ def test_async_agents_configuration_methods() -> None:
     )
     respx.post(f"{API_BASE}/agents/agent_123/triggers").mock(
         return_value=httpx.Response(
-            201, json={"trigger": {"id": "trg_1", "agent_id": "agent_123", "type": "webhook", "webhook_url": "https://h"}}
+            201,
+            json={"trigger": {"id": "trg_1", "agent_id": "agent_123", "type": "webhook", "webhook_url": "https://h"}},
         )
     )
     respx.patch(f"{API_BASE}/agents/agent_123/triggers/trg_1").mock(
         return_value=httpx.Response(200, json={"trigger": {"id": "trg_1", "agent_id": "agent_123", "type": "webhook"}})
     )
     respx.get(f"{API_BASE}/agents/agent_123/triggers/trg_1/webhook-url").mock(
-        return_value=httpx.Response(200, json={"agent_id": "agent_123", "trigger_id": "trg_1", "webhook_url": "https://h"})
+        return_value=httpx.Response(
+            200, json={"agent_id": "agent_123", "trigger_id": "trg_1", "webhook_url": "https://h"}
+        )
     )
     respx.delete(f"{API_BASE}/agents/agent_123/triggers/trg_1").mock(
         return_value=httpx.Response(200, json={"agent_id": "agent_123", "trigger_id": "trg_1", "deleted": True})

@@ -56,7 +56,7 @@ class AgentTool(_Model):
     their settings in ``metadata``. Prefer ``update_abilities`` and
     ``attach_mcp_server`` over editing this list directly."""
 
-    type: str
+    type: str | None = None
     name: str | None = None
     server_id: str | None = None
     secret_id: str | None = None
@@ -419,7 +419,7 @@ class AgentSkillsResponse(_Model):
 
 class AgentMcpServerResponse(_Model):
     agent_id: str
-    mcp_server: AgentTool | dict[str, Any] | None = None
+    mcp_server: AgentTool | None = None
     created: bool = False
     auth_status: str | None = None
     version: int | None = None
