@@ -191,8 +191,8 @@ def _map_exception(exc: BaseException, *, ref: str, server_id: str, tool_name: s
 
     structured = _structured_error(message)
     if structured is not None and structured["code"] == "tool_not_allowed":
-        details = structured.get("details") if isinstance(structured.get("details"), dict) else {}
-        allowed = details.get("allowed_tools")
+        details = structured.get("details")
+        allowed = details.get("allowed_tools") if isinstance(details, dict) else None
         return _tool_not_allowed_result(
             ref=ref,
             server_id=server_id,
