@@ -7,18 +7,33 @@ from typing import Any
 
 from gumloop._http import AsyncHttpClient
 from gumloop._http import HttpClient
+from gumloop.types import AgentAbilitiesResponse
+from gumloop.types import AgentAbilitiesUpdateRequest
+from gumloop.types import AgentAppRulesResponse
 from gumloop.types import AgentCreateRequest
+from gumloop.types import AgentDeleteResponse
 from gumloop.types import AgentEvaluationMetricsResponse
 from gumloop.types import AgentEvaluationOptionsResponse
+from gumloop.types import AgentKnowledgeSourceDetachResponse
+from gumloop.types import AgentKnowledgeSourceResponse
+from gumloop.types import AgentKnowledgeSourcesResponse
 from gumloop.types import AgentListResponse
 from gumloop.types import AgentMcpServerDetachResponse
 from gumloop.types import AgentMcpServerResponse
 from gumloop.types import AgentMcpServersResponse
 from gumloop.types import AgentResponse
 from gumloop.types import AgentSkillsResponse
+from gumloop.types import AgentSubagentsResponse
+from gumloop.types import AgentTriggerCreateRequest
+from gumloop.types import AgentTriggerDeleteResponse
+from gumloop.types import AgentTriggerResponse
+from gumloop.types import AgentTriggersResponse
+from gumloop.types import AgentTriggerUpdateRequest
+from gumloop.types import AgentTriggerWebhookUrlResponse
 from gumloop.types import AgentUpdateRequest
 from gumloop.types import AgentVersionResponse
 from gumloop.types import AgentVersionsResponse
+from gumloop.types import KnowledgeSourceScope
 from gumloop.types import EvaluationConfigResponse
 from gumloop.types import EvaluationConfigUpdateRequest
 from gumloop.types import EvaluationResultListResponse
@@ -33,6 +48,14 @@ from gumloop.types import SkillListResponse
 
 def _skill_id_list(skill_ids: str | Sequence[str]) -> list[str]:
     return [skill_ids] if isinstance(skill_ids, str) else list(skill_ids)
+
+
+def _knowledge_scope_body(config: KnowledgeSourceScope | Mapping[str, Any] | None) -> dict[str, Any]:
+    # The key is always sent: null means the whole source.
+    if config is None:
+        return {"config": None}
+    scope = config if isinstance(config, KnowledgeSourceScope) else KnowledgeSourceScope.model_validate(config)
+    return {"config": scope.model_dump(exclude_unset=True)}
 
 
 class Agents:
@@ -99,9 +122,11 @@ class Agents:
         request: AgentUpdateRequest | Mapping[str, Any] | None = None,
         **kwargs: Any,
     ) -> AgentResponse:
-        """``tools`` replaces the entire list when provided (legacy bulk path); prefer
-        attach_mcp_server/detach_mcp_server for individual MCP servers and
-        attach_skills/detach_skills for skills."""
+        """Settings live under ``metadata`` and merge section by section. Pass ``version``
+        from a previous read to refuse the update if the agent changed since
+        (``agent_version_conflict``). ``tools`` replaces the whole list when provided;
+        prefer update_abilities, attach_mcp_server/detach_mcp_server and
+        attach_skills/detach_skills."""
         return AgentResponse.model_validate(
             self._client.patch(f"agents/{agent_id}", json=AgentUpdateRequest.build(request, **kwargs))
         )
@@ -138,6 +163,109 @@ class Agents:
 
     def list_mcp_servers(self, agent_id: str) -> AgentMcpServersResponse:
         return AgentMcpServersResponse.model_validate(self._client.get(f"agents/{agent_id}/mcp-servers"))
+
+    def delete(self, agent_id: str) -> AgentDeleteResponse:
+        """Delete a custom agent. Platform agents (``gumball``, ``analytics``) are refused."""
+        return AgentDeleteResponse.model_validate(self._client.delete(f"agents/{agent_id}"))
+
+    def update_abilities(
+        self,
+        agent_id: str,
+        request: AgentAbilitiesUpdateRequest | Mapping[str, Any] | None = None,
+        **abilities: Any,
+    ) -> AgentAbilitiesResponse:
+        """Turn native abilities on or off and set their options, e.g.
+        ``update_abilities(agent_id, web_search={"enabled": True, "provider": "exa"},
+        ask_question={"enabled": False})``. Only the abilities you send change."""
+        return AgentAbilitiesResponse.model_validate(
+            self._client.patch(
+                f"agents/{agent_id}/abilities",
+                json=AgentAbilitiesUpdateRequest.build(request, **abilities),
+            )
+        )
+
+    def list_knowledge_sources(self, agent_id: str) -> AgentKnowledgeSourcesResponse:
+        return AgentKnowledgeSourcesResponse.model_validate(self._client.get(f"agents/{agent_id}/knowledge-sources"))
+
+    def attach_knowledge_source(
+        self,
+        agent_id: str,
+        connector_id: str,
+        *,
+        config: KnowledgeSourceScope | Mapping[str, Any] | None = None,
+    ) -> AgentKnowledgeSourceResponse:
+        """Attach a Brain source, or change its scope if already attached (idempotent upsert).
+        ``config=None`` attaches the whole source."""
+        return AgentKnowledgeSourceResponse.model_validate(
+            self._client.put(
+                f"agents/{agent_id}/knowledge-sources/{connector_id}",
+                json=_knowledge_scope_body(config),
+            )
+        )
+
+    def detach_knowledge_source(self, agent_id: str, connector_id: str) -> AgentKnowledgeSourceDetachResponse:
+        """Detach a Brain source. Idempotent: safe to retry."""
+        return AgentKnowledgeSourceDetachResponse.model_validate(
+            self._client.delete(f"agents/{agent_id}/knowledge-sources/{connector_id}")
+        )
+
+    def attach_subagent(self, agent_id: str, subagent_id: str) -> AgentSubagentsResponse:
+        """Allow the agent to delegate to ``subagent_id``. Idempotent; the subagent must live in the same workspace."""
+        return AgentSubagentsResponse.model_validate(self._client.put(f"agents/{agent_id}/subagents/{subagent_id}"))
+
+    def detach_subagent(self, agent_id: str, subagent_id: str) -> AgentSubagentsResponse:
+        return AgentSubagentsResponse.model_validate(self._client.delete(f"agents/{agent_id}/subagents/{subagent_id}"))
+
+    def list_triggers(
+        self,
+        agent_id: str,
+        *,
+        page_size: int | None = None,
+        cursor: str | None = None,
+    ) -> AgentTriggersResponse:
+        return AgentTriggersResponse.model_validate(
+            self._client.get(f"agents/{agent_id}/triggers", params={"page_size": page_size, "cursor": cursor})
+        )
+
+    def create_trigger(
+        self,
+        agent_id: str,
+        request: AgentTriggerCreateRequest | Mapping[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> AgentTriggerResponse:
+        """Create a ``schedule`` (``cron_expression`` or ``run_at``) or ``webhook`` trigger.
+        A webhook's URL is returned here and from ``get_trigger_webhook_url``, never in lists."""
+        return AgentTriggerResponse.model_validate(
+            self._client.post(f"agents/{agent_id}/triggers", json=AgentTriggerCreateRequest.build(request, **kwargs))
+        )
+
+    def update_trigger(
+        self,
+        agent_id: str,
+        trigger_id: str,
+        request: AgentTriggerUpdateRequest | Mapping[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> AgentTriggerResponse:
+        """Edit, enable or disable a schedule or webhook trigger. Only the fields you send change."""
+        return AgentTriggerResponse.model_validate(
+            self._client.patch(
+                f"agents/{agent_id}/triggers/{trigger_id}",
+                json=AgentTriggerUpdateRequest.build(request, **kwargs),
+            )
+        )
+
+    def delete_trigger(self, agent_id: str, trigger_id: str) -> AgentTriggerDeleteResponse:
+        return AgentTriggerDeleteResponse.model_validate(self._client.delete(f"agents/{agent_id}/triggers/{trigger_id}"))
+
+    def get_trigger_webhook_url(self, agent_id: str, trigger_id: str) -> AgentTriggerWebhookUrlResponse:
+        """The webhook URL embeds its secret; fetch it on demand rather than storing it."""
+        return AgentTriggerWebhookUrlResponse.model_validate(
+            self._client.get(f"agents/{agent_id}/triggers/{trigger_id}/webhook-url")
+        )
+
+    def list_app_rules(self, agent_id: str) -> AgentAppRulesResponse:
+        """Rules the agent has authored for its connectors. Read only."""
+        return AgentAppRulesResponse.model_validate(self._client.get(f"agents/{agent_id}/app-rules"))
 
     def get_evaluation_options(self) -> AgentEvaluationOptionsResponse:
         return AgentEvaluationOptionsResponse.model_validate(self._client.get("agents/evaluation-options"))
@@ -295,9 +423,11 @@ class AsyncAgents:
         request: AgentUpdateRequest | Mapping[str, Any] | None = None,
         **kwargs: Any,
     ) -> AgentResponse:
-        """``tools`` replaces the entire list when provided (legacy bulk path); prefer
-        attach_mcp_server/detach_mcp_server for individual MCP servers and
-        attach_skills/detach_skills for skills."""
+        """Settings live under ``metadata`` and merge section by section. Pass ``version``
+        from a previous read to refuse the update if the agent changed since
+        (``agent_version_conflict``). ``tools`` replaces the whole list when provided;
+        prefer update_abilities, attach_mcp_server/detach_mcp_server and
+        attach_skills/detach_skills."""
         data = await self._client.patch(f"agents/{agent_id}", json=AgentUpdateRequest.build(request, **kwargs))
         return AgentResponse.model_validate(data)
 
@@ -331,6 +461,99 @@ class AsyncAgents:
     async def list_mcp_servers(self, agent_id: str) -> AgentMcpServersResponse:
         data = await self._client.get(f"agents/{agent_id}/mcp-servers")
         return AgentMcpServersResponse.model_validate(data)
+
+    async def delete(self, agent_id: str) -> AgentDeleteResponse:
+        """Delete a custom agent. Platform agents (``gumball``, ``analytics``) are refused."""
+        return AgentDeleteResponse.model_validate(await self._client.delete(f"agents/{agent_id}"))
+
+    async def update_abilities(
+        self,
+        agent_id: str,
+        request: AgentAbilitiesUpdateRequest | Mapping[str, Any] | None = None,
+        **abilities: Any,
+    ) -> AgentAbilitiesResponse:
+        """Turn native abilities on or off and set their options. Only the abilities you send change."""
+        data = await self._client.patch(
+            f"agents/{agent_id}/abilities", json=AgentAbilitiesUpdateRequest.build(request, **abilities)
+        )
+        return AgentAbilitiesResponse.model_validate(data)
+
+    async def list_knowledge_sources(self, agent_id: str) -> AgentKnowledgeSourcesResponse:
+        data = await self._client.get(f"agents/{agent_id}/knowledge-sources")
+        return AgentKnowledgeSourcesResponse.model_validate(data)
+
+    async def attach_knowledge_source(
+        self,
+        agent_id: str,
+        connector_id: str,
+        *,
+        config: KnowledgeSourceScope | Mapping[str, Any] | None = None,
+    ) -> AgentKnowledgeSourceResponse:
+        """Attach a Brain source, or change its scope if already attached (idempotent upsert).
+        ``config=None`` attaches the whole source."""
+        data = await self._client.put(
+            f"agents/{agent_id}/knowledge-sources/{connector_id}", json=_knowledge_scope_body(config)
+        )
+        return AgentKnowledgeSourceResponse.model_validate(data)
+
+    async def detach_knowledge_source(self, agent_id: str, connector_id: str) -> AgentKnowledgeSourceDetachResponse:
+        data = await self._client.delete(f"agents/{agent_id}/knowledge-sources/{connector_id}")
+        return AgentKnowledgeSourceDetachResponse.model_validate(data)
+
+    async def attach_subagent(self, agent_id: str, subagent_id: str) -> AgentSubagentsResponse:
+        data = await self._client.put(f"agents/{agent_id}/subagents/{subagent_id}")
+        return AgentSubagentsResponse.model_validate(data)
+
+    async def detach_subagent(self, agent_id: str, subagent_id: str) -> AgentSubagentsResponse:
+        data = await self._client.delete(f"agents/{agent_id}/subagents/{subagent_id}")
+        return AgentSubagentsResponse.model_validate(data)
+
+    async def list_triggers(
+        self,
+        agent_id: str,
+        *,
+        page_size: int | None = None,
+        cursor: str | None = None,
+    ) -> AgentTriggersResponse:
+        data = await self._client.get(f"agents/{agent_id}/triggers", params={"page_size": page_size, "cursor": cursor})
+        return AgentTriggersResponse.model_validate(data)
+
+    async def create_trigger(
+        self,
+        agent_id: str,
+        request: AgentTriggerCreateRequest | Mapping[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> AgentTriggerResponse:
+        """Create a ``schedule`` (``cron_expression`` or ``run_at``) or ``webhook`` trigger.
+        A webhook's URL is returned here and from ``get_trigger_webhook_url``, never in lists."""
+        data = await self._client.post(
+            f"agents/{agent_id}/triggers", json=AgentTriggerCreateRequest.build(request, **kwargs)
+        )
+        return AgentTriggerResponse.model_validate(data)
+
+    async def update_trigger(
+        self,
+        agent_id: str,
+        trigger_id: str,
+        request: AgentTriggerUpdateRequest | Mapping[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> AgentTriggerResponse:
+        data = await self._client.patch(
+            f"agents/{agent_id}/triggers/{trigger_id}", json=AgentTriggerUpdateRequest.build(request, **kwargs)
+        )
+        return AgentTriggerResponse.model_validate(data)
+
+    async def delete_trigger(self, agent_id: str, trigger_id: str) -> AgentTriggerDeleteResponse:
+        data = await self._client.delete(f"agents/{agent_id}/triggers/{trigger_id}")
+        return AgentTriggerDeleteResponse.model_validate(data)
+
+    async def get_trigger_webhook_url(self, agent_id: str, trigger_id: str) -> AgentTriggerWebhookUrlResponse:
+        data = await self._client.get(f"agents/{agent_id}/triggers/{trigger_id}/webhook-url")
+        return AgentTriggerWebhookUrlResponse.model_validate(data)
+
+    async def list_app_rules(self, agent_id: str) -> AgentAppRulesResponse:
+        data = await self._client.get(f"agents/{agent_id}/app-rules")
+        return AgentAppRulesResponse.model_validate(data)
 
     async def get_evaluation_options(self) -> AgentEvaluationOptionsResponse:
         data = await self._client.get("agents/evaluation-options")

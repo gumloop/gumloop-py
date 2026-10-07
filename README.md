@@ -104,6 +104,40 @@ agents = client.agents.list()  # scoped to the team
 
 `team_id` can also be provided via the `GUMLOOP_TEAM_ID` environment variable.
 
+## Build and configure an agent
+
+Everything the agent panel can set is one call away. `create` takes the whole
+configuration at once; collections (connectors, skills, knowledge sources,
+subagents, triggers) also have attach/detach calls so one item can change
+without re-sending the rest.
+
+```python
+from gumloop import Gumloop
+
+client = Gumloop(api_key="your_api_key", user_id="your_user_id")
+
+agent = client.agents.create(
+    name="Support triage",
+    model_name="claude-opus-5-5",
+    system_prompt="Triage incoming tickets and draft replies.",
+    skill_ids=["skill_123"],
+    knowledge_sources=[{"connector_id": "conn_456"}],  # no config = whole source
+    metadata={"fallback": {"enabled": True}, "max_steps": 30},
+).agent
+
+client.agents.attach_mcp_server(agent.id, "slack", approval_mode="write")
+client.agents.update_abilities(agent.id, web_search={"enabled": True, "provider": "exa"})
+client.agents.create_trigger(agent.id, type="schedule", prompt="Morning digest", cron_expression="0 9 * * 1-5")
+
+# One read returns the whole configuration, including the version to send back on update.
+agent = client.agents.retrieve(agent.id).agent
+client.agents.update(agent.id, version=agent.version, metadata={"voice": {"enabled": True}})
+```
+
+An `update` with a stale `version` fails with `agent_version_conflict`; omit
+`version` to let the last write win. Platform agents (`gumball`, `analytics`)
+can be read and chatted with but never configured.
+
 ## Chat with an agent (streaming)
 
 ```python
