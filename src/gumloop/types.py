@@ -404,6 +404,8 @@ class Agent(_Model):
     folder_id: str | None = None
     type: str | None = None
     created_at: str | None = None
+    last_used_at: str | None = None
+    last_updated_at: str | None = None
     active_trigger_count: int | None = None
     creator: CreatorPayload | None = None
 
