@@ -33,13 +33,13 @@ from gumloop.types import AgentTriggerWebhookUrlResponse
 from gumloop.types import AgentUpdateRequest
 from gumloop.types import AgentVersionResponse
 from gumloop.types import AgentVersionsResponse
-from gumloop.types import KnowledgeSourceScope
 from gumloop.types import EvaluationConfigResponse
 from gumloop.types import EvaluationConfigUpdateRequest
 from gumloop.types import EvaluationResultListResponse
 from gumloop.types import EvaluationResultResponse
 from gumloop.types import EvaluationRunRequest
 from gumloop.types import EvaluationRunResponse
+from gumloop.types import KnowledgeSourceScope
 from gumloop.types import ModelListResponse
 from gumloop.types import ModelRouteRequest
 from gumloop.types import ModelRouteResponse
