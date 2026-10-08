@@ -163,6 +163,23 @@ def _map_exception(exc: BaseException, *, ref: str, server_id: str, tool_name: s
             details={"server_id": server_id, "tool_name": tool_name},
         )
 
+    try:
+        from gumcp_client.exceptions import ToolResultError  # type: ignore[import-not-found]
+    except ImportError:
+        pass
+    else:
+        if isinstance(exc, ToolResultError):
+            return _error_result(
+                ref=ref,
+                server_id=server_id,
+                tool_name=tool_name,
+                status="error",
+                code="mcp_tool_error",
+                message=message,
+                error_type="api_error",
+                details={"server_id": server_id, "tool_name": tool_name},
+            )
+
     if (
         "not permitted" in lower
         or "not allowed" in lower

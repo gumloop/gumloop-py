@@ -6,6 +6,7 @@ import logging
 import os
 import sys
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
@@ -180,6 +181,90 @@ def test_error_mapping_auth_and_not_allowed(gumcp_env: None) -> None:
     assert http_err.error is not None and http_err.error["code"] == "mcp_server_http_error"
     assert conn.error is not None and conn.error["code"] == "mcp_server_connection_failed"
     assert other.error is not None and other.error["code"] == "tool_execution_failed"
+
+
+def _install_gumcp_exceptions(monkeypatch: pytest.MonkeyPatch) -> tuple[type[Exception], type[Exception]]:
+    class ToolResultError(Exception):
+        pass
+
+    class ToolError(Exception):
+        pass
+
+    exceptions = ModuleType("gumcp_client.exceptions")
+    exceptions.__dict__.update({"ToolResultError": ToolResultError, "ToolError": ToolError})
+    package = ModuleType("gumcp_client")
+    package.__dict__.update({"__path__": [], "exceptions": exceptions})
+    monkeypatch.setitem(sys.modules, "gumcp_client", package)
+    monkeypatch.setitem(sys.modules, "gumcp_client.exceptions", exceptions)
+    return ToolResultError, ToolError
+
+
+def test_tool_result_error_preserves_upstream_message(gumcp_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    from gumloop._gumcp_transport import _map_exception
+
+    ToolResultError, _ = _install_gumcp_exceptions(monkeypatch)
+
+    result = _map_exception(ToolResultError("UPSTREAM text"), ref="0", server_id="gmail", tool_name="read_emails")
+
+    assert result.status == "error"
+    assert result.error == {
+        "code": "mcp_tool_error",
+        "message": "UPSTREAM text",
+        "type": "api_error",
+        "details": {"server_id": "gmail", "tool_name": "read_emails"},
+    }
+
+
+def test_proxy_tool_error_keeps_auth_required_mapping(gumcp_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    from gumloop._gumcp_transport import _map_exception
+
+    _, ToolError = _install_gumcp_exceptions(monkeypatch)
+    message = (
+        "Tool call failed: Authentication required. No usable credential for this server: "
+        "the app rejected the stored connection; the user needs to reconnect."
+    )
+
+    result = _map_exception(ToolError(message), ref="0", server_id="gmail", tool_name="read_emails")
+
+    assert result.status == "unauthenticated"
+    assert result.error is not None
+    assert result.error["code"] == "auth_required"
+    assert result.error["message"] == "Connect gmail before using this tool."
+
+
+def test_authentication_text_takes_precedence_for_tool_result_error(
+    gumcp_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from gumloop._gumcp_transport import _map_exception
+
+    ToolResultError, _ = _install_gumcp_exceptions(monkeypatch)
+
+    result = _map_exception(
+        ToolResultError("Authentication required by upstream"),
+        ref="0",
+        server_id="gmail",
+        tool_name="read_emails",
+    )
+
+    assert result.status == "unauthenticated"
+    assert result.error is not None
+    assert result.error["code"] == "auth_required"
+    assert result.error["message"] == "Connect gmail before using this tool."
+
+
+def test_successful_call_result_is_unchanged(gumcp_env: None) -> None:
+    mock_client = MagicMock()
+    mock_client.call_tool = AsyncMock(return_value=["rows=3"])
+    mock_client.close = AsyncMock()
+
+    with patch("gumloop._gumcp_transport._import_async_client", return_value=lambda **_: mock_client):
+        client = Gumloop(access_token="http-token")
+        result = client.mcp.execute("gmail", "read_emails", {}).results[0]
+        client.close()
+
+    assert result.status == "success"
+    assert result.content == ["rows=3"]
+    assert result.error is None
 
 
 def test_async_execute_uses_direct_transport(gumcp_env: None) -> None:
