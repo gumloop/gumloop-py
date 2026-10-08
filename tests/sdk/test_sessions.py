@@ -149,6 +149,20 @@ def test_sessions_send_requires_input_or_message() -> None:
 
 
 @respx.mock
+def test_sessions_create_sends_extra_headers_outside_the_body(client: Gumloop) -> None:
+    route = respx.post(f"{API_BASE}/agents/agent_123/sessions").mock(
+        return_value=httpx.Response(201, json={"session": {"id": "session_123", "agent_id": "agent_123"}})
+    )
+
+    client.sessions.create("agent_123", input="Hello", extra_headers={"X-Gumloop-MCP-Token": "jwt"})
+
+    request = route.calls[0].request
+    assert request.headers["X-Gumloop-MCP-Token"] == "jwt"
+    assert request.headers["Authorization"] == "Bearer token"
+    assert request_json(request) == {"input": "Hello"}
+
+
+@respx.mock
 def test_sessions_create_with_stream_true_uses_stream_host(client: Gumloop) -> None:
     route = respx.post(f"{STREAM_BASE}/agents/agent_123/sessions").mock(
         return_value=httpx.Response(
@@ -258,13 +272,17 @@ def test_async_sessions_stream_methods() -> None:
 
     async def run() -> None:
         async with AsyncGumloop(access_token="token") as client:
-            stream = await client.sessions.create("agent_123", input="Hello", stream=True)
+            stream = await client.sessions.create(
+                "agent_123", input="Hello", stream=True, extra_headers={"X-Gumloop-MCP-Token": "jwt"}
+            )
             events = [event.model_dump(exclude_unset=True) async for event in stream]
 
         assert events == [
             {"type": "message", "stream_cursor": "sid:1"},
             {"type": "finish", "final": True},
         ]
-        assert request_json(create_route.calls[0].request) == {"input": "Hello", "stream": True}
+        request = create_route.calls[0].request
+        assert request_json(request) == {"input": "Hello", "stream": True}
+        assert request.headers["X-Gumloop-MCP-Token"] == "jwt"
 
     asyncio.run(run())

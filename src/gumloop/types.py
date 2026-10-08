@@ -686,6 +686,17 @@ class SessionUsage(_Model):
     output_tokens: int | None = None
 
 
+class SessionProvenance(_Model):
+    connection: str
+    oauth_client_id: str
+    auth_subject: str
+    token_jti: str
+    mcp_resource: str
+    oauth_client_name: str | None = None
+    redirect_origin: str | None = None
+    product: str | None = None
+
+
 class Session(_Model):
     id: str
     agent_id: str
@@ -702,6 +713,7 @@ class Session(_Model):
     participants: dict[str, dict[str, Any]] = Field(default_factory=dict)
     creator: CreatorPayload | None = None
     usage: SessionUsage | None = None
+    provenance: SessionProvenance | None = None
 
 
 class SessionResponse(_Model):

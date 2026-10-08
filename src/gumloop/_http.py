@@ -228,8 +228,11 @@ class HttpClient:
         *,
         json: Any = None,
         params: Mapping[str, Any] | None = None,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> Iterator[StreamEvent]:
         headers = {**auth_headers(self.access_token, self.user_id), "Accept": "text/event-stream"}
+        if extra_headers:
+            headers.update(extra_headers)
         with self._client.stream(
             method,
             f"{self._stream_base_url}/{path.lstrip('/')}",
@@ -355,8 +358,16 @@ class AsyncHttpClient:
         json: Any = None,
         data: Mapping[str, Any] | None = None,
         files: list[tuple[str, Any]] | None = None,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> Any:
-        return await self._request("POST", path, json=json, data=_omit_none_params(data), files=files)
+        return await self._request(
+            "POST",
+            path,
+            json=json,
+            data=_omit_none_params(data),
+            files=files,
+            extra_headers=extra_headers,
+        )
 
     async def patch(
         self,
@@ -394,8 +405,11 @@ class AsyncHttpClient:
         *,
         json: Any = None,
         params: Mapping[str, Any] | None = None,
+        extra_headers: Mapping[str, str] | None = None,
     ) -> AsyncIterator[StreamEvent]:
         headers = {**auth_headers(self.access_token, self.user_id), "Accept": "text/event-stream"}
+        if extra_headers:
+            headers.update(extra_headers)
         async with self._client.stream(
             method,
             f"{self._stream_base_url}/{path.lstrip('/')}",
@@ -444,10 +458,19 @@ class AsyncHttpClient:
                     logger.debug("dropped non-%s SSE: %s", response_model.__name__, event.data)
                     continue
 
-    async def _request(self, method: str, path: str, **kwargs: Any) -> Any:
+    async def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        extra_headers: Mapping[str, str] | None = None,
+        **kwargs: Any,
+    ) -> Any:
         headers = auth_headers(self.access_token, self.user_id)
         if not kwargs.get("files"):
             headers["Content-Type"] = "application/json"
+        if extra_headers:
+            headers.update(extra_headers)
         kwargs["params"] = self._scoped_params(kwargs.get("params"))
         response = await self._client.request(method, path, headers=headers, **kwargs)
         if response.status_code >= 400:
