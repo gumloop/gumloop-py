@@ -182,6 +182,43 @@ def test_error_mapping_auth_and_not_allowed(gumcp_env: None) -> None:
     assert other.error is not None and other.error["code"] == "tool_execution_failed"
 
 
+def test_tool_result_error_preserves_upstream_message(gumcp_env: None) -> None:
+    tool_result_error = type("ToolResultError", (Exception,), {})
+    mock_client = MagicMock()
+    mock_client.call_tool = AsyncMock(side_effect=tool_result_error("UPSTREAM text"))
+    mock_client.close = AsyncMock()
+
+    with patch("gumloop._gumcp_transport._import_async_client", return_value=lambda **_: mock_client):
+        client = Gumloop(access_token="http-token")
+        result = client.mcp.execute("gmail", "read_emails", {}).results[0]
+        client.close()
+
+    assert result.status == "error"
+    assert result.error == {
+        "code": "mcp_tool_error",
+        "message": "UPSTREAM text",
+        "type": "api_error",
+        "details": {"server_id": "gmail", "tool_name": "read_emails"},
+    }
+
+
+def test_authentication_text_takes_precedence_for_tool_result_error(gumcp_env: None) -> None:
+    tool_result_error = type("ToolResultError", (Exception,), {})
+    mock_client = MagicMock()
+    mock_client.call_tool = AsyncMock(side_effect=tool_result_error("Authentication required by upstream"))
+    mock_client.close = AsyncMock()
+
+    with patch("gumloop._gumcp_transport._import_async_client", return_value=lambda **_: mock_client):
+        client = Gumloop(access_token="http-token")
+        result = client.mcp.execute("gmail", "read_emails", {}).results[0]
+        client.close()
+
+    assert result.status == "unauthenticated"
+    assert result.error is not None
+    assert result.error["code"] == "auth_required"
+    assert result.error["message"] == "Connect gmail before using this tool."
+
+
 def test_async_execute_uses_direct_transport(gumcp_env: None) -> None:
     mock_client = MagicMock()
     mock_client.call_tool = AsyncMock(return_value=["async-ok"])

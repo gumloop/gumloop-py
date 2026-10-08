@@ -149,6 +149,7 @@ def _error_result(
 def _map_exception(exc: BaseException, *, ref: str, server_id: str, tool_name: str) -> McpToolCallResult:
     message = str(exc)
     lower = message.lower()
+    exc_name = type(exc).__name__
 
     if "credentials_not_found" in message or "authentication required" in lower:
         return _error_result(
@@ -160,6 +161,18 @@ def _map_exception(exc: BaseException, *, ref: str, server_id: str, tool_name: s
             message=f"Connect {server_id} before using this tool.",
             error_type="permission_error",
             param="tool_name",
+            details={"server_id": server_id, "tool_name": tool_name},
+        )
+
+    if exc_name == "ToolResultError":
+        return _error_result(
+            ref=ref,
+            server_id=server_id,
+            tool_name=tool_name,
+            status="error",
+            code="mcp_tool_error",
+            message=message,
+            error_type="api_error",
             details={"server_id": server_id, "tool_name": tool_name},
         )
 
@@ -215,7 +228,6 @@ def _map_exception(exc: BaseException, *, ref: str, server_id: str, tool_name: s
         )
 
     # Connection-class failures from gumcp_client.
-    exc_name = type(exc).__name__
     if exc_name in {"ConnectionError", "SessionError"} or "failed to connect" in lower:
         return _error_result(
             ref=ref,
