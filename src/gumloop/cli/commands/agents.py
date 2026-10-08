@@ -258,7 +258,8 @@ def create_agent(
     incognito: Annotated[
         bool,
         typer.Option(
-            "--incognito", help="Every session on the agent runs incognito (nothing is saved). Org admins only."
+            "--incognito",
+            help="Every session on the agent runs incognito (nothing is saved). Needs a role that allows it.",
         ),
     ] = False,
     json_output: Annotated[
@@ -386,7 +387,7 @@ def update_agent(
         bool | None,
         typer.Option(
             "--incognito/--no-incognito",
-            help="Run every session on the agent incognito (nothing is saved), or stop doing so. Org admins only.",
+            help="Run every session on the agent incognito (nothing is saved), or stop. Needs a role that allows it.",
         ),
     ] = None,
     json_output: Annotated[

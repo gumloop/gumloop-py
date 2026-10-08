@@ -238,7 +238,7 @@ def test_agents_update_refused_incognito_leaves_the_fields_untouched(cli_runner:
     patch_route = respx.patch(f"{API_BASE}/agents/agent_abc")
     respx.patch(f"{API_BASE}/agents/agent_abc/incognito").mock(
         return_value=httpx.Response(
-            403, json={"error": {"code": "incognito_enforcement_not_allowed", "message": "Admins only."}}
+            403, json={"error": {"code": "organization_permission_required", "message": "Role denied."}}
         )
     )
     save_credentials(Credentials(api_key="key"))
