@@ -223,6 +223,13 @@ class AgentAbilitiesResponse(_Model):
     version: int | None = None
 
 
+class AgentIncognito(_Model):
+    """``enforced`` makes every session on the agent incognito: nothing is saved.
+    Only an organization admin can change it."""
+
+    enforced: bool = False
+
+
 class KnowledgeScopeRule(_Model):
     type: Literal["container", "document"]
     id: str
@@ -374,6 +381,7 @@ class AgentCreateRequest(_Model):
     is_active: bool = True
     agent_id: str | None = None
     team_id: str | None = None
+    incognito: bool = False
 
 
 class AgentUpdateRequest(_Model):
@@ -402,6 +410,7 @@ class Agent(_Model):
     resources: list[dict[str, Any]] = Field(default_factory=list)
     skill_ids: list[str] | None = None
     abilities: AgentAbilities | None = None
+    incognito: AgentIncognito = Field(default_factory=AgentIncognito)
     knowledge_sources: list[AgentKnowledgeSource] | None = None
     triggers: list[AgentTrigger] | None = None
     version: int | None = None
@@ -657,6 +666,7 @@ class SessionCreateRequest(_Model):
     name: str | None = None
     metadata: dict[str, Any] | None = None
     stream: bool = False
+    incognito: bool = False
 
 
 class SessionContinueRequest(_Model):
@@ -714,6 +724,7 @@ class Session(_Model):
     creator: CreatorPayload | None = None
     usage: SessionUsage | None = None
     provenance: SessionProvenance | None = None
+    incognito: bool = False
 
 
 class SessionResponse(_Model):

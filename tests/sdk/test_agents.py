@@ -655,6 +655,19 @@ def test_agents_update_abilities_sends_only_given_abilities(client: Gumloop) -> 
 
 
 @respx.mock
+def test_agents_set_incognito_patches_the_dedicated_route_and_reads_the_flag_back(client: Gumloop) -> None:
+    route = respx.patch(f"{API_BASE}/agents/agent_123/incognito").mock(
+        return_value=httpx.Response(
+            200, json={"agent": {"id": "agent_123", "name": "Quiet", "incognito": {"enforced": True}}}
+        )
+    )
+
+    result = client.agents.set_incognito("agent_123", True)
+
+    assert (result.agent.incognito.enforced, request_json(route.calls[0].request)) == (True, {"enforced": True})
+
+
+@respx.mock
 def test_agents_knowledge_source_attach_sends_config_key_even_when_whole_source(client: Gumloop) -> None:
     whole = respx.put(f"{API_BASE}/agents/agent_123/knowledge-sources/conn_1").mock(
         return_value=httpx.Response(

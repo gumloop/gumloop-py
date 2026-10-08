@@ -184,6 +184,13 @@ class Agents:
             )
         )
 
+    def set_incognito(self, agent_id: str, enforced: bool) -> AgentResponse:
+        """Make every session on the agent incognito (nothing is saved), or stop doing so.
+        Organization admins only; refused with ``incognito_enforcement_not_allowed`` otherwise."""
+        return AgentResponse.model_validate(
+            self._client.patch(f"agents/{agent_id}/incognito", json={"enforced": enforced})
+        )
+
     def list_knowledge_sources(self, agent_id: str) -> AgentKnowledgeSourcesResponse:
         return AgentKnowledgeSourcesResponse.model_validate(self._client.get(f"agents/{agent_id}/knowledge-sources"))
 
@@ -479,6 +486,12 @@ class AsyncAgents:
             f"agents/{agent_id}/abilities", json=AgentAbilitiesUpdateRequest.build(request, **abilities)
         )
         return AgentAbilitiesResponse.model_validate(data)
+
+    async def set_incognito(self, agent_id: str, enforced: bool) -> AgentResponse:
+        """Make every session on the agent incognito (nothing is saved), or stop doing so.
+        Organization admins only; refused with ``incognito_enforcement_not_allowed`` otherwise."""
+        data = await self._client.patch(f"agents/{agent_id}/incognito", json={"enforced": enforced})
+        return AgentResponse.model_validate(data)
 
     async def list_knowledge_sources(self, agent_id: str) -> AgentKnowledgeSourcesResponse:
         data = await self._client.get(f"agents/{agent_id}/knowledge-sources")
