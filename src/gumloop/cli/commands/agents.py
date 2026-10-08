@@ -438,12 +438,12 @@ def update_agent(
             "is_active": is_active,
         }
         response = None
+        if incognito is not None:
+            response = cli.call_with_refresh(lambda client: client.agents.set_incognito(agent_id, incognito))
         if incognito is None or any(value is not None for value in fields.values()):
             response = cli.call_with_refresh(
                 lambda client: client.agents.update(agent_id, team_id=cli.effective_team_id, **fields)
             )
-        if incognito is not None:
-            response = cli.call_with_refresh(lambda client: client.agents.set_incognito(agent_id, incognito))
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
 
