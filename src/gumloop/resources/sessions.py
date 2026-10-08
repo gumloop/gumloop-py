@@ -59,6 +59,7 @@ class Sessions:
         request: SessionCreateRequest | Mapping[str, Any] | None = None,
         *,
         stream: Literal[True],
+        extra_headers: Mapping[str, str] | None = None,
         **kwargs: Any,
     ) -> Iterator[StreamEvent]: ...
     @overload
@@ -68,18 +69,23 @@ class Sessions:
         request: SessionCreateRequest | Mapping[str, Any] | None = None,
         *,
         stream: Literal[False] | None = None,
+        extra_headers: Mapping[str, str] | None = None,
         **kwargs: Any,
     ) -> SessionResponse: ...
     def create(
         self,
         agent_id: str,
         request: SessionCreateRequest | Mapping[str, Any] | None = None,
+        *,
+        extra_headers: Mapping[str, str] | None = None,
         **kwargs: Any,
     ) -> SessionResponse | Iterator[StreamEvent]:
         body = SessionCreateRequest.build(request, **kwargs)
         if body.get("stream") is True:
-            return self._client.stream("POST", f"agents/{agent_id}/sessions", json=body)
-        return SessionResponse.model_validate(self._client.post(f"agents/{agent_id}/sessions", json=body))
+            return self._client.stream("POST", f"agents/{agent_id}/sessions", json=body, extra_headers=extra_headers)
+        return SessionResponse.model_validate(
+            self._client.post(f"agents/{agent_id}/sessions", json=body, extra_headers=extra_headers)
+        )
 
     def stream(
         self,
@@ -197,6 +203,7 @@ class AsyncSessions:
         request: SessionCreateRequest | Mapping[str, Any] | None = None,
         *,
         stream: Literal[True],
+        extra_headers: Mapping[str, str] | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[StreamEvent]: ...
     @overload
@@ -206,18 +213,21 @@ class AsyncSessions:
         request: SessionCreateRequest | Mapping[str, Any] | None = None,
         *,
         stream: Literal[False] | None = None,
+        extra_headers: Mapping[str, str] | None = None,
         **kwargs: Any,
     ) -> SessionResponse: ...
     async def create(
         self,
         agent_id: str,
         request: SessionCreateRequest | Mapping[str, Any] | None = None,
+        *,
+        extra_headers: Mapping[str, str] | None = None,
         **kwargs: Any,
     ) -> SessionResponse | AsyncIterator[StreamEvent]:
         body = SessionCreateRequest.build(request, **kwargs)
         if body.get("stream") is True:
-            return self._client.stream("POST", f"agents/{agent_id}/sessions", json=body)
-        data = await self._client.post(f"agents/{agent_id}/sessions", json=body)
+            return self._client.stream("POST", f"agents/{agent_id}/sessions", json=body, extra_headers=extra_headers)
+        data = await self._client.post(f"agents/{agent_id}/sessions", json=body, extra_headers=extra_headers)
         return SessionResponse.model_validate(data)
 
     def stream(
