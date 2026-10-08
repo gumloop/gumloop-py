@@ -106,6 +106,8 @@ def get_agent(
         value = getattr(agent, field, None)
         if value not in (None, ""):
             console.print(f"  {field}: {value}", markup=False, highlight=False)
+    if agent.incognito.enforced:
+        console.print("  incognito: on (nothing is saved)", markup=False, highlight=False)
     if agent.system_prompt:
         console.print("  system_prompt:", markup=False, highlight=False)
         console.print(f"    {agent.system_prompt}", markup=False, highlight=False)
@@ -253,6 +255,12 @@ def create_agent(
         str | None,
         typer.Option("--skill-ids", help="Comma-separated ids of existing skills to attach."),
     ] = None,
+    incognito: Annotated[
+        bool,
+        typer.Option(
+            "--incognito", help="Every session on the agent runs incognito (nothing is saved). Org admins only."
+        ),
+    ] = False,
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Print the raw SDK response as JSON."),
@@ -310,6 +318,7 @@ def create_agent(
                 tools=tools,
                 skill_ids=parsed_skill_ids,
                 team_id=cli.effective_team_id,
+                incognito=True if incognito else None,
             )
         )
     except GumloopError as error:
@@ -323,6 +332,8 @@ def create_agent(
     console.print(f"[green]Created agent[/green] {escape_markup(agent.id)}")
     if agent.name:
         console.print(f"  Name: {agent.name}", markup=False, highlight=False)
+    if agent.incognito.enforced:
+        console.print("  Incognito: on (nothing is saved)", markup=False, highlight=False)
 
 
 @agents_app.command(
@@ -371,6 +382,13 @@ def update_agent(
         bool | None,
         typer.Option("--is-active/--inactive", help="Mark the agent as active or inactive."),
     ] = None,
+    incognito: Annotated[
+        bool | None,
+        typer.Option(
+            "--incognito/--no-incognito",
+            help="Run every session on the agent incognito (nothing is saved), or stop doing so. Org admins only.",
+        ),
+    ] = None,
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Print the raw SDK response as JSON."),
@@ -411,18 +429,21 @@ def update_agent(
                     raise GumloopError("Tools JSON must be an array at the top level.")
                 tools = parsed
 
-        response = cli.call_with_refresh(
-            lambda client: client.agents.update(
-                agent_id,
-                name=name,
-                model_name=model,
-                description=description,
-                system_prompt=resolved_prompt,
-                tools=tools,
-                is_active=is_active,
-                team_id=cli.effective_team_id,
+        fields = {
+            "name": name,
+            "model_name": model,
+            "description": description,
+            "system_prompt": resolved_prompt,
+            "tools": tools,
+            "is_active": is_active,
+        }
+        response = None
+        if incognito is None or any(value is not None for value in fields.values()):
+            response = cli.call_with_refresh(
+                lambda client: client.agents.update(agent_id, team_id=cli.effective_team_id, **fields)
             )
-        )
+        if incognito is not None:
+            response = cli.call_with_refresh(lambda client: client.agents.set_incognito(agent_id, incognito))
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
 
@@ -431,6 +452,8 @@ def update_agent(
         return
 
     console.print(f"[green]Updated agent[/green] {agent_id}")
+    if incognito is not None:
+        console.print(f"  Incognito: {'on (nothing is saved)' if incognito else 'off'}", markup=False, highlight=False)
 
 
 @agents_app.command(

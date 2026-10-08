@@ -47,6 +47,10 @@ def create_session(
         str | None,
         typer.Option("--name", help="Session name shown in the sidebar (1-256 characters)."),
     ] = None,
+    incognito: Annotated[
+        bool,
+        typer.Option("--incognito", help="Run the session incognito: nothing is saved."),
+    ] = False,
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Print the raw SDK response as JSON."),
@@ -75,6 +79,7 @@ def create_session(
                     input=message,
                     session_id=session_id,
                     name=name,
+                    incognito=True if incognito else None,
                 )
             ),
         )
@@ -94,6 +99,8 @@ def create_session(
         value = getattr(session, field, None)
         if value not in (None, ""):
             console.print(f"  {field}: {value}", markup=False, highlight=False)
+    if session.incognito:
+        console.print("  incognito: on (nothing is saved)", markup=False, highlight=False)
     if session.messages:
         console.print(f"  messages: {len(session.messages)}")
         for m in session.messages[-5:]:
@@ -220,6 +227,8 @@ def get_session(
         value = getattr(session, field, None)
         if value not in (None, ""):
             console.print(f"  {field}: {value}", markup=False, highlight=False)
+    if session.incognito:
+        console.print("  incognito: on (nothing is saved)", markup=False, highlight=False)
     if session.messages:
         console.print(f"  messages: {len(session.messages)}")
         for m in session.messages[-5:]:
@@ -284,6 +293,8 @@ def send_session(
         value = getattr(session, field, None)
         if value not in (None, ""):
             console.print(f"  {field}: {value}", markup=False, highlight=False)
+    if session.incognito:
+        console.print("  incognito: on (nothing is saved)", markup=False, highlight=False)
     if session.messages:
         console.print(f"  messages: {len(session.messages)}")
         for m in session.messages[-5:]:

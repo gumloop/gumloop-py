@@ -51,6 +51,24 @@ def test_sessions_create_sends_name(cli_runner: CliRunner) -> None:
 
 
 @respx.mock
+def test_sessions_create_sends_incognito_only_when_asked(cli_runner: CliRunner) -> None:
+    route = respx.post(f"{API_BASE}/agents/agent_abc/sessions").mock(
+        return_value=httpx.Response(
+            201, json={"session": {"id": "session_xyz", "agent_id": "agent_abc", "incognito": True}}
+        )
+    )
+    save_credentials(Credentials(api_key="key"))
+
+    plain = cli_runner.invoke(app, ["sessions", "create", "agent_abc", "--input", "hi", "--json"])
+    quiet = cli_runner.invoke(app, ["sessions", "create", "agent_abc", "--input", "hi", "--incognito"])
+
+    assert (plain.exit_code, quiet.exit_code) == (0, 0), quiet.output
+    assert "incognito" not in json.loads(route.calls[0].request.content)
+    assert json.loads(route.calls[1].request.content)["incognito"] is True
+    assert "incognito: on" in quiet.output
+
+
+@respx.mock
 def test_sessions_create_rejects_blank_name(cli_runner: CliRunner) -> None:
     route = respx.post(f"{API_BASE}/agents/agent_abc/sessions")
     save_credentials(Credentials(api_key="key"))

@@ -31,11 +31,11 @@ gumloop agents versions <agent_id> [--limit n] [--cursor c] [--json]
 gumloop agents export <agent_id> <version_id> [-o file.json]
 gumloop agents create --name NAME --model MODEL [--description d]
     [--system-prompt s | --system-prompt-file f]
-    [--tools-json '[...]' | --tools-file f] [--json]
-gumloop agents update <agent_id> [same flags as create] [--is-active | --inactive]
+    [--tools-json '[...]' | --tools-file f] [--incognito] [--json]
+gumloop agents update <agent_id> [same flags as create] [--is-active | --inactive] [--incognito | --no-incognito]
 ```
 
-`--model` accepts `auto` or a slug like `anthropic/claude-sonnet-4`. To learn the tool-config shape, run `gumloop agents get <id> --json` on an existing agent and copy its `tools` array. `--inactive` retires the agent irreversibly.
+`--model` accepts `auto` or a slug like `anthropic/claude-sonnet-4`. To learn the tool-config shape, run `gumloop agents get <id> --json` on an existing agent and copy its `tools` array. `--inactive` retires the agent irreversibly. `--incognito` makes every session on the agent incognito (nothing is saved); only an organization admin can set or clear it, and on `create` a refusal leaves no agent behind.
 
 ## Models
 
@@ -51,7 +51,7 @@ cat task.txt | gumloop models route --input-stdin - --model gpt-5.6-luna --model
 ## Sessions
 
 ```bash
-gumloop sessions create <agent_id> [--input text | --input-stdin -] [--session-id id] [--name name] [--json]
+gumloop sessions create <agent_id> [--input text | --input-stdin -] [--session-id id] [--name name] [--incognito] [--json]
 gumloop sessions list <agent_id> [--search text] [--state s] [--type t] [--sort order] [--limit n] [--json]
 gumloop sessions get <session_id> [--json]          # --json returns the full transcript
 gumloop sessions send <session_id> [--input text | --input-stdin -] [--json]
