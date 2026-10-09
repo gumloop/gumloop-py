@@ -225,7 +225,7 @@ class AgentAbilitiesResponse(_Model):
 
 class AgentIncognito(_Model):
     """``enforced`` makes every session on the agent incognito: nothing is saved.
-    Needs a role that allows always-incognito agents."""
+    Needs the Incognito Agents role permission."""
 
     enforced: bool = False
 

@@ -35,7 +35,7 @@ gumloop agents create --name NAME --model MODEL [--description d]
 gumloop agents update <agent_id> [same flags as create] [--is-active | --inactive] [--incognito | --no-incognito]
 ```
 
-`--model` accepts `auto` or a slug like `anthropic/claude-sonnet-4`. To learn the tool-config shape, run `gumloop agents get <id> --json` on an existing agent and copy its `tools` array. `--inactive` retires the agent irreversibly. `--incognito` makes every session on the agent incognito (nothing is saved); it needs a role that allows always-incognito agents (separate from chat-level incognito), and on `create` a refusal leaves no agent behind.
+`--model` accepts `auto` or a slug like `anthropic/claude-sonnet-4`. To learn the tool-config shape, run `gumloop agents get <id> --json` on an existing agent and copy its `tools` array. `--inactive` retires the agent irreversibly. `--incognito` makes every session on the agent incognito (nothing is saved); it needs the Incognito Agents role permission (separate from Incognito Tasks), and on `create` a refusal leaves no agent behind.
 
 ## Models
 
