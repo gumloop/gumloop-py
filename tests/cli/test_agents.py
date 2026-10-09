@@ -191,6 +191,64 @@ def test_agents_update_only_sends_specified_fields(cli_runner: CliRunner) -> Non
 
 
 @respx.mock
+def test_agents_create_sends_incognito_only_when_asked(cli_runner: CliRunner) -> None:
+    route = respx.post(f"{API_BASE}/agents").mock(
+        return_value=httpx.Response(
+            201, json={"agent": {"id": "agent_new", "name": "Bot", "incognito": {"enforced": True}}}
+        )
+    )
+    save_credentials(Credentials(api_key="key"))
+
+    plain = cli_runner.invoke(app, ["agents", "create", "--name", "Bot", "--json"])
+    quiet = cli_runner.invoke(app, ["agents", "create", "--name", "Bot", "--incognito"])
+
+    assert (plain.exit_code, quiet.exit_code) == (0, 0), quiet.output
+    assert "incognito" not in json.loads(route.calls[0].request.content)
+    assert json.loads(route.calls[1].request.content)["incognito"] is True
+    assert "Incognito: on" in quiet.output
+
+
+@respx.mock
+def test_agents_update_incognito_uses_the_dedicated_route_before_the_field_patch(cli_runner: CliRunner) -> None:
+    patch_route = respx.patch(f"{API_BASE}/agents/agent_abc").mock(
+        return_value=httpx.Response(200, json={"agent": {"id": "agent_abc", "name": "Renamed"}})
+    )
+    incognito_route = respx.patch(f"{API_BASE}/agents/agent_abc/incognito").mock(
+        return_value=httpx.Response(
+            200, json={"agent": {"id": "agent_abc", "name": "Renamed", "incognito": {"enforced": False}}}
+        )
+    )
+    save_credentials(Credentials(api_key="key"))
+
+    only_flag = cli_runner.invoke(app, ["agents", "update", "agent_abc", "--no-incognito", "--json"])
+    both = cli_runner.invoke(app, ["agents", "update", "agent_abc", "--name", "Renamed", "--incognito"])
+
+    assert (only_flag.exit_code, both.exit_code) == (0, 0), both.output
+    assert patch_route.call_count == 1
+    assert json.loads(patch_route.calls[0].request.content) == {"name": "Renamed"}
+    assert [json.loads(call.request.content) for call in incognito_route.calls] == [
+        {"enforced": False},
+        {"enforced": True},
+    ]
+    assert "Incognito: on" in both.output
+
+
+@respx.mock
+def test_agents_update_refused_incognito_leaves_the_fields_untouched(cli_runner: CliRunner) -> None:
+    patch_route = respx.patch(f"{API_BASE}/agents/agent_abc")
+    respx.patch(f"{API_BASE}/agents/agent_abc/incognito").mock(
+        return_value=httpx.Response(
+            403, json={"error": {"code": "organization_permission_required", "message": "Role denied."}}
+        )
+    )
+    save_credentials(Credentials(api_key="key"))
+
+    result = cli_runner.invoke(app, ["agents", "update", "agent_abc", "--inactive", "--incognito"])
+
+    assert (result.exit_code, patch_route.call_count) == (1, 0)
+
+
+@respx.mock
 def test_agents_attach_skills_command(cli_runner: CliRunner) -> None:
     route = respx.patch(f"{API_BASE}/agents/agent_abc/skills").mock(
         return_value=httpx.Response(200, json={"agent_id": "agent_abc", "attached": ["s1", "s2"]})
