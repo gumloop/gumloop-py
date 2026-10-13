@@ -261,3 +261,31 @@ def test_mcp_prompt_posts_args_and_prints_messages(cli_runner: CliRunner) -> Non
     assert "Please summarize" in result.output
     sent = route.calls[0].request.content
     assert b'"thread_id": "abc"' in sent or b'"thread_id":"abc"' in sent
+
+
+@respx.mock
+def test_account_option_reaches_backend(cli_runner: CliRunner) -> None:
+    import json
+
+    route = respx.post(f"{API_BASE}/mcp/tools/call").mock(return_value=httpx.Response(200, json={"results": []}))
+    save_credentials(Credentials(api_key="key"))
+    result = cli_runner.invoke(app, ["mcp", "call", "gmail", "search", "--account", "work-id", "--json"])
+    assert result.exit_code == 0
+    assert json.loads(route.calls[0].request.content)["calls"][0]["account"] == "work-id"
+
+
+@respx.mock
+def test_accounts_command(cli_runner: CliRunner) -> None:
+    respx.get(f"{API_BASE}/mcp/servers/gmail/accounts").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "server_id": "gmail",
+                "accounts": [{"id": "work-id", "label": "Work"}],
+            },
+        )
+    )
+    save_credentials(Credentials(api_key="key"))
+    result = cli_runner.invoke(app, ["mcp", "accounts", "gmail", "--json"])
+    assert result.exit_code == 0
+    assert '"id": "work-id"' in result.output

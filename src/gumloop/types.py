@@ -1029,6 +1029,7 @@ class McpTool(_Model):
 
 
 class McpToolCallRequest(_Model):
+    account: str | None = None
     ref: str | None = None
     server_id: str
     tool_name: str
@@ -1056,6 +1057,18 @@ class McpToolCallResult(_Model):
             except json.JSONDecodeError:
                 decoded.append(item)
         return decoded
+
+
+class McpServerAccount(_Model):
+    id: str
+    label: str | None = None
+    is_default: bool = False
+    in_use: bool = False
+
+
+class McpServerAccountsResponse(_Model):
+    server_id: str
+    accounts: list[McpServerAccount] = Field(default_factory=list)
 
 
 class McpServersResponse(_Model):

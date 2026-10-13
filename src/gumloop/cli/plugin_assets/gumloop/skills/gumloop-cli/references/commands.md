@@ -127,3 +127,8 @@ gumloop sync --once --non-interactive # one-shot sync; requires GUMLOOP_API_KEY 
 gumloop update                        # update the CLI in place
 gumloop plugin install gumloop        # install this skill into detected agent skill directories
 ```
+
+
+## Connected account selection
+
+Use `gumloop mcp accounts <server> --json` to list available account IDs, then `gumloop mcp call <server> <tool> --account <id> --args-json '{...}'` to select one. IDs are stable credential IDs; labels are display-only. Account choice requires backend authorization and, for sandbox tokens, an account grant for that tool. Python supports `client.mcp.list_accounts(server_id)` and `client.mcp.execute(server_id, tool_name, arguments, account="id")`, including async clients and per-item `account` in `execute_many`. Account-selected calls use the backend HTTP API and require `GUMLOOP_ACCESS_TOKEN`; calls without an account retain direct guMCP transport when configured. Computer code must pass account IDs as literal strings so approval can bind them.

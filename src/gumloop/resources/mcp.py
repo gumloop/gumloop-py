@@ -7,11 +7,13 @@ from gumloop._gumcp_transport import GumcpTransport
 from gumloop._gumcp_transport import gumcp_env_ready
 from gumloop._http import AsyncHttpClient
 from gumloop._http import HttpClient
+from gumloop.errors import GumloopError
 from gumloop.types import McpExecuteResponse
 from gumloop.types import McpPromptResponse
 from gumloop.types import McpPromptsResponse
 from gumloop.types import McpResourceReadResponse
 from gumloop.types import McpResourcesResponse
+from gumloop.types import McpServerAccountsResponse
 from gumloop.types import McpServerResponse
 from gumloop.types import McpServersResponse
 from gumloop.types import McpToolCallRequest
@@ -55,6 +57,10 @@ class MCP:
         return McpServerResponse.model_validate(
             self._client.get(f"mcp/servers/{server_id}", params={"team_id": team_id, **kwargs})
         )
+
+    def list_accounts(self, server_id: str, *, team_id: str | None = None) -> McpServerAccountsResponse:
+        data = self._client.get(f"mcp/servers/{server_id}/accounts", params={"team_id": team_id})
+        return McpServerAccountsResponse.model_validate(data)
 
     def list_tools(self, server_id: str, *, team_id: str | None = None, **kwargs: Any) -> McpToolsResponse:
         return McpToolsResponse.model_validate(
@@ -108,18 +114,22 @@ class MCP:
         arguments: dict[str, Any] | None = None,
         *,
         ref: str | None = None,
+        account: str | None = None,
         team_id: str | None = None,
     ) -> McpExecuteResponse:
         # Direct transport: team_id comes from the token.
         transport = self._direct_transport()
-        if transport is not None:
+        if transport is not None and account is None:
             return transport.execute(server_id, tool_name, arguments, ref=ref)
+        if account is not None and not self._client.access_token:
+            raise GumloopError("Account selection requires GUMLOOP_ACCESS_TOKEN for the backend HTTP API.")
         team_id = team_id if team_id is not None else self._client.team_id
         call = McpToolCallRequest(
             server_id=server_id,
             tool_name=tool_name,
             arguments=arguments or {},
             ref=ref,
+            account=account,
         )
         return McpExecuteResponse.model_validate(self._client.post("mcp/tools/call", json=_call_body([call], team_id)))
 
@@ -131,7 +141,27 @@ class MCP:
     ) -> McpExecuteResponse:
         transport = self._direct_transport()
         if transport is not None:
-            return transport.execute_many(calls)
+            normalized = _call_body(calls, team_id)["calls"]
+            for index, call in enumerate(normalized):
+                call["ref"] = call.get("ref") or str(index)
+            pinned = [(index, call) for index, call in enumerate(normalized) if call.get("account") is not None]
+            if not pinned:
+                return transport.execute_many(calls)
+            if not self._client.access_token:
+                raise GumloopError("Account selection requires GUMLOOP_ACCESS_TOKEN for the backend HTTP API.")
+            direct = [(index, call) for index, call in enumerate(normalized) if call.get("account") is None]
+            team_id = team_id if team_id is not None else self._client.team_id
+            data = self._client.post("mcp/tools/call", json=_call_body([call for _, call in pinned], team_id))
+            response = McpExecuteResponse.model_validate(data)
+            if len(response.results) != len(pinned):
+                raise GumloopError("Backend returned an unexpected number of account call results.")
+            indexed_results = list(zip((index for index, _ in pinned), response.results, strict=True))
+            if direct:
+                direct_response = transport.execute_many([call for _, call in direct])
+                if len(direct_response.results) != len(direct):
+                    raise GumloopError("guMCP returned an unexpected number of tool call results.")
+                indexed_results.extend(zip((index for index, _ in direct), direct_response.results, strict=True))
+            return McpExecuteResponse(results=[result for _, result in sorted(indexed_results)])
         team_id = team_id if team_id is not None else self._client.team_id
         return McpExecuteResponse.model_validate(self._client.post("mcp/tools/call", json=_call_body(calls, team_id)))
 
@@ -160,6 +190,10 @@ class AsyncMCP:
     async def get_server(self, server_id: str, *, team_id: str | None = None, **kwargs: Any) -> McpServerResponse:
         data = await self._client.get(f"mcp/servers/{server_id}", params={"team_id": team_id, **kwargs})
         return McpServerResponse.model_validate(data)
+
+    async def list_accounts(self, server_id: str, *, team_id: str | None = None) -> McpServerAccountsResponse:
+        data = await self._client.get(f"mcp/servers/{server_id}/accounts", params={"team_id": team_id})
+        return McpServerAccountsResponse.model_validate(data)
 
     async def list_tools(self, server_id: str, *, team_id: str | None = None, **kwargs: Any) -> McpToolsResponse:
         data = await self._client.get(f"mcp/servers/{server_id}/tools", params={"team_id": team_id, **kwargs})
@@ -210,18 +244,22 @@ class AsyncMCP:
         arguments: dict[str, Any] | None = None,
         *,
         ref: str | None = None,
+        account: str | None = None,
         team_id: str | None = None,
     ) -> McpExecuteResponse:
         # Direct transport: team_id comes from the token.
         transport = self._direct_transport()
-        if transport is not None:
+        if transport is not None and account is None:
             return await transport.execute_async(server_id, tool_name, arguments, ref=ref)
+        if account is not None and not self._client.access_token:
+            raise GumloopError("Account selection requires GUMLOOP_ACCESS_TOKEN for the backend HTTP API.")
         team_id = team_id if team_id is not None else self._client.team_id
         call = McpToolCallRequest(
             server_id=server_id,
             tool_name=tool_name,
             arguments=arguments or {},
             ref=ref,
+            account=account,
         )
         data = await self._client.post("mcp/tools/call", json=_call_body([call], team_id))
         return McpExecuteResponse.model_validate(data)
@@ -234,7 +272,27 @@ class AsyncMCP:
     ) -> McpExecuteResponse:
         transport = self._direct_transport()
         if transport is not None:
-            return await transport.execute_many_async(calls)
+            normalized = _call_body(calls, team_id)["calls"]
+            for index, call in enumerate(normalized):
+                call["ref"] = call.get("ref") or str(index)
+            pinned = [(index, call) for index, call in enumerate(normalized) if call.get("account") is not None]
+            if not pinned:
+                return await transport.execute_many_async(calls)
+            if not self._client.access_token:
+                raise GumloopError("Account selection requires GUMLOOP_ACCESS_TOKEN for the backend HTTP API.")
+            direct = [(index, call) for index, call in enumerate(normalized) if call.get("account") is None]
+            team_id = team_id if team_id is not None else self._client.team_id
+            data = await self._client.post("mcp/tools/call", json=_call_body([call for _, call in pinned], team_id))
+            response = McpExecuteResponse.model_validate(data)
+            if len(response.results) != len(pinned):
+                raise GumloopError("Backend returned an unexpected number of account call results.")
+            indexed_results = list(zip((index for index, _ in pinned), response.results, strict=True))
+            if direct:
+                direct_response = await transport.execute_many_async([call for _, call in direct])
+                if len(direct_response.results) != len(direct):
+                    raise GumloopError("guMCP returned an unexpected number of tool call results.")
+                indexed_results.extend(zip((index for index, _ in direct), direct_response.results, strict=True))
+            return McpExecuteResponse(results=[result for _, result in sorted(indexed_results)])
         team_id = team_id if team_id is not None else self._client.team_id
         data = await self._client.post("mcp/tools/call", json=_call_body(calls, team_id))
         return McpExecuteResponse.model_validate(data)
