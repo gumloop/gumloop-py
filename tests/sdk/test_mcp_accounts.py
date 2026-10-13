@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from inspect import isawaitable
 from unittest.mock import AsyncMock
 from unittest.mock import Mock
 
@@ -45,7 +46,9 @@ async def test_account_calls_use_http_and_preserve_mixed_order(monkeypatch, asyn
         {"server_id": "gmail", "tool_name": "search", "account": "home-id"},
         {"server_id": "gmail", "tool_name": "search", "ref": "last"},
     ]
-    response = await client.mcp.execute_many(calls) if asynchronous else client.mcp.execute_many(calls)
+    response = (
+        await client.mcp.execute_many(calls) if isinstance(client, AsyncGumloop) else client.mcp.execute_many(calls)
+    )
     assert [result.ref for result in response.results] == ["0", "work", "2", "last"]
     request = route.calls[0].request
     assert request.headers["Authorization"] == "Bearer sdk-token"
@@ -73,7 +76,7 @@ async def test_single_account_call_and_listing(monkeypatch, asynchronous):
     client = AsyncGumloop(access_token="sdk-token") if asynchronous else Gumloop(access_token="sdk-token")
     transport = Mock()
     monkeypatch.setattr(client.mcp, "_direct_transport", lambda: transport)
-    if asynchronous:
+    if isinstance(client, AsyncGumloop):
         await client.mcp.execute("gmail", "search", account="work-id")
         accounts = await client.mcp.list_accounts("gmail")
     else:
@@ -96,7 +99,7 @@ async def test_missing_http_token_fails_before_any_batch_call(monkeypatch, async
             {"server_id": "gmail", "tool_name": "search"},
             {"server_id": "gmail", "tool_name": "search", "account": "work"},
         ]
-        if asynchronous:
+        if isinstance(client, AsyncGumloop):
             await client.mcp.execute_many(calls)
         else:
             client.mcp.execute_many(calls)
@@ -118,7 +121,7 @@ async def test_account_only_calls_do_not_initialize_direct_transport(monkeypatch
         result = client.mcp.execute_many([{"server_id": "gmail", "tool_name": "search", "account": "work"}])
     else:
         result = client.mcp.execute("gmail", "search", account="work")
-    if asynchronous:
+    if isawaitable(result):
         await result
     direct.assert_not_called()
     assert request_json(route.calls[0].request)["calls"][0]["account"] == "work"
@@ -132,7 +135,7 @@ async def test_http_only_account_batch_requires_token(monkeypatch, asynchronous)
     monkeypatch.setattr(client.mcp, "_direct_transport", lambda: None)
     with pytest.raises(GumloopError, match="GUMLOOP_ACCESS_TOKEN"):
         result = client.mcp.execute_many([{"server_id": "gmail", "tool_name": "search", "account": "work"}])
-        if asynchronous:
+        if isawaitable(result):
             await result
     assert not respx.calls
 
@@ -146,7 +149,7 @@ async def test_mixed_batch_limit_is_checked_before_either_transport(monkeypatch,
     calls = [{"server_id": "gmail", "tool_name": "search", "account": "work" if i % 2 else None} for i in range(6)]
     with pytest.raises(ValueError, match="cannot exceed 5"):
         result = client.mcp.execute_many(calls)
-        if asynchronous:
+        if isawaitable(result):
             await result
     direct.assert_not_called()
     assert not respx.calls
@@ -167,7 +170,9 @@ async def test_rejected_account_stays_an_error_without_default_fallback(monkeypa
         {"server_id": "gmail", "tool_name": "search", "ref": "default"},
         {"server_id": "gmail", "tool_name": "search", "ref": "work", "account": "work"},
     ]
-    response = await client.mcp.execute_many(calls) if asynchronous else client.mcp.execute_many(calls)
+    response = (
+        await client.mcp.execute_many(calls) if isinstance(client, AsyncGumloop) else client.mcp.execute_many(calls)
+    )
     assert [(r.ref, r.status) for r in response.results] == [("default", "success"), ("work", "error")]
     direct = transport.execute_many_async if asynchronous else transport.execute_many
     assert direct.call_count == 1
