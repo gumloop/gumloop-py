@@ -76,6 +76,26 @@ def get_server(
             console.print(f"  {field}: {value}", markup=False, highlight=False)
 
 
+@mcp_app.command("accounts")
+def list_accounts(
+    ctx: typer.Context,
+    server: Annotated[str, typer.Argument(help="MCP server id.")],
+    json_output: Annotated[bool, typer.Option("--json", help="Print the raw response as JSON.")] = False,
+) -> None:
+    """List connected accounts available for a tool call."""
+    cli: CliContext = ctx.obj
+    try:
+        response = cli.call_with_refresh(lambda client: client.mcp.list_accounts(server, team_id=cli.effective_team_id))
+    except GumloopError as error:
+        exit_with_error(error, json_output=json_output)
+    if json_output:
+        print_json(response)
+        return
+    console.print("ACCOUNT_ID", "LABEL", "DEFAULT", "IN_USE", sep="\t", soft_wrap=True)
+    for account in response.accounts:
+        console.print(account.id, account.label, str(account.is_default), str(account.in_use), sep="\t", markup=False)
+
+
 @mcp_app.command("tools", epilog="Example:\n  gumloop mcp tools gmail")
 def list_tools(
     ctx: typer.Context,
@@ -134,6 +154,7 @@ def call_tool(
         str | None,
         typer.Option("--args", help="Use '-' to read JSON arguments from stdin.", metavar="-"),
     ] = None,
+    account: Annotated[str | None, typer.Option("--account", help="Connected account id to use.")] = None,
     ref: Annotated[
         str | None,
         typer.Option("--ref", help="Optional ref string echoed back in the response."),
@@ -153,6 +174,7 @@ def call_tool(
                 tool,
                 arguments,
                 ref=ref,
+                account=account,
                 team_id=cli.effective_team_id,
             )
         )
