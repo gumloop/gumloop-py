@@ -32,9 +32,7 @@ def _save_key() -> None:
 
 @respx.mock
 def test_set_access_sends_people_teams_and_organization_none(cli_runner: CliRunner) -> None:
-    route = respx.put(f"{API_BASE}/artifacts/artifact_abc/access").mock(
-        return_value=httpx.Response(200, json=_ACCESS)
-    )
+    route = respx.put(f"{API_BASE}/artifacts/artifact_abc/access").mock(return_value=httpx.Response(200, json=_ACCESS))
     _save_key()
 
     result = cli_runner.invoke(

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from functools import partial
 from typing import Annotated
 
 import typer
 from rich.markup import escape as escape_markup
 
+from gumloop import Gumloop
 from gumloop import GumloopError
 from gumloop.cli.commands._downloads import download_response
 from gumloop.cli.commands._item_access import apply_item_access
@@ -22,6 +25,7 @@ from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
 from gumloop.cli.errors import exit_with_error
+from gumloop.types import ArtifactPasswordResponse
 
 artifacts_app = typer.Typer(
     help="List, download, and share Gumloop artifacts.", no_args_is_help=True, rich_markup_mode="rich"
@@ -171,14 +175,12 @@ def set_artifact_access(
     json_output: Annotated[bool, json_option()] = False,
 ) -> None:
     """Change who can access an artifact."""
-    set_password = None
+    set_password: Callable[[Gumloop], ArtifactPasswordResponse] | None = None
     if password_stdin:
         password = read_password_stdin()
         if password == "":
             exit_with_error(GumloopError("Password from stdin is empty."), json_output=json_output)
-
-        def set_password(client):
-            return client.artifacts.set_password(artifact_id, password)
+        set_password = partial(_set_artifact_password, artifact_id=artifact_id, password=password)
 
     apply_item_access(
         ctx,
@@ -198,3 +200,7 @@ def set_artifact_access(
         ),
         set_password=set_password,
     )
+
+
+def _set_artifact_password(client: Gumloop, *, artifact_id: str, password: str) -> ArtifactPasswordResponse:
+    return client.artifacts.set_password(artifact_id, password)

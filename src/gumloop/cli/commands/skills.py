@@ -24,9 +24,7 @@ from gumloop.cli.context import CliContext
 from gumloop.cli.errors import exit_with_error
 from gumloop.resources.skills import SkillFile
 
-skills_app = typer.Typer(
-    help="Manage and share Gumloop skills.", no_args_is_help=True, rich_markup_mode="rich"
-)
+skills_app = typer.Typer(help="Manage and share Gumloop skills.", no_args_is_help=True, rich_markup_mode="rich")
 
 
 @skills_app.command(
