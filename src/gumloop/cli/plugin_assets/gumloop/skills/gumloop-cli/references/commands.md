@@ -57,6 +57,11 @@ gumloop sessions get <session_id> [--json]          # --json returns the full tr
 gumloop sessions send <session_id> [--input text | --input-stdin -] [--json]
 gumloop sessions rename <session_id> <name>
 gumloop sessions cancel <session_id>
+gumloop sessions access <session_id> [--json]
+gumloop sessions set-access <session_id>
+    [--share email:role]... [--remove email]...
+    [--share-team team_id:role]... [--remove-team team_id]...
+    [--organization role|none] [--link none|anyone|password] [--link-role role] [--json]
 ```
 
 `--name` sets the name shown in the sidebar; without it the session keeps the agent's name until renamed. `list --search` matches session names (and message content), so named sessions are findable by name.
@@ -105,6 +110,11 @@ gumloop skills create <file>... [--json]
 gumloop skills update <skill_id> <file>... [--json]        # full replace of all files
 gumloop skills delete <skill_id> [--json]
 gumloop skills download <skill_id> [-o path|-] [--version-id v] [--json]
+gumloop skills access <skill_id> [--json]
+gumloop skills set-access <skill_id>
+    [--share email:role]... [--remove email]...
+    [--share-team team_id:role]... [--remove-team team_id]...
+    [--organization role|none] [--link none|anyone|password] [--link-role role] [--json]
 ```
 
 ## Artifacts
@@ -112,7 +122,15 @@ gumloop skills download <skill_id> [-o path|-] [--version-id v] [--json]
 ```bash
 gumloop artifacts list <agent_id> [--session id] [--limit n] [--cursor c] [--json]
 gumloop artifacts download <artifact_id> [-o path|-] [--version-id v] [--json]
+gumloop artifacts access <artifact_id> [--json]
+gumloop artifacts set-access <artifact_id>
+    [--share email:role]... [--remove email]...
+    [--share-team team_id:role]... [--remove-team team_id]...
+    [--organization role|none] [--link none|anyone|password] [--link-role role]
+    [--password-stdin] [--json]
 ```
+
+`artifacts set-access --password-stdin` reads the link password from stdin and sets it before the access change. `--link password` only works after a password is stored.
 
 ## Skill sync
 
