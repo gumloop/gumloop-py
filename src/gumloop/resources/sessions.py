@@ -3,12 +3,16 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from collections.abc import Iterator
 from collections.abc import Mapping
+from collections.abc import Sequence
 from typing import Any
 from typing import Literal
 from typing import overload
 
 from gumloop._http import AsyncHttpClient
 from gumloop._http import HttpClient
+from gumloop.resources._item_access import item_access_body
+from gumloop.types import ItemAccessChangeResponse
+from gumloop.types import ItemAccessResponse
 from gumloop.types import SessionContinueRequest
 from gumloop.types import SessionCreateRequest
 from gumloop.types import SessionListResponse
@@ -161,6 +165,24 @@ class Sessions:
             self._client.patch(f"sessions/{session_id}", json=SessionUpdateRequest.build(request, **kwargs))
         )
 
+    def get_access(self, session_id: str) -> ItemAccessResponse:
+        return ItemAccessResponse.model_validate(self._client.get(f"sessions/{session_id}/access"))
+
+    def update_access(
+        self,
+        session_id: str,
+        *,
+        share: Sequence[Mapping[str, Any]] | None = None,
+        remove: Sequence[Mapping[str, Any]] | None = None,
+        link: Mapping[str, Any] | None = None,
+    ) -> ItemAccessChangeResponse:
+        return ItemAccessChangeResponse.model_validate(
+            self._client.put(
+                f"sessions/{session_id}/access",
+                json=item_access_body(share=share, remove=remove, link=link),
+            )
+        )
+
 
 class AsyncSessions:
     def __init__(self, client: AsyncHttpClient) -> None:
@@ -304,3 +326,20 @@ class AsyncSessions:
     ) -> SessionResponse:
         data = await self._client.patch(f"sessions/{session_id}", json=SessionUpdateRequest.build(request, **kwargs))
         return SessionResponse.model_validate(data)
+
+    async def get_access(self, session_id: str) -> ItemAccessResponse:
+        return ItemAccessResponse.model_validate(await self._client.get(f"sessions/{session_id}/access"))
+
+    async def update_access(
+        self,
+        session_id: str,
+        *,
+        share: Sequence[Mapping[str, Any]] | None = None,
+        remove: Sequence[Mapping[str, Any]] | None = None,
+        link: Mapping[str, Any] | None = None,
+    ) -> ItemAccessChangeResponse:
+        data = await self._client.put(
+            f"sessions/{session_id}/access",
+            json=item_access_body(share=share, remove=remove, link=link),
+        )
+        return ItemAccessChangeResponse.model_validate(data)

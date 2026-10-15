@@ -8,13 +8,25 @@ from rich.markup import escape as escape_markup
 
 from gumloop import GumloopError
 from gumloop.cli.commands._downloads import download_response
+from gumloop.cli.commands._item_access import apply_item_access
+from gumloop.cli.commands._item_access import json_option
+from gumloop.cli.commands._item_access import link_option
+from gumloop.cli.commands._item_access import link_role_option
+from gumloop.cli.commands._item_access import organization_option
+from gumloop.cli.commands._item_access import remove_option
+from gumloop.cli.commands._item_access import remove_team_option
+from gumloop.cli.commands._item_access import share_option
+from gumloop.cli.commands._item_access import share_team_option
+from gumloop.cli.commands._item_access import show_item_access
 from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
 from gumloop.cli.errors import exit_with_error
 from gumloop.resources.skills import SkillFile
 
-skills_app = typer.Typer(help="Manage Gumloop skills.", no_args_is_help=True, rich_markup_mode="rich")
+skills_app = typer.Typer(
+    help="Manage and share Gumloop skills.", no_args_is_help=True, rich_markup_mode="rich"
+)
 
 
 @skills_app.command(
@@ -246,3 +258,53 @@ def download_skill(
     if result["path"] is None:
         return
     console.print(f"[green]Saved[/green] {result['path']} ({result['bytes']} bytes)")
+
+
+@skills_app.command("access", epilog="Example:\n  gumloop skills access skill_abc --json")
+def skill_access(
+    ctx: typer.Context,
+    skill_id: Annotated[str, typer.Argument(help="Skill id.")],
+    json_output: Annotated[bool, json_option()] = False,
+) -> None:
+    """Show who can access a skill."""
+    show_item_access(
+        ctx,
+        json_output=json_output,
+        read=lambda client: client.skills.get_access(skill_id),
+    )
+
+
+@skills_app.command(
+    "set-access",
+    epilog="Example:\n  gumloop skills set-access skill_abc --share ada@example.com:editor --organization viewer",
+)
+def set_skill_access(
+    ctx: typer.Context,
+    skill_id: Annotated[str, typer.Argument(help="Skill id.")],
+    share: Annotated[list[str] | None, share_option()] = None,
+    remove: Annotated[list[str] | None, remove_option()] = None,
+    share_team: Annotated[list[str] | None, share_team_option()] = None,
+    remove_team: Annotated[list[str] | None, remove_team_option()] = None,
+    organization: Annotated[str | None, organization_option()] = None,
+    link: Annotated[str | None, link_option()] = None,
+    link_role: Annotated[str | None, link_role_option()] = None,
+    json_output: Annotated[bool, json_option()] = False,
+) -> None:
+    """Change who can access a skill."""
+    apply_item_access(
+        ctx,
+        share=share,
+        remove=remove,
+        share_team=share_team,
+        remove_team=remove_team,
+        organization=organization,
+        link=link,
+        link_role=link_role,
+        json_output=json_output,
+        update=lambda client, parsed: client.skills.update_access(
+            skill_id,
+            share=parsed.share,
+            remove=parsed.remove,
+            link=parsed.link,
+        ),
+    )

@@ -8,6 +8,16 @@ import typer
 from rich.markup import escape as escape_markup
 
 from gumloop import GumloopError
+from gumloop.cli.commands._item_access import apply_item_access
+from gumloop.cli.commands._item_access import json_option
+from gumloop.cli.commands._item_access import link_option
+from gumloop.cli.commands._item_access import link_role_option
+from gumloop.cli.commands._item_access import organization_option
+from gumloop.cli.commands._item_access import remove_option
+from gumloop.cli.commands._item_access import remove_team_option
+from gumloop.cli.commands._item_access import share_option
+from gumloop.cli.commands._item_access import share_team_option
+from gumloop.cli.commands._item_access import show_item_access
 from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
@@ -15,7 +25,9 @@ from gumloop.cli.errors import exit_with_error
 from gumloop.types import SessionResponse
 
 sessions_app = typer.Typer(
-    help="Create, inspect, and continue Gumloop agent sessions.", no_args_is_help=True, rich_markup_mode="rich"
+    help="Create, inspect, continue, and share Gumloop agent sessions.",
+    no_args_is_help=True,
+    rich_markup_mode="rich",
 )
 
 
@@ -350,3 +362,53 @@ def cancel_session(
         return
 
     console.print(f"[green]Cancelled[/green] session {session_id}")
+
+
+@sessions_app.command("access", epilog="Example:\n  gumloop sessions access session_abc --json")
+def session_access(
+    ctx: typer.Context,
+    session_id: Annotated[str, typer.Argument(help="Session id.")],
+    json_output: Annotated[bool, json_option()] = False,
+) -> None:
+    """Show who can access a session."""
+    show_item_access(
+        ctx,
+        json_output=json_output,
+        read=lambda client: client.sessions.get_access(session_id),
+    )
+
+
+@sessions_app.command(
+    "set-access",
+    epilog="Example:\n  gumloop sessions set-access session_abc --share ada@example.com:viewer --link anyone",
+)
+def set_session_access(
+    ctx: typer.Context,
+    session_id: Annotated[str, typer.Argument(help="Session id.")],
+    share: Annotated[list[str] | None, share_option()] = None,
+    remove: Annotated[list[str] | None, remove_option()] = None,
+    share_team: Annotated[list[str] | None, share_team_option()] = None,
+    remove_team: Annotated[list[str] | None, remove_team_option()] = None,
+    organization: Annotated[str | None, organization_option()] = None,
+    link: Annotated[str | None, link_option()] = None,
+    link_role: Annotated[str | None, link_role_option()] = None,
+    json_output: Annotated[bool, json_option()] = False,
+) -> None:
+    """Change who can access a session."""
+    apply_item_access(
+        ctx,
+        share=share,
+        remove=remove,
+        share_team=share_team,
+        remove_team=remove_team,
+        organization=organization,
+        link=link,
+        link_role=link_role,
+        json_output=json_output,
+        update=lambda client, parsed: client.sessions.update_access(
+            session_id,
+            share=parsed.share,
+            remove=parsed.remove,
+            link=parsed.link,
+        ),
+    )

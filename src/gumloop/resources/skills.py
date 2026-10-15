@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from collections.abc import Sequence
 from typing import Any
 
 from gumloop._http import AsyncHttpClient
 from gumloop._http import HttpClient
 from gumloop._http import UploadFile
 from gumloop._http import multipart_files
+from gumloop.resources._item_access import item_access_body
+from gumloop.types import ItemAccessChangeResponse
+from gumloop.types import ItemAccessResponse
 from gumloop.types import SkillDeleteResponse
 from gumloop.types import SkillDownloadResponse
 from gumloop.types import SkillListResponse
@@ -87,6 +91,24 @@ class Skills:
     def delete(self, skill_id: str) -> SkillDeleteResponse:
         return _skill_delete_response(self._client.delete(f"skills/{skill_id}"))
 
+    def get_access(self, skill_id: str) -> ItemAccessResponse:
+        return ItemAccessResponse.model_validate(self._client.get(f"skills/{skill_id}/access"))
+
+    def update_access(
+        self,
+        skill_id: str,
+        *,
+        share: Sequence[Mapping[str, Any]] | None = None,
+        remove: Sequence[Mapping[str, Any]] | None = None,
+        link: Mapping[str, Any] | None = None,
+    ) -> ItemAccessChangeResponse:
+        return ItemAccessChangeResponse.model_validate(
+            self._client.put(
+                f"skills/{skill_id}/access",
+                json=item_access_body(share=share, remove=remove, link=link),
+            )
+        )
+
 
 class AsyncSkills:
     def __init__(self, client: AsyncHttpClient) -> None:
@@ -152,3 +174,20 @@ class AsyncSkills:
     async def delete(self, skill_id: str) -> SkillDeleteResponse:
         data = await self._client.delete(f"skills/{skill_id}")
         return _skill_delete_response(data)
+
+    async def get_access(self, skill_id: str) -> ItemAccessResponse:
+        return ItemAccessResponse.model_validate(await self._client.get(f"skills/{skill_id}/access"))
+
+    async def update_access(
+        self,
+        skill_id: str,
+        *,
+        share: Sequence[Mapping[str, Any]] | None = None,
+        remove: Sequence[Mapping[str, Any]] | None = None,
+        link: Mapping[str, Any] | None = None,
+    ) -> ItemAccessChangeResponse:
+        data = await self._client.put(
+            f"skills/{skill_id}/access",
+            json=item_access_body(share=share, remove=remove, link=link),
+        )
+        return ItemAccessChangeResponse.model_validate(data)

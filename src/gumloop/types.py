@@ -1000,6 +1000,54 @@ class ArtifactDownloadResponse(_Model):
     size: int | None = None
 
 
+class ArtifactPasswordResponse(_Model):
+    success: bool
+
+
+# ---------------------------------------------------------------------------
+# Item access types
+# ---------------------------------------------------------------------------
+
+
+class ItemAccessPerson(_Model):
+    email: str
+    name: str | None = None
+    role: str
+
+
+class ItemAccessTeam(_Model):
+    team_id: str
+    role: str
+
+
+class ItemAccessOrganization(_Model):
+    role: str
+
+
+class ItemAccessHiddenCounts(_Model):
+    people: int = 0
+    teams: int = 0
+
+
+class ItemAccess(_Model):
+    grants_visibility: str
+    people: list[ItemAccessPerson] = Field(default_factory=list)
+    teams: list[ItemAccessTeam] = Field(default_factory=list)
+    organization_access: ItemAccessOrganization | None = None
+    link: str
+    link_role: str | None = None
+    password_protected: bool
+    hidden_by_role: dict[str, ItemAccessHiddenCounts] | None = None
+
+
+class ItemAccessResponse(_Model):
+    access: ItemAccess
+
+
+class ItemAccessChangeResponse(ItemAccessResponse):
+    notified: list[str] = Field(default_factory=list)
+
+
 # ---------------------------------------------------------------------------
 # MCP types
 # ---------------------------------------------------------------------------
