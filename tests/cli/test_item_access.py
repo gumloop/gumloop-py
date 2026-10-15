@@ -94,6 +94,23 @@ def test_password_stdin_sets_the_password_before_the_access_change(cli_runner: C
 
 
 @respx.mock
+def test_password_stdin_strips_a_windows_line_ending(cli_runner: CliRunner) -> None:
+    route = respx.put(f"{API_BASE}/artifacts/artifact_abc/password").mock(
+        return_value=httpx.Response(200, json={"success": True})
+    )
+    _save_key()
+
+    result = cli_runner.invoke(
+        app,
+        ["artifacts", "set-access", "artifact_abc", "--password-stdin", "--json"],
+        input="secret\r\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(route.calls[0].request.content) == {"password": "secret"}
+
+
+@respx.mock
 def test_password_only_prints_the_password_response(cli_runner: CliRunner) -> None:
     respx.put(f"{API_BASE}/artifacts/artifact_abc/password").mock(
         return_value=httpx.Response(200, json={"success": True})

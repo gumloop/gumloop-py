@@ -125,7 +125,9 @@ def parse_item_access_flags(
 
 def read_password_stdin() -> str:
     password = sys.stdin.read()
-    if password.endswith("\n"):
+    if password.endswith("\r\n"):
+        password = password[:-2]
+    elif password.endswith("\n"):
         password = password[:-1]
     return password
 
