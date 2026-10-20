@@ -146,6 +146,18 @@ print(decision.route.model, decision.route.lane, decision.route.fallback_models)
 
 Omit `models` to route across the full Chew catalog. Each call bills one small classifier completion.
 
+## Ask a decision model
+
+Pass the SDK's decision request shape through the CLI using `--args-json`, `--args-file`, or `--args -` for stdin:
+
+```bash
+gumloop decisions create --args-file decision.json --json
+```
+
+```json
+{"model":"typesafe/jev-1.13","state":{"message":"The screen is blank"},"questions":{"is_bug":{"type":"noul","instructions":"Is this a software defect?"}}}
+```
+
 ## Put files into your Brain
 
 ```python
