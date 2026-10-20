@@ -17,6 +17,7 @@ class SyncChange:
     physical_path: Path
     backup_path: Path | None = None
     error: str | None = None
+    warning: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -27,6 +28,7 @@ class SyncChange:
             "physical_path": str(self.physical_path),
             "skill_id": self.skill_id,
             "targets": list(self.targets),
+            "warning": self.warning,
         }
 
 

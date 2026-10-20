@@ -7,6 +7,7 @@ from pathlib import Path
 from gumloop.sync.bundle import StagedSyncBundle
 from gumloop.sync.errors import SyncError
 from gumloop.sync.installed import scan_target
+from gumloop.sync.installed import unmanaged_symlink_change
 from gumloop.sync.markers import build_marker
 from gumloop.sync.results import SyncChange
 from gumloop.sync.target_files import Mutation
@@ -80,9 +81,12 @@ def prepare_target_reconciliation(
                 )
                 continue
 
+            if existing.symlink_kind == "unmanaged":
+                unchanged.append(unmanaged_symlink_change(target=target, name=name, skill_id=skill.skill_id))
+                continue
             marker_read = existing.marker_read
             local_hash = existing.content_hash
-            if existing.shared_symlink:
+            if existing.symlink_kind == "shared":
                 shared_marker = marker_read.marker
                 if (
                     marker_read.status != "valid"
@@ -165,9 +169,13 @@ def prepare_target_reconciliation(
             )
 
         for name, existing in installed.items():
+            if existing.symlink_kind == "unmanaged":
+                if name not in desired_by_name:
+                    unchanged.append(unmanaged_symlink_change(target=target, name=name))
+                continue
             marker_read = existing.marker_read
             local_hash = existing.content_hash
-            if existing.shared_symlink and name not in desired_by_name:
+            if existing.symlink_kind == "shared" and name not in desired_by_name:
                 mutations.append(
                     Mutation(
                         kind="remove",

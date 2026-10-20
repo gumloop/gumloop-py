@@ -23,6 +23,7 @@ _ACTION_LABELS = {
     "overwritten_collision": "replaced",
     "overwritten_local_edit": "replaced local edit",
     "removed": "removed",
+    "skipped": "skipped",
     "unchanged": "unchanged",
     "updated": "updated",
 }
@@ -294,12 +295,15 @@ class SyncOutput:
             if change.get("error"):
                 line += f" error: {change['error']}"
                 error_console.print(line, markup=False, highlight=False)
+            elif change.get("warning"):
+                line += f" warning: {change['warning']}"
+                error_console.print(line, markup=False, highlight=False)
             else:
                 console.print(line, markup=False, highlight=False)
 
     def _change_is_visible(self, change: dict[str, object], *, verbose: bool) -> bool:
         action = change.get("action")
-        if change.get("error"):
+        if change.get("error") or change.get("warning"):
             return True
         if action == "unchanged":
             return False

@@ -68,7 +68,7 @@ class PreparedTargetReconciliation:
             target=self.target,
             changes=tuple(changes),
             error=failure,
-            error_code=failure_code,
+            error_code=(failure_code or "target_failed") if failure is not None else None,
         )
 
     def cleanup(self) -> None:
