@@ -18,7 +18,9 @@ decisions_app = typer.Typer(help="Ask decision models structured questions.", no
 def create_decision(
     ctx: typer.Context,
     args_json: Annotated[str | None, typer.Option("--args-json", help="Decision request as a JSON object.")] = None,
-    args_file: Annotated[str | None, typer.Option("--args-file", help="JSON file with model, state and questions.")] = None,
+    args_file: Annotated[
+        str | None, typer.Option("--args-file", help="JSON file with model, state and questions.")
+    ] = None,
     args: Annotated[str | None, typer.Option("--args", help="Use '-' to read the request JSON from stdin.")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Print the full response as JSON.")] = False,
 ) -> None:
