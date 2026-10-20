@@ -53,7 +53,8 @@ class PreparedTargetReconciliation:
 
     def apply(self) -> TargetOutcome:
         changes = list(self._unchanged)
-        failure_code: str | None = None
+        failure = next((change.error for change in changes if change.action == "failed"), None)
+        failure_code: str | None = "target_failed" if failure is not None else None
         for mutation in self._mutations:
             try:
                 self._prepare_backup(mutation)
@@ -61,9 +62,11 @@ class PreparedTargetReconciliation:
                 changes.append(_change_for(mutation, self.target))
             except (OSError, SyncError, RuntimeError) as error:
                 changes.append(_failed_change(mutation, self.target, error))
+                # A mutation failure takes priority in the target summary;
+                # earlier collision errors remain in the individual changes.
+                failure = str(error)
                 failure_code = error.code if isinstance(error, SyncError) else "target_failed"
                 break
-        failure = next((change.error for change in changes if change.action == "failed"), None)
         return TargetOutcome(
             target=self.target,
             changes=tuple(changes),

@@ -15,6 +15,7 @@ from gumloop.sync.bundle import stage_sync_bundle
 from gumloop.sync.markers import build_marker
 from gumloop.sync.markers import write_marker_atomic
 from gumloop.sync.reconcile import prepare_target_reconciliation
+from gumloop.sync.results import SyncChange
 from gumloop.sync.target_files import Mutation
 from gumloop.sync.target_files import PreparedTargetReconciliation
 from gumloop.sync.targets import PhysicalTarget
@@ -118,6 +119,65 @@ class TestReplacementRollback:
         assert outcome.error is not None
         assert "Could not back up" in outcome.error
         assert (destination / "SKILL.md").read_bytes() == original_skill
+
+    def test_backup_failure_takes_priority_over_preexisting_symlink_collision(
+        self,
+        sync_cli_environment: SyncCliTestEnvironment,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """A mutation failure reports its own message/code without losing an earlier collision."""
+        skills_root = sync_cli_environment.create_target("agent-skills")
+        outside = sync_cli_environment.home / "personal-skill"
+        outside.mkdir()
+        (outside / "SKILL.md").write_text("personal content", encoding="utf-8")
+        link = skills_root / "alpha"
+        link.symlink_to(outside, target_is_directory=True)
+        beta = skills_root / "beta"
+        beta.mkdir()
+        (beta / "SKILL.md").write_text("local edit", encoding="utf-8")
+        target = PhysicalTarget(skills_root, ("agent_skills",))
+        collision_message = f"Skipping unmanaged symlink: {link}"
+        prepared = PreparedTargetReconciliation(
+            target=target,
+            unchanged=[
+                SyncChange(
+                    skill_id="alpha-id",
+                    name="alpha",
+                    action="failed",
+                    targets=target.logical_targets,
+                    physical_path=link,
+                    error=collision_message,
+                ),
+            ],
+            mutations=[
+                Mutation(
+                    kind="replace",
+                    destination=beta,
+                    skill=None,
+                    marker=None,
+                    action="overwritten_local_edit",
+                    backup_required=True,
+                    backup_path=sync_cli_environment.home / "backups" / "beta",
+                ),
+            ],
+        )
+
+        def fail_copy(_source: Path, _destination: Path) -> None:
+            raise OSError("injected backup failure")
+
+        monkeypatch.setattr("gumloop.sync.target_files._copy_path", fail_copy)
+        try:
+            outcome = prepared.apply()
+        finally:
+            prepared.cleanup()
+
+        assert outcome.error_code == "backup_failed"
+        assert outcome.error == f"Could not back up {beta}. The installed Skill was not changed."
+        failures = {change.name: change.error for change in outcome.changes if change.action == "failed"}
+        assert failures == {"alpha": collision_message, "beta": outcome.error}
+        assert link.is_symlink()
+        assert (outside / "SKILL.md").read_text(encoding="utf-8") == "personal content"
+        assert (beta / "SKILL.md").read_text(encoding="utf-8") == "local edit"
 
     def test_interrupted_atomic_swap_restores_complete_previous_skill(
         self,

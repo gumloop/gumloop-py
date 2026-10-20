@@ -108,26 +108,31 @@ class TestManifestMatching:
         assert matches is True
         assert (outside / "sentinel.txt").read_text(encoding="utf-8") == "safe"
 
-    def test_unrelated_skill_symlink_fails_without_following_it(
+    def test_unrelated_skill_symlink_does_not_block_manifest_matching(
         self,
         temporary_home: Path,
     ) -> None:
-        """A symlink outside another detected target fails without changing its target."""
-        skills_root = temporary_home / ".agents" / "skills"
-        skills_root.mkdir(parents=True)
+        """An unrelated symlink is preserved without blocking an otherwise current target."""
+        install_skill_from_bundle(
+            temporary_home,
+            "bundles/normal.zip",
+            published_version_id=NORMAL_PUBLISHED_VERSION_ID,
+            content_hash=NORMAL_CONTENT_HASH,
+        )
+        skills_root = agents_skills_root(temporary_home)
         outside = temporary_home / "outside"
         outside.mkdir()
         (outside / "sentinel.txt").write_text("safe", encoding="utf-8")
         (skills_root / "unsafe").symlink_to(outside, target_is_directory=True)
 
-        with pytest.raises(SyncError, match="symlinked Skill entry"):
-            target_matches_manifest(
-                target=PhysicalTarget(skills_root, ("agent_skills",)),
-                organization_id="org_fixture",
-                manifest_hash=NORMAL_MANIFEST_HASH,
-                skill_count=1,
-            )
+        assert target_matches_manifest(
+            target=PhysicalTarget(skills_root, ("agent_skills",)),
+            organization_id="org_fixture",
+            manifest_hash=NORMAL_MANIFEST_HASH,
+            skill_count=1,
+        )
 
+        assert (skills_root / "unsafe").is_symlink()
         assert (outside / "sentinel.txt").read_text(encoding="utf-8") == "safe"
 
 

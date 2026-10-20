@@ -18,6 +18,7 @@ _ACTIONS = (
     "overwritten_collision",
     "overwritten_local_edit",
     "removed",
+    "skipped",
     "unchanged",
     "updated",
 )

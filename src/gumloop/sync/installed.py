@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 from gumloop.sync.errors import SyncError
 from gumloop.sync.hashing import compute_manifest_hash
@@ -19,7 +20,7 @@ from gumloop.types import CliSyncBundleSkill
 class InstalledEntry:
     marker_read: MarkerRead
     content_hash: str | None
-    shared_symlink: bool = False
+    symlink_kind: Literal["shared", "unmanaged"] | None = None
 
 
 def scan_target(
@@ -45,10 +46,20 @@ def scan_target(
         if entry.name == SYNC_WORKSPACE_DIRNAME:
             continue
         if entry.is_symlink():
-            resolved = entry.resolve()
-            shared_destinations = {(other_root / entry.name).resolve() for other_root in other_target_roots}
-            if resolved not in shared_destinations:
-                raise SyncError("target_failed", f"Refusing to reconcile a symlinked Skill entry: {entry}")
+            # Other roots are canonical physical targets. Two links to the same
+            # external directory do not make that directory Gumloop-managed.
+            shared_destinations = {other_root / entry.name for other_root in other_target_roots}
+            try:
+                resolved = entry.resolve()
+            except (OSError, RuntimeError):
+                resolved = None
+            if resolved is None or resolved not in shared_destinations:
+                installed[entry.name] = InstalledEntry(
+                    marker_read=MarkerRead("unmarked"),
+                    content_hash=None,
+                    symlink_kind="unmanaged",
+                )
+                continue
             marker_read = read_marker(resolved, organization_id)
             installed[entry.name] = InstalledEntry(
                 marker_read=marker_read,
@@ -57,7 +68,7 @@ def scan_target(
                     if resolved.is_dir() and (marker_read.status == "valid" or entry.name in hash_unmanaged_names)
                     else None
                 ),
-                shared_symlink=True,
+                symlink_kind="shared",
             )
             continue
 
@@ -90,6 +101,9 @@ def matching_manifest_changes(
         organization_id,
         other_target_roots=other_target_roots,
     ).items():
+        if existing.symlink_kind == "unmanaged":
+            changes.append(unmanaged_symlink_change(target=target, name=name))
+            continue
         marker_read = existing.marker_read
         if marker_read.status == "unsupported":
             return None
@@ -118,6 +132,25 @@ def matching_manifest_changes(
     if len(valid) != skill_count or compute_manifest_hash(valid) != manifest_hash:
         return None
     return tuple(changes)
+
+
+def unmanaged_symlink_change(
+    *,
+    target: PhysicalTarget,
+    name: str,
+    skill_id: str | None = None,
+) -> SyncChange:
+    path = target.skills_root / name
+    message = f"Skipping unmanaged symlink; link and destination were preserved: {path}"
+    return SyncChange(
+        skill_id=skill_id or "",
+        name=name,
+        action="failed" if skill_id is not None else "skipped",
+        targets=target.logical_targets,
+        physical_path=path,
+        error=message if skill_id is not None else None,
+        warning=message if skill_id is None else None,
+    )
 
 
 def target_matches_manifest(
