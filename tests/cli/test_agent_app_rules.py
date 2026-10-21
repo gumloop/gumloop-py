@@ -18,24 +18,40 @@ from tests.sdk.helpers import request_json
     [
         ("list", "GET", "", [], None, {"agent_id": "agent_1", "app_rules": []}),
         (
-            "create", "POST", "", ["--args", "-"], {"name": "Disposable", "conditions": "true"},
+            "create",
+            "POST",
+            "",
+            ["--args", "-"],
+            {"name": "Disposable", "conditions": "true"},
             {"agent_id": "agent_1", "app_rule": {"id": "rule_1", "name": "Disposable"}},
         ),
         (
-            "update", "PATCH", "/rule_1", ["rule_1", "--args", "-"], {"status": "disabled"},
+            "update",
+            "PATCH",
+            "/rule_1",
+            ["rule_1", "--args", "-"],
+            {"status": "disabled"},
             {"agent_id": "agent_1", "app_rule": {"id": "rule_1", "status": "disabled"}},
         ),
         (
-            "delete", "DELETE", "/rule_1", ["rule_1"], None,
+            "delete",
+            "DELETE",
+            "/rule_1",
+            ["rule_1"],
+            None,
             {"agent_id": "agent_1", "rule_id": "rule_1", "deleted": True},
         ),
     ],
 )
 @respx.mock
-def test_rule_commands(cli_runner: CliRunner, command: str, method: str, path: str, args: list[str], body: dict | None, response: dict) -> None:
+def test_rule_commands(
+    cli_runner: CliRunner, command: str, method: str, path: str, args: list[str], body: dict | None, response: dict
+) -> None:
     route = respx.route(method=method, url=f"{API_BASE}/agents/agent_1/app-rules{path}").respond(200, json=response)
     save_credentials(Credentials(api_key="key"))
-    result = cli_runner.invoke(app, ["agents", "rules", command, "agent_1", *args, "--json"], input=json.dumps(body) if body else None)
+    result = cli_runner.invoke(
+        app, ["agents", "rules", command, "agent_1", *args, "--json"], input=json.dumps(body) if body else None
+    )
     assert result.exit_code == 0, result.output
     assert json.loads(result.output)["agent_id"] == "agent_1"
     if body:
@@ -49,5 +65,6 @@ def test_rule_empty_update_is_structured_error(cli_runner: CliRunner) -> None:
     save_credentials(Credentials(api_key="key"))
     result = cli_runner.invoke(app, ["agents", "rules", "update", "agent_1", "rule_1", "--args-json", "{}", "--json"])
     assert result.exit_code == 1
-    assert json.loads(result.output)["error"]["code"] == "invalid_request"
+    assert json.loads(result.output)["error"]["type"] == "cli_error"
+    assert "At least one app rule field is required" in json.loads(result.output)["error"]["message"]
     assert respx.calls.call_count == 0

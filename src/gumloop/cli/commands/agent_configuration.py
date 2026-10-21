@@ -82,8 +82,11 @@ def list_app_rules(ctx: typer.Context, agent_id: AgentId, json_output: JsonOutpu
 
 @rules_app.command("create")
 def create_app_rule(
-    ctx: typer.Context, agent_id: AgentId,
-    args_json: ArgsJson = None, args_file: ArgsFile = None, args: Args = None,
+    ctx: typer.Context,
+    agent_id: AgentId,
+    args_json: ArgsJson = None,
+    args_file: ArgsFile = None,
+    args: Args = None,
     json_output: JsonOutput = False,
 ) -> None:
     """Create an agent app rule from JSON; the server defaults it to disabled."""
@@ -93,8 +96,12 @@ def create_app_rule(
 
 @rules_app.command("update")
 def update_app_rule(
-    ctx: typer.Context, agent_id: AgentId, rule_id: Annotated[str, typer.Argument(help="App rule id.")],
-    args_json: ArgsJson = None, args_file: ArgsFile = None, args: Args = None,
+    ctx: typer.Context,
+    agent_id: AgentId,
+    rule_id: Annotated[str, typer.Argument(help="App rule id.")],
+    args_json: ArgsJson = None,
+    args_file: ArgsFile = None,
+    args: Args = None,
     json_output: JsonOutput = False,
 ) -> None:
     """Patch an agent app rule; use status enabled/disabled to enable or pause it."""
@@ -104,7 +111,9 @@ def update_app_rule(
 
 @rules_app.command("delete")
 def delete_app_rule(
-    ctx: typer.Context, agent_id: AgentId, rule_id: Annotated[str, typer.Argument(help="App rule id.")],
+    ctx: typer.Context,
+    agent_id: AgentId,
+    rule_id: Annotated[str, typer.Argument(help="App rule id.")],
     json_output: JsonOutput = False,
 ) -> None:
     """Delete an app rule scoped to this agent."""
