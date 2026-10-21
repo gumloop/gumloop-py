@@ -285,11 +285,54 @@ class AgentDeleteResponse(_Model):
     deleted: bool = False
 
 
+class TriggerCredentialSelector(_Model):
+    model_config = ConfigDict(extra="forbid")
+    secret_id: str = Field(min_length=1)
+    is_personal_credential: bool = True
+
+
+class IntegrationTriggerConfig(_Model):
+    model_config = ConfigDict(extra="forbid")
+    operator_name: str = Field(min_length=1)
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    credentials_to_use: dict[str, TriggerCredentialSelector] = Field(default_factory=dict)
+
+
+class TriggerOperatorParameter(_Model):
+    name: str
+    data_type: str = "string"
+    description: str = ""
+    required: bool = False
+    default_value: Any = None
+    is_dynamic: bool = False
+    is_hidden: bool = False
+
+
+class TriggerOperator(_Model):
+    name: str
+    display_name: str
+    version: str
+    description: str = ""
+    category: str = ""
+    credential_types: list[str] = Field(default_factory=list)
+    parameters: list[TriggerOperatorParameter] = Field(default_factory=list)
+
+
+class TriggerOperatorsResponse(_Model):
+    operators: list[TriggerOperator] = Field(default_factory=list)
+
+
+class IntegrationTriggerPayload(_Model):
+    operator_name: str
+    operator_version: str
+    parameters: dict[str, Any] = Field(default_factory=dict)
+
+
 class AgentTriggerCreateRequest(_Model):
     """``schedule`` takes exactly one of ``cron_expression`` or ``run_at`` (ISO 8601);
     ``webhook`` takes only ``prompt`` and returns ``webhook_url`` once, on create."""
 
-    type: Literal["schedule", "webhook"]
+    type: Literal["schedule", "webhook", "integration"]
     prompt: str
     name: str | None = None
     cron_expression: str | None = None
@@ -298,6 +341,15 @@ class AgentTriggerCreateRequest(_Model):
     pass_raw_data: bool | None = None
     enabled: bool | None = None
     max_failures: int | None = None
+    integration: IntegrationTriggerConfig | None = None
+
+    @model_validator(mode="after")
+    def _integration_matches_type(self) -> AgentTriggerCreateRequest:
+        if (self.type == "integration") != (self.integration is not None):
+            raise ValueError("integration configuration is required only for integration triggers")
+        if self.integration and (self.cron_expression or self.run_at or self.timezone):
+            raise ValueError("integration triggers do not take schedule fields")
+        return self
 
 
 class AgentTriggerUpdateRequest(_Model):
@@ -312,6 +364,7 @@ class AgentTriggerUpdateRequest(_Model):
     pass_raw_data: bool | None = None
     enabled: bool | None = None
     max_failures: int | None = None
+    integration: IntegrationTriggerConfig | None = None
 
 
 class AgentTrigger(_Model):
@@ -330,6 +383,34 @@ class AgentTrigger(_Model):
     webhook_url: str | None = None
     created_at: str | None = None
     last_run_at: str | None = None
+    integration: IntegrationTriggerPayload | None = None
+
+
+class AgentTriggerRun(_Model):
+    gummie_trigger_run_id: str
+    interaction_id: str
+    state: str
+    name: str | None = None
+    message_id: str | None = None
+    continuation_mode: str | None = None
+    created_ts: str | None = None
+    finished_ts: str | None = None
+    duration_ms: int | None = None
+    credit_cost: float | None = None
+    delivery_refusal: str | None = None
+
+
+class AgentTriggerRunsResponse(_Model):
+    items: list[AgentTriggerRun] = Field(default_factory=list)
+    next_cursor: str | None = None
+
+
+class AgentTriggerStatsResponse(_Model):
+    run_count: int
+    last_run_ts: str | None = None
+    run_credits: float
+    poll_credits: float
+    total_credits: float
 
 
 class AgentTriggerResponse(_Model):
