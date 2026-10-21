@@ -2074,3 +2074,60 @@ class ArtifactHosting(_Model):
 class ArtifactContent(BaseModel):
     content: bytes
     media_type: str | None = None
+
+
+class RoleCreditLimit(_Model):
+    role_id: str
+    role_name: str
+    is_default: bool
+    member_count: int
+    monthly_credit_limit: int | None = None
+
+
+class RoleCreditLimitsResponse(_Model):
+    roles: list[RoleCreditLimit] = Field(default_factory=list)
+    next_cursor: str | None = None
+
+
+class AuditLogsResponse(_Model):
+    audit_logs: list[dict[str, Any]] = Field(default_factory=list)
+    total_count: int
+    page: int
+    page_size: int
+    total_pages: int
+    event_types: list[str] = Field(default_factory=list)
+
+
+class MembershipResponse(_Model):
+    success: bool
+    message: str
+
+
+class DataExportRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    start_date: str
+    end_date: str
+    export_fields: list[str]
+    export_scope: Literal["personal", "organization"]
+    data_type: Literal[
+        "workflows", "agents", "credit_logs", "agent_interactions", "gumstack", "interaction_evaluations"
+    ]
+    export_level: Literal["workspace", "organization"] = "organization"
+    workspace_ids: list[str] = Field(default_factory=list)
+    entity_ids: list[str] = Field(default_factory=list)
+    include_all_workspaces: bool = False
+    include_personal_workspaces: bool = False
+    hide_child_runs: bool = False
+    category_filter: str | None = None
+
+
+class DataExport(_Model):
+    data_export_id: str
+    state: str
+    created_ts: str | None = None
+    finished_ts: str | None = None
+
+
+class DataExportDownload(_Model):
+    download_url: str
+    file_name: str
