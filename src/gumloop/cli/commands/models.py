@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from typing import Annotated
 
@@ -8,6 +7,7 @@ import typer
 from rich.markup import escape as escape_markup
 
 from gumloop import GumloopError
+from gumloop.cli.commands._text_input import resolve_text_input
 from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
@@ -101,13 +101,9 @@ def route_model(
     cli: CliContext = ctx.obj
 
     try:
-        if input_text is not None and input_stdin is not None:
-            raise GumloopError("Pass at most one of INPUT or --input-stdin.")
-        if input_stdin is not None and input_stdin != "-":
-            raise GumloopError("--input-stdin only accepts '-' (reads from stdin).")
         if system_prompt is not None and system_prompt_file is not None:
             raise GumloopError("Pass at most one of --system-prompt or --system-prompt-file.")
-        message = sys.stdin.read() if input_stdin == "-" else input_text
+        message = resolve_text_input(input_text, input_stdin, text_option="INPUT")
         if message is None or not message.strip():
             raise GumloopError("Provide the task as INPUT or via --input-stdin -.")
         if system_prompt_file is not None:
