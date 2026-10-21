@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 
 import httpx
 import pytest
@@ -8,10 +9,52 @@ import respx
 
 from gumloop import AsyncGumloop
 from gumloop import Gumloop
+from gumloop.types import SessionAttachment
 from tests.sdk.helpers import API_BASE
 from tests.sdk.helpers import request_json
 
 STREAM_BASE = "https://ws.gumloop.com/api/v1"
+
+
+@respx.mock
+def test_upload_file_preserves_bytes_and_attaches_stored_reference(client: Gumloop) -> None:
+    upload = respx.post(f"{API_BASE}/sessions/session_123/files").mock(
+        return_value=httpx.Response(
+            200, json={"file_name": "input/report.bin", "media_type": "application/octet-stream", "size": 3}
+        )
+    )
+    send = respx.post(f"{API_BASE}/sessions/session_123/messages").mock(
+        return_value=httpx.Response(200, json={"session": {"id": "session_123", "agent_id": "agent_123"}})
+    )
+    uploaded = client.sessions.upload_file(
+        "session_123", "report.bin", b"\x00\xff\x01", media_type="application/octet-stream"
+    )
+    assert uploaded.size == 3
+    assert base64.b64decode(request_json(upload.calls[0].request)["file_content"]) == b"\x00\xff\x01"
+    assert request_json(upload.calls[0].request)["file_name"] == "report.bin"
+    client.sessions.send(
+        "session_123", input="Read this", attachments=[SessionAttachment(file_name=uploaded.file_name)]
+    )
+    assert request_json(send.calls[0].request) == {
+        "input": "Read this",
+        "attachments": [{"file_name": "input/report.bin"}],
+    }
+
+
+@respx.mock
+def test_async_upload_file_without_media_type() -> None:
+    route = respx.post(f"{API_BASE}/sessions/session_123/files").mock(
+        return_value=httpx.Response(200, json={"file_name": "input/note.txt", "size": 5})
+    )
+
+    async def run() -> None:
+        async with AsyncGumloop(access_token="token") as client:
+            uploaded = await client.sessions.upload_file("session_123", "note.txt", b"hello")
+            assert uploaded.file_name == "input/note.txt"
+            assert uploaded.media_type is None
+
+    asyncio.run(run())
+    assert request_json(route.calls[0].request) == {"file_name": "note.txt", "file_content": "aGVsbG8="}
 
 
 @respx.mock
