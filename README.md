@@ -348,3 +348,37 @@ gumloop agents triggers stats AGENT_ID TRIGGER_ID --json
 ```
 
 This contract does not manage shared trigger templates or instances and does not accept raw internal event JSON. Use OAuth or a personal API key for configuration and inspection.
+
+### Organization administration
+
+`client.organizations` and the async client expose custom-role credit limits, audit logs, workspace/custom-role membership, and scoped data exports. These endpoints require a personal API key with `user_id`, or OAuth; team keys are unsupported. Role-cap reads need `organization:view_permission_groups`, writes and custom-role membership need `organization:manage_permission_groups`, and audit reads need `organization:view_audit_logs`. Workspace membership requires the applicable project add/remove-member permission or organization manage-project-access permission; granting an admin role also checks the caller's role authority. Plan restrictions are enforced by the API.
+
+```sh
+gumloop organizations roles list ORGANIZATION_ID --page-size 20 --json
+gumloop organizations roles get ORGANIZATION_ID ROLE_ID --json
+gumloop organizations roles set ORGANIZATION_ID ROLE_ID --monthly-credit-limit 1000 --json
+gumloop organizations roles set ORGANIZATION_ID ROLE_ID --clear --json
+gumloop organizations audit-logs ORGANIZATION_ID 2026-01-01T00:00:00Z 2026-01-02T00:00:00Z --filter-user-id USER_ID --json
+gumloop organizations workspace-user ORGANIZATION_ID WORKSPACE_ID person@example.com --action add --json
+gumloop organizations role-user ORGANIZATION_ID ROLE_ID person@example.com --action remove --json
+```
+
+Audit filters can repeat; `--filter-user-id` filters the log independently of the authenticated user. Audit logs use page/page-size pagination; role limits use page-size/cursor pagination. Clearing a monthly role cap sends JSON null; setting zero remains an explicit zero cap.
+
+Exports require `export_scope` (`personal` or `organization`) and `data_type` explicitly. The API independently enforces `organization:export_personal_data` or `organization:export_org_data` and the applicable plan. Personal scope restricts rows to the caller. `entity_ids` can narrow an agent/workflow export to specific resources; audit-log exports are unsupported. Status is readable only by the export creator, with current scope and permission checks. `--download-url` opts into minting a short-lived URL once complete; ordinary polling returns status only.
+
+```sh
+gumloop organizations exports create --args-file export-request.json --json
+gumloop organizations exports status EXPORT_ID --json
+gumloop organizations exports status EXPORT_ID --download-url --json
+```
+
+```python
+from gumloop.types import DataExportRequest
+
+request = DataExportRequest(start_date="2026-01-01T00:00:00Z", end_date="2026-01-02T00:00:00Z",
+                          export_fields=["agent_id", "name"], export_scope="personal",
+                          data_type="agents", entity_ids=["agent_id"])
+export = client.organizations.export_data(request)
+status = client.organizations.export_status(export.data_export_id)
+```
