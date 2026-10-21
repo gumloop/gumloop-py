@@ -48,6 +48,15 @@ cat task.txt | gumloop models route --input-stdin - --model gpt-5.6-luna --model
 
 `models route` asks Gumloop Chew which of your candidate models should run a task and returns the pick, its lane, ACL-filtered fallbacks, and every candidate's status. It is decision-only: nothing runs. Omit `--model` to route across the full Chew catalog. Each call bills one small classifier completion.
 
+## Decisions
+
+```bash
+gumloop decisions create (--args-json '{...}' | --args-file decision.json | --args -) [--json]
+cat decision.json | gumloop decisions create --args - --json
+```
+
+The JSON object uses the SDK decision request shape: `model`, `state`, and `questions`. For example, `{"model":"typesafe/jev-1.14","state":{"message":"The screen is blank"},"questions":{"is_bug":{"type":"noul","instructions":"Is this a software defect?"}}}`. Use `models list --json` to discover decision models and the canonical model ID accepted by the API. Human output includes the model and each named answer; `--json` includes the complete response and usage. Scope team API keys with the global `--team-id` flag or `GUMLOOP_TEAM_ID`.
+
 ## Sessions
 
 ```bash
