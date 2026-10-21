@@ -22,6 +22,7 @@ from gumloop.cli.commands._item_access import share_team_option
 from gumloop.cli.commands._item_access import show_item_access
 from gumloop.cli.commands._session_files import read_file
 from gumloop.cli.commands._session_files import validate_file
+from gumloop.cli.commands.session_queue import queue_app
 from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
@@ -34,6 +35,7 @@ sessions_app = typer.Typer(
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
+sessions_app.add_typer(queue_app, name="queue")
 
 
 @sessions_app.command(
