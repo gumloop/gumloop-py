@@ -29,6 +29,27 @@ def sse(events: list[dict]) -> httpx.Response:
     )
 
 
+@pytest.mark.parametrize("options", [[], ["--input", ""], ["--input-stdin", "-"]])
+@respx.mock
+def test_empty_stream_creation_fails_before_request(cli_runner: CliRunner, options: list[str]) -> None:
+    save_credentials(Credentials(api_key="key"))
+    result = cli_runner.invoke(app, ["sessions", "create", "agent_1", *options, "--stream", "--json"], input="")
+    assert result.exit_code == 1
+    assert "with text to start a stream" in json.loads(result.stderr)["error"]["message"]
+    assert not respx.calls
+
+
+@respx.mock
+def test_empty_ordinary_creation_remains_supported(cli_runner: CliRunner) -> None:
+    route = respx.post(f"{API_BASE}/agents/agent_1/sessions").respond(
+        201, json={"session": {"id": "session_1", "agent_id": "agent_1"}}
+    )
+    save_credentials(Credentials(api_key="key"))
+    result = cli_runner.invoke(app, ["sessions", "create", "agent_1", "--json"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(route.calls[0].request.content) == {}
+
+
 @pytest.mark.parametrize(
     "command,path", [("create", "agents/agent_1/sessions"), ("send", "sessions/session_1/messages")]
 )
