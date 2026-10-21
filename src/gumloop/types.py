@@ -679,11 +679,27 @@ class SessionFileResponse(SessionAttachment):
     size: int
 
 
+class SessionApprovalFormResponse(_Model):
+    values: dict[str, Any] = Field(default_factory=dict)
+
+
+class SessionApprovalResponseItem(_Model):
+    action_request_id: str
+    action: Literal["accept", "reject"]
+    reason: str | None = None
+    response: SessionApprovalFormResponse | None = None
+
+
+class SessionApprovalsRequest(_Model):
+    approval_responses: list[SessionApprovalResponseItem] = Field(min_length=1, max_length=20)
+
+
 class SessionContinueRequest(_Model):
     input: str | list[Any] | None = None
     message: str | list[Any] | None = None
     stream: bool = False
     attachments: list[SessionAttachment] | None = None
+    approval_responses: list[SessionApprovalResponseItem] | None = None
 
 
 class SessionUpdateRequest(_Model):
@@ -718,6 +734,18 @@ class SessionProvenance(_Model):
     product: str | None = None
 
 
+class PendingApproval(_Model):
+    action_request_id: str | None = None
+    type: str
+    title: str | None = None
+    reason: str | None = None
+    recipient_user_id: str | None = None
+    tool_name: str | None = None
+    server_label: str | None = None
+    display_fields: list[list[str]] | None = None
+    questions: list[dict[str, Any]] | None = None
+
+
 class Session(_Model):
     id: str
     agent_id: str
@@ -736,11 +764,24 @@ class Session(_Model):
     usage: SessionUsage | None = None
     provenance: SessionProvenance | None = None
     incognito: bool = False
+    pending_approvals: list[PendingApproval] | None = None
 
 
 class SessionResponse(_Model):
     session: Session
     queue_position: int | None = None
+
+
+class SessionApprovalResult(_Model):
+    action_request_id: str
+    action: str
+    outcome: str
+
+
+class SessionApprovalsResponse(_Model):
+    session: Session
+    results: list[SessionApprovalResult]
+    stream_cursor: str | None = None
 
 
 class SessionListResponse(_Model):
