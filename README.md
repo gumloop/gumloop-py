@@ -218,7 +218,7 @@ CLI workflow uploads validate all paths before reading contents and accept at mo
 
 ### Browser profiles and session handoffs
 
-Both clients expose `browser_profiles.create(name, team_id=...)`, `get(profile_id)`, `update(profile_id, name=..., is_default=True)`, `delete(profile_id)`, and `remove_site(profile_id, site)`. Pass `team_id` for a team profile; omitting it selects personal scope. The `default` alias resolves only your personal default. Profile responses contain metadata, never cookie contents or encryption keys.
+Both clients expose `browser_profiles.create(name, team_id=...)`, `get(profile_id)`, `update(profile_id, name=..., is_default=True)`, `delete(profile_id)`, and `remove_site(profile_id, site)`. A method's `team_id` overrides the client's default team; without either, calls use personal scope. The `default` alias resolves only your personal default in personal scope. Profile responses contain metadata, never cookie contents or encryption keys.
 
 ```python
 profile = client.browser_profiles.create("Work")
