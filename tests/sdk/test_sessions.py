@@ -317,7 +317,7 @@ def test_async_sessions_stream_methods() -> None:
     )
 
     async def run() -> None:
-        async with AsyncGumloop(access_token="token") as client:
+        async with AsyncGumloop(access_token="token", team_id="team_1") as client:
             stream = await client.sessions.create(
                 "agent_123", input="Hello", stream=True, extra_headers={"X-Gumloop-MCP-Token": "jwt"}
             )
@@ -328,6 +328,7 @@ def test_async_sessions_stream_methods() -> None:
             {"type": "finish", "final": True},
         ]
         request = create_route.calls[0].request
+        assert request.url.params["team_id"] == "team_1"
         assert request_json(request) == {"input": "Hello", "stream": True}
         assert request.headers["X-Gumloop-MCP-Token"] == "jwt"
 
