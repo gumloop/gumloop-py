@@ -421,11 +421,20 @@ def sync_directory(
         _print_estimate("draft", BrainSourceEstimate.model_validate(estimate) if estimate else None)
 
 
+def source_creation_settings(cli: CliContext, settings: dict[str, Any]) -> dict[str, Any]:
+    resolved = dict(settings)
+    if "scope" not in resolved and cli.effective_team_id:
+        resolved["scope"] = "team"
+    if resolved.get("scope") == "team" and "team_id" not in resolved and cli.effective_team_id:
+        resolved["team_id"] = cli.effective_team_id
+    return resolved
+
+
 def _create_source(client: Gumloop, cli: CliContext, name: str, *, scope: str | None, require_approval: bool):
-    team_id = cli.effective_team_id
-    if team_id and scope is None:
-        scope = "team"
-    return client.brain.create_source(name, scope=scope, team_id=team_id, require_approval=require_approval)
+    settings: dict[str, Any] = {"require_approval": require_approval}
+    if scope is not None:
+        settings["scope"] = scope
+    return client.brain.create_source(name, **source_creation_settings(cli, settings))
 
 
 def _read_file(path: Path) -> bytes:

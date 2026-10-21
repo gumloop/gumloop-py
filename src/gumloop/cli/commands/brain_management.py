@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from gumloop import GumloopError
 from gumloop.cli.commands._args_input import resolve_json_args
+from gumloop.cli.commands.brain import source_creation_settings
 from gumloop.cli.commands.brain import sources_app
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
@@ -26,7 +27,9 @@ def connect_source(
     """Create a connected source draft from JSON. Account setup must already be complete."""
     cli: CliContext = ctx.obj
     try:
-        settings = resolve_json_args(inline=args_json, file_path=args_file, stdin_marker=args, allow_empty=False)
+        settings = source_creation_settings(
+            cli, resolve_json_args(inline=args_json, file_path=args_file, stdin_marker=args, allow_empty=False)
+        )
         name = settings.pop("name", None)
         source_type = settings.pop("source_type", None)
         if not isinstance(name, str) or not name.strip() or not isinstance(source_type, str):

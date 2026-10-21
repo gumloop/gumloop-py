@@ -57,3 +57,17 @@ def test_brain_configure_preserves_false_and_reports_api_denial(cli_runner):
     )
     assert result.exit_code != 0
     assert json.loads(route.calls[0].request.content) == {"respect_source_permissions": False}
+
+
+@pytest.mark.parametrize("explicit", [{}, {"scope": "personal"}, {"scope": "team", "team_id": "explicit-team"}])
+@respx.mock
+def test_connected_source_uses_selected_home_without_overriding_json(cli_runner, explicit):
+    save_credentials(Credentials(api_key="key"))
+    route = respx.post(f"{API_BASE}/brain/sources").respond(201, json={"source": SOURCE})
+    request = {"name": "Docs", "source_type": "google_drive", **explicit}
+    result = cli_runner.invoke(
+        app, ["--team-id", "selected-team", "brain", "sources", "connect", "--args-json", json.dumps(request), "--json"]
+    )
+    assert result.exit_code == 0, result.output
+    expected = explicit or {"scope": "team", "team_id": "selected-team"}
+    assert json.loads(route.calls[0].request.content) == {"name": "Docs", "source_type": "google_drive", **expected}
