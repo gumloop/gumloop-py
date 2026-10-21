@@ -388,6 +388,17 @@ class AgentTrigger(_Model):
     integration: IntegrationTriggerPayload | None = None
 
 
+class TriggerBackgroundTask(_Model):
+    type: str | None = None
+    window_start: str | None = None
+    window_end: str | None = None
+    source_outcomes: list[dict[str, Any]] | None = None
+    external_delivery_outcomes: dict[str, dict[str, Any]] | None = None
+    suggested_action_ids: list[str] | None = None
+    skip_reason: str | None = None
+    meeting_reference: dict[str, Any] | None = None
+
+
 class AgentTriggerRun(_Model):
     gummie_trigger_run_id: str
     interaction_id: str | None = None
@@ -400,6 +411,7 @@ class AgentTriggerRun(_Model):
     duration_ms: int | None = None
     credit_cost: float | None = None
     delivery_refusal: str | None = None
+    background_task: TriggerBackgroundTask | None = None
 
 
 class AgentTriggerRunsResponse(_Model):

@@ -86,7 +86,13 @@ def test_create_and_replace_integration_configuration_are_typed(asynchronous):
             "triggers/trigger%3Fid/runs",
             {
                 "items": [
-                    {"gummie_trigger_run_id": "run", "interaction_id": "chat", "state": "COMPLETED", "credit_cost": 3.0}
+                    {
+                        "gummie_trigger_run_id": "run",
+                        "interaction_id": "chat",
+                        "state": "COMPLETED",
+                        "credit_cost": 3.0,
+                        "background_task": {"type": "meeting_prep", "skip_reason": "No upcoming meetings"},
+                    }
                 ],
                 "next_cursor": "next",
             },
@@ -116,6 +122,9 @@ def test_public_trigger_inspection_uses_encoded_ids_and_typed_responses(asynchro
         with Gumloop(api_key="key") as client:
             result = getattr(client.agents, method)(*args, **kwargs)
     assert result.model_dump(exclude_unset=True) == response
+    if method == "list_trigger_runs":
+        assert result.items[0].background_task.type == "meeting_prep"
+        assert result.items[0].background_task.skip_reason == "No upcoming meetings"
     assert dict(route.calls[0].request.url.params) == (
         {"page_size": "5", "cursor": "cursor", "state": "COMPLETED,FAILED"} if kwargs else {}
     )
