@@ -8,6 +8,7 @@ import typer
 from gumloop import GumloopError
 from gumloop._http import ResponseSizeExceededError
 from gumloop.cli.commands._args_input import resolve_json_args
+from gumloop.cli.commands._workflow_files import read_upload_files
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
 from gumloop.cli.errors import exit_with_error
@@ -113,7 +114,7 @@ def upload(
     file_name: str | None = None,
     json_output: JsonOutput = False,
 ) -> None:
-    """Upload local files to workflow storage. --file-name can rename one uploaded file."""
+    """Upload regular files totaling at most 200 MiB. --file-name can rename one file."""
     cli: CliContext = ctx.obj
     try:
         if file_name is not None and len(files) != 1:
@@ -121,7 +122,7 @@ def upload(
         names = [file_name or path.name for path in files]
         if len(set(names)) != len(names):
             raise GumloopError("Upload file names must be unique.")
-        contents = {name: path.expanduser().read_bytes() for name, path in zip(names, files, strict=True)}
+        contents = read_upload_files(dict(zip(names, files, strict=True)))
         if len(files) == 1:
             result = cli.call_with_refresh(
                 lambda c: c.workflows.upload_file(names[0], contents[names[0]], project_id=project_id)

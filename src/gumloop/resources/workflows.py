@@ -107,6 +107,7 @@ class Workflows:
         poll_interval: float = 1.0,
         timeout: float | None = None,
     ) -> WorkflowRun:
+        """Start, then wait. timeout limits polling; startup uses the client's HTTP timeout."""
         _poll_options(poll_interval, timeout)
         started = self.start(workflow_id, inputs, project_id=project_id)
         return self.wait(started.run_id, project_id=project_id, poll_interval=poll_interval, timeout=timeout)
@@ -240,6 +241,7 @@ class AsyncWorkflows:
         poll_interval: float = 1.0,
         timeout: float | None = None,
     ) -> WorkflowRun:
+        """Start, then wait. timeout limits polling; startup uses the client's HTTP timeout."""
         _poll_options(poll_interval, timeout)
         started = await self.start(workflow_id, inputs, project_id=project_id)
         return await self.wait(started.run_id, project_id=project_id, poll_interval=poll_interval, timeout=timeout)

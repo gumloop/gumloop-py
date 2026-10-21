@@ -190,7 +190,7 @@ Every file carries its `sha256`, so `client.brain.list_files(source.id)` is enou
 
 ### Saved workflows
 
-`Gumloop` and `AsyncGumloop` expose `workflows.list()`, `list_workbooks()`, `inputs(workflow_id)`, `start()`, `get_run()`, `cancel_run()`, and `wait()`. A workflow ID is the saved tab's `saved_item_id`, not the containing `workbook_id`. `run()` starts and waits, returning a typed run with outputs; `WorkflowExecutionError` includes the terminal run on failure or termination. A polling timeout leaves the remote run active. Existing `GumloopClient.run_flow()` users remain supported.
+`Gumloop` and `AsyncGumloop` expose `workflows.list()`, `list_workbooks()`, `inputs(workflow_id)`, `start()`, `get_run()`, `cancel_run()`, and `wait()`. A workflow ID is the saved tab's `saved_item_id`, not the containing `workbook_id`. `run()` starts and waits, returning a typed run with outputs; `WorkflowExecutionError` includes the terminal run on failure or termination. Its `timeout` limits polling after startup; the initial start request uses the client's HTTP timeout. A polling timeout leaves the remote run active. Existing `GumloopClient.run_flow()` users remain supported.
 
 ```python
 with Gumloop(api_key="...", user_id="...") as client:
@@ -211,3 +211,5 @@ gumloop workflows cancel RUN_ID --json
 gumloop workflows upload ./input.csv --json
 gumloop workflows download STORED_FILE_NAME --output ./download.csv --json
 ```
+
+CLI workflow uploads validate all paths before reading contents and accept at most 200 MiB total per command, including bulk uploads.
