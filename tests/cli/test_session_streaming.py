@@ -93,6 +93,50 @@ def test_session_stream_error_preserves_event_and_exits_nonzero(cli_runner: CliR
     assert result.exit_code == 1
     assert json.loads(result.stdout.splitlines()[-1])["error"] == {"message": "Run failed"}
     assert "Run failed" in json.loads(result.stderr)["error"]["message"]
+    assert json.loads(result.stderr)["error"]["message"] == "Run failed"
+
+
+@pytest.mark.parametrize("json_output", [False, True])
+@respx.mock
+def test_session_resume_not_resumable_fails(cli_runner: CliRunner, json_output: bool) -> None:
+    event = {"type": "finish", "finishReason": "not_resumable", "final": True}
+    respx.get(f"{STREAM_BASE}/sessions/session_1").mock(return_value=sse([event]))
+    save_credentials(Credentials(api_key="key"))
+    result = cli_runner.invoke(
+        app, ["sessions", "resume", "session_1", "--cursor", "old:0", *(["--json"] if json_output else [])]
+    )
+    assert result.exit_code == 1
+    assert "cannot be resumed" in result.stderr
+    if json_output:
+        assert json.loads(result.stdout) == {"type": "finish", "finish_reason": "not_resumable", "final": True}
+
+
+@pytest.mark.parametrize(
+    "command,method,path,options",
+    [
+        ("create", "POST", "agents/agent_1/sessions", ["--input", "Hello", "--stream"]),
+        ("send", "POST", "sessions/session_1/messages", ["--input", "Hello", "--stream"]),
+        ("resume", "GET", "sessions/session_1", ["--cursor", "session_1:0"]),
+    ],
+)
+@respx.mock
+def test_team_scoped_session_streams(cli_runner: CliRunner, command, method, path, options) -> None:
+    route = respx.route(method=method, url=f"{STREAM_BASE}/{path}").mock(return_value=sse(EVENTS))
+    save_credentials(Credentials(api_key="team_key"))
+    result = cli_runner.invoke(
+        app,
+        [
+            "--team-id",
+            "team_1",
+            "sessions",
+            command,
+            "agent_1" if command == "create" else "session_1",
+            *options,
+            "--json",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert route.calls[0].request.url.params["team_id"] == "team_1"
 
 
 @pytest.mark.parametrize("stream", [False, True])
