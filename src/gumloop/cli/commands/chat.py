@@ -223,9 +223,7 @@ def _stdout_is_tty() -> bool:
     return sys.stdout.isatty()
 
 
-def _emit_stream_chunk(
-    chunk: ChatStreamChunk, *, json_mode: bool = False, image_notice_emitted: bool = False
-) -> bool:
+def _emit_stream_chunk(chunk: ChatStreamChunk, *, json_mode: bool = False, image_notice_emitted: bool = False) -> bool:
     if json_mode:
         # ndjson: one chunk per line, by_alias so wire field names match the SDK.
         sys.stdout.write(chunk.model_dump_json(by_alias=True) + "\n")
