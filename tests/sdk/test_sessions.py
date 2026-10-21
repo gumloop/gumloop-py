@@ -325,7 +325,7 @@ def test_async_sessions_stream_methods() -> None:
             {"type": "finish", "final": True},
         ]
         request = create_route.calls[0].request
-        assert request.url.params["team_id"] == "team_1"
+        assert "team_id" not in request.url.params
         assert request_json(request) == {"input": "Hello", "stream": True}
         assert request.headers["X-Gumloop-MCP-Token"] == "jwt"
 
