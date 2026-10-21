@@ -9,6 +9,7 @@ import typer
 from gumloop import __version__
 from gumloop import _http
 from gumloop.cli.commands import artifact_lifecycle  # noqa: F401
+from gumloop.cli.commands import brain_management  # noqa: F401
 from gumloop.cli.commands.agents import agents_app
 from gumloop.cli.commands.artifacts import artifacts_app
 from gumloop.cli.commands.auth import login as login_command

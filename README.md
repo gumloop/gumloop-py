@@ -190,7 +190,34 @@ print([f.status for f in upload.files], upload.rejected)
 print(client.brain.search("onboarding checklist").results[0].title)
 ```
 
-Every file carries its `sha256`, so `client.brain.list_files(source.id)` is enough to diff a local folder against the source. Only file-upload sources can be created through the API; Notion, Drive and other connected sources are set up in the Gumloop app.
+Every file carries its `sha256`, so `client.brain.list_files(source.id)` is enough to diff a local folder against the source.
+
+### Manage connected Brain sources
+
+Once account authorization or MCP setup is complete in the Gumloop app, `create_source` also accepts `source_type`, `config`, and `credentials_to_use`. Connected sources start as drafts and require estimate approval; `require_approval=False` is rejected. The existing file-upload default remains unchanged. Source-specific configuration and credential selection follow the same rules as the app, including protected MCP plans, scripts, and allowed tools.
+
+`get_source_configuration` requires source management permission and returns editable settings and credential selectors without private setup diagnostics. `update_source` changes settings, `browse_source` lists account nodes, `sync_source` queues work or retries setup, and `pause_source`/`resume_source` control approved sources. `list_sync_runs`, `list_source_issues`, and `list_source_children` return cursor-paginated history, issues, and indexed documents; document visibility is checked for the caller. The same methods are available on `AsyncGumloop`.
+
+```python
+settings = client.brain.get_source_configuration(source.id)
+history = client.brain.list_sync_runs(source.id, page_size=20)
+children = client.brain.list_source_children(source.id, page_size=100)
+```
+
+```sh
+gumloop brain sources connect --args-file connected-source.json --json
+gumloop brain sources configuration SOURCE_ID --json
+gumloop brain sources configure SOURCE_ID --args-json '{"name":"Engineering docs"}' --json
+gumloop brain sources browse google_drive --args-file browse-settings.json --json
+gumloop brain sources sync SOURCE_ID --json
+gumloop brain sources pause SOURCE_ID --json
+gumloop brain sources resume SOURCE_ID --json
+gumloop brain sources history SOURCE_ID --page-size 20 --json
+gumloop brain sources issues SOURCE_ID --json
+gumloop brain sources children SOURCE_ID --json
+```
+
+The JSON commands accept `--args-json`, `--args-file`, or `--args -` for stdin. Source sharing and role management remain separate from these lifecycle operations.
 
 ### Saved workflows
 
