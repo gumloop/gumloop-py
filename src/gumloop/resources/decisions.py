@@ -5,11 +5,9 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from pydantic import ValidationError
-
 from gumloop._http import AsyncHttpClient
 from gumloop._http import HttpClient
-from gumloop.errors import GumloopError
+from gumloop.resources._validation import request_validation
 from gumloop.spec import DecisionsQuestion
 from gumloop.spec import DecisionsRequest
 from gumloop.spec import DecisionsResponse
@@ -30,10 +28,8 @@ def _build_request(
     else:
         base = dict(request)
     base.update({k: v for k, v in kwargs.items() if v is not None})
-    try:
+    with request_validation("decisions request"):
         return DecisionsRequest.model_validate(base)
-    except ValidationError as exc:
-        raise GumloopError(f"invalid decisions request: {exc}") from exc
 
 
 class Decisions:
