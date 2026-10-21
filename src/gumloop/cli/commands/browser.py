@@ -6,6 +6,7 @@ from typing import Any
 
 import questionary
 import typer
+from pydantic import ValidationError
 from rich.markup import escape as escape_markup
 
 from gumloop import GumloopError
@@ -31,7 +32,7 @@ browser_app = typer.Typer(
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
-profiles_app = typer.Typer(help="List browser profiles.", no_args_is_help=True, rich_markup_mode="rich")
+profiles_app = typer.Typer(help="Manage browser profiles.", no_args_is_help=True, rich_markup_mode="rich")
 browser_app.add_typer(profiles_app, name="profiles")
 
 
@@ -307,4 +308,119 @@ def list_profiles(
         return
 
     _print_profile_rows(response.profiles)
-    console.print("[dim]Rename, remove sites from, or delete profiles on the Secrets page in Gumloop.[/dim]")
+
+
+@profiles_app.command("create")
+def create_profile(
+    ctx: typer.Context,
+    name: Annotated[str, typer.Argument(help="Name for the new browser profile.")],
+    team: Annotated[str | None, typer.Option("--team", help="Team that owns the profile.")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Print the profile as JSON.")] = False,
+) -> None:
+    cli: CliContext = ctx.obj
+    try:
+        if not name.strip():
+            raise GumloopError("Pass a non-empty profile name.")
+        response = cli.call_with_refresh(
+            lambda client: client.browser_profiles.create(name, team_id=team or cli.effective_team_id)
+        )
+    except (GumloopError, ValidationError) as error:
+        exit_with_error(error, json_output=json_output)
+    if json_output:
+        print_json(response)
+    else:
+        _print_profile_rows([response])
+
+
+@profiles_app.command("get")
+def get_profile(
+    ctx: typer.Context,
+    profile_id: Annotated[str, typer.Argument(help="Profile id, or 'default' for your personal default.")],
+    team: Annotated[str | None, typer.Option("--team", help="Team that owns the profile.")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Print the profile as JSON.")] = False,
+) -> None:
+    cli: CliContext = ctx.obj
+    try:
+        response = cli.call_with_refresh(
+            lambda client: client.browser_profiles.get(profile_id, team_id=team or cli.effective_team_id)
+        )
+    except GumloopError as error:
+        exit_with_error(error, json_output=json_output)
+    if json_output:
+        print_json(response)
+    else:
+        _print_profile_rows([response])
+
+
+@profiles_app.command("update")
+def update_profile(
+    ctx: typer.Context,
+    profile_id: Annotated[str, typer.Argument(help="Profile id to update.")],
+    name: Annotated[str | None, typer.Option("--name", help="New profile name.")] = None,
+    make_default: Annotated[bool, typer.Option("--default", help="Make this your personal default profile.")] = False,
+    team: Annotated[str | None, typer.Option("--team", help="Team that owns the profile.")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Print the profile as JSON.")] = False,
+) -> None:
+    cli: CliContext = ctx.obj
+    try:
+        if name is None and not make_default:
+            raise GumloopError("Pass --name or --default to update a profile.")
+        if name is not None and not name.strip():
+            raise GumloopError("Pass a non-empty --name.")
+        response = cli.call_with_refresh(
+            lambda client: client.browser_profiles.update(
+                profile_id,
+                name=name,
+                is_default=True if make_default else None,
+                team_id=team or cli.effective_team_id,
+            )
+        )
+    except (GumloopError, ValidationError) as error:
+        exit_with_error(error, json_output=json_output)
+    if json_output:
+        print_json(response)
+    else:
+        _print_profile_rows([response])
+
+
+@profiles_app.command("delete")
+def delete_profile(
+    ctx: typer.Context,
+    profile_id: Annotated[str, typer.Argument(help="Profile id to delete, including its saved logins.")],
+    team: Annotated[str | None, typer.Option("--team", help="Team that owns the profile.")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Print the deletion result as JSON.")] = False,
+) -> None:
+    cli: CliContext = ctx.obj
+    try:
+        response = cli.call_with_refresh(
+            lambda client: client.browser_profiles.delete(profile_id, team_id=team or cli.effective_team_id)
+        )
+    except GumloopError as error:
+        exit_with_error(error, json_output=json_output)
+    if json_output:
+        print_json(response)
+    else:
+        console.print("Deleted browser profile.")
+
+
+@profiles_app.command("remove-site")
+def remove_profile_site(
+    ctx: typer.Context,
+    profile_id: Annotated[str, typer.Argument(help="Profile id to remove the site from.")],
+    site: Annotated[str, typer.Argument(help="Saved site domain, such as example.com.")],
+    team: Annotated[str | None, typer.Option("--team", help="Team that owns the profile.")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Print the updated profile as JSON.")] = False,
+) -> None:
+    cli: CliContext = ctx.obj
+    try:
+        if not site.strip():
+            raise GumloopError("Pass a non-empty site domain.")
+        response = cli.call_with_refresh(
+            lambda client: client.browser_profiles.remove_site(profile_id, site, team_id=team or cli.effective_team_id)
+        )
+    except GumloopError as error:
+        exit_with_error(error, json_output=json_output)
+    if json_output:
+        print_json(response)
+    else:
+        _print_profile_rows([response])

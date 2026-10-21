@@ -177,8 +177,8 @@ class HttpClient:
     def put(self, path: str, *, json: Any = None) -> Any:
         return self._request("PUT", path, json=json)
 
-    def delete(self, path: str) -> Any:
-        return self._request("DELETE", path)
+    def delete(self, path: str, *, params: Mapping[str, Any] | None = None) -> Any:
+        return self._request("DELETE", path, params=_omit_none_params(params))
 
     def post_bytes(
         self,
@@ -382,8 +382,8 @@ class AsyncHttpClient:
     async def put(self, path: str, *, json: Any = None) -> Any:
         return await self._request("PUT", path, json=json)
 
-    async def delete(self, path: str) -> Any:
-        return await self._request("DELETE", path)
+    async def delete(self, path: str, *, params: Mapping[str, Any] | None = None) -> Any:
+        return await self._request("DELETE", path, params=_omit_none_params(params))
 
     async def post_bytes(
         self,

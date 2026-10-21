@@ -696,6 +696,50 @@ class BrowserProfileImportResponse(_Model):
     imported: BrowserProfileImportSummary
 
 
+class BrowserProfileCreateRequest(_Model):
+    name: str = Field(min_length=1, max_length=255, pattern=r"\S")
+    team_id: str | None = None
+
+
+class BrowserProfileUpdateRequest(_Model):
+    name: str | None = Field(default=None, min_length=1, max_length=255, pattern=r"\S")
+    is_default: Literal[True] | None = None
+    team_id: str | None = None
+
+    @model_validator(mode="after")
+    def _has_changes(self) -> BrowserProfileUpdateRequest:
+        if self.name is None and self.is_default is None:
+            raise ValueError("Pass name or is_default=True to update a browser profile.")
+        return self
+
+
+class BrowserProfileDeleteResponse(_Model):
+    status: Literal["success"]
+
+
+class BrowserSessionController(_Model):
+    user_id: str
+    user_name: str
+    source: str
+    since: int
+
+
+class BrowserSessionHandoff(_Model):
+    action_request_id: str
+    title: str | None = None
+    reason: str | None = None
+    manage_url: str
+
+
+class BrowserSessionResponse(_Model):
+    session_id: str
+    available: bool
+    controller: BrowserSessionController | None = None
+    elapsed_seconds: int | None = None
+    viewer_url: str
+    handoffs: list[BrowserSessionHandoff] = Field(default_factory=list)
+
+
 # ---------------------------------------------------------------------------
 # Session types
 # ---------------------------------------------------------------------------
