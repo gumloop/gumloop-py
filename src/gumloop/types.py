@@ -1808,6 +1808,8 @@ class ArtifactNameResponse(_Model):
 class ArtifactHosting(_Model):
     enabled: bool
     alias: str | None = None
+    url: str | None = None
+    domain: str | None = None
 
 
 class ArtifactContent(BaseModel):
