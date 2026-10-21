@@ -315,3 +315,22 @@ class TestDownload:
 
         with pytest.raises(httpx.ReadTimeout):
             api_key_sync.download()
+
+
+@respx.mock
+def test_sync_download_preserves_organization_body_without_default_team_query() -> None:
+    route = respx.post(DOWNLOAD_URL).respond(200, content=b"PK\x03\x04", headers=_download_response_headers())
+    with HttpClient(
+        base_url=API_BASE,
+        stream_base_url=API_BASE,
+        access_token="personal-token",
+        user_id="user_fixture",
+        team_id="unrelated_team",
+        timeout=30.0,
+        stream_timeout=30.0,
+    ) as transport:
+        result = Sync(transport).download(organization_id="org_fixture")
+    assert result.content == b"PK\x03\x04"
+    request = route.calls[0].request
+    assert not request.url.params
+    assert request_json(request) == {"organization_id": "org_fixture"}

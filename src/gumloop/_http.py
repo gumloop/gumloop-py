@@ -192,9 +192,7 @@ class HttpClient:
         headers["Content-Type"] = "application/json"
         if extra_headers:
             headers.update(extra_headers)
-        with self._client.stream(
-            "POST", path, headers=headers, json=json, params=self._scoped_params(None)
-        ) as response:
+        with self._client.stream("POST", path, headers=headers, json=json) as response:
             if response.status_code >= 400:
                 response.read()
                 raise to_api_error(response)
@@ -399,9 +397,7 @@ class AsyncHttpClient:
         headers["Content-Type"] = "application/json"
         if extra_headers:
             headers.update(extra_headers)
-        async with self._client.stream(
-            "POST", path, headers=headers, json=json, params=self._scoped_params(None)
-        ) as response:
+        async with self._client.stream("POST", path, headers=headers, json=json) as response:
             if response.status_code >= 400:
                 await response.aread()
                 raise to_api_error(response)

@@ -177,6 +177,6 @@ def test_workflow_files_roundtrip_partial_and_bounded_download(asynchronous: boo
                 client.workflows.download_file("stored", max_bytes=1)
     assert base64.b64decode(json.loads(upload.calls[0].request.content)["file_content"]) == content
     assert json.loads(bulk_upload.calls[0].request.content)["project_id"] == "project"
-    assert download.calls[0].request.url.params["team_id"] == "team"
+    assert "team_id" not in download.calls[0].request.url.params
     assert json.loads(download.calls[0].request.content)["run_id"] == "run"
     assert json.loads(archive.calls[0].request.content)["file_names"] == ["a", "b"]
