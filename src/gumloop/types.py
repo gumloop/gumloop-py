@@ -368,6 +368,47 @@ class AgentAppRulesResponse(_Model):
     app_rules: list[AgentAppRule] = Field(default_factory=list)
 
 
+class AgentAppRuleResponse(_Model):
+    agent_id: str
+    app_rule: AgentAppRule
+
+
+class AgentAppRuleDeleteResponse(_Model):
+    agent_id: str
+    rule_id: str
+    deleted: bool
+
+
+class AgentAppRuleCreateRequest(_Model):
+    name: str = Field(min_length=1, max_length=255)
+    description: str | None = None
+    status: Literal["enabled", "disabled"] = "disabled"
+    check_type: Literal["before", "after"] = "before"
+    action: Literal["block", "tag", "approval"] = "block"
+    scope: dict[str, Any] | None = None
+    conditions: str | None = None
+    action_config: dict[str, Any] | None = None
+    priority: int = 0
+
+
+class AgentAppRuleUpdateRequest(_Model):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = None
+    status: Literal["enabled", "disabled"] | None = None
+    check_type: Literal["before", "after"] | None = None
+    action: Literal["block", "tag", "approval"] | None = None
+    scope: dict[str, Any] | None = None
+    conditions: str | None = None
+    action_config: dict[str, Any] | None = None
+    priority: int | None = None
+
+    @model_validator(mode="after")
+    def require_fields(self) -> AgentAppRuleUpdateRequest:
+        if not self.model_fields_set:
+            raise ValueError("At least one app rule field is required.")
+        return self
+
+
 class AgentCreateRequest(_Model):
     name: str
     model_name: str | None = None
