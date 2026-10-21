@@ -40,3 +40,15 @@ def test_wiki_key_requires_type(cli_runner: CliRunner) -> None:
     result = cli_runner.invoke(app, ["wiki", "query", "--entity-key", "launch"])
     assert result.exit_code != 0
     assert "Pass --type" in result.output
+
+
+@respx.mock
+def test_wiki_human_output_includes_row_facts(cli_runner: CliRunner) -> None:
+    save_credentials(Credentials(api_key="key"))
+    respx.post(f"{API_BASE}/wiki/query").respond(
+        200,
+        json={"cards": [{"type": "profile", "name": "Preferences", "row_facts": {"timezone": "[UTC]"}, "facts": []}]},
+    )
+    result = cli_runner.invoke(app, ["wiki", "query"])
+    assert result.exit_code == 0, result.output
+    assert "timezone: [UTC]" in result.output
