@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 import sys
+import tempfile
 from pathlib import Path
 from pathlib import PurePosixPath
 from pathlib import PureWindowsPath
@@ -178,3 +180,22 @@ def download_response(response: _DownloadInfo, *, output: str | None, fallback_n
         "filename": server_filename,
         "media_type": response.media_type,
     }
+
+
+def write_download_bytes(content: bytes, destination: Path, *, force: bool = False) -> None:
+    """Commit a complete download from a temporary file on the same filesystem."""
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            dir=destination.parent, prefix=f".{destination.name}.", delete=False
+        ) as stream:
+            temporary = Path(stream.name)
+            stream.write(content)
+            stream.flush()
+        if force:
+            temporary.replace(destination)
+        else:
+            os.link(temporary, destination)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)

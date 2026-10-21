@@ -8,6 +8,7 @@ import typer
 from gumloop import GumloopError
 from gumloop._http import ResponseSizeExceededError
 from gumloop.cli.commands._args_input import resolve_json_args
+from gumloop.cli.commands._downloads import write_download_bytes
 from gumloop.cli.commands.artifacts import artifacts_app
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
@@ -39,15 +40,17 @@ def content(
     output: Annotated[Path, typer.Option()],
     version_id: str | None = None,
     max_bytes: Annotated[int, typer.Option(min=1)] = 64 * 1024 * 1024,
+    force: Annotated[bool, typer.Option(help="Replace an existing output file.")] = False,
     json_output: JsonOutput = False,
 ) -> None:
-    """Download file content or its bundle ZIP to explicit --output."""
+    """Download file content or its bundle ZIP to explicit --output. Use --force to replace a file."""
     cli: CliContext = ctx.obj
     try:
+        destination = _output_destination(output, force=force)
         result = cli.call_with_refresh(
             lambda c: c.artifacts.content(artifact_id, version_id=version_id, max_bytes=max_bytes)
         )
-        output.expanduser().write_bytes(result.content)
+        write_download_bytes(result.content, destination, force=force)
         print_json({"path": str(output), "bytes": len(result.content), "media_type": result.media_type})
     except (OSError, ResponseSizeExceededError) as error:
         exit_with_error(GumloopError(str(error)), json_output=json_output)
@@ -176,13 +179,20 @@ def execute(
     args_file: str | None = None,
     args: str | None = None,
     version_id: str | None = None,
-    output: Path | None = None,
+    output: Annotated[
+        Path | None,
+        typer.Option(
+            help="Request a generated binary file (download=true); JSON results print to stdout without --output."
+        ),
+    ] = None,
     max_bytes: Annotated[int, typer.Option(min=1)] = 64 * 1024 * 1024,
+    force: Annotated[bool, typer.Option(help="Replace an existing output file.")] = False,
     json_output: JsonOutput = False,
 ) -> None:
     """Run a script. JSON args are an object with optional payload (any JSON value).
 
-    --output requests a generated binary file. Execution uses current app permissions and bills the caller.
+    --output requests a script-generated binary file, not a saved JSON response.
+    Without it, JSON prints to stdout. Execution uses current app permissions and bills the caller.
     """
     cli: CliContext = ctx.obj
     try:
@@ -198,14 +208,22 @@ def execute(
                 )
             )
         else:
+            destination = _output_destination(output, force=force)
             result = cli.call_with_refresh(
                 lambda c: c.artifacts.download_script(
                     artifact_id, key, payload=request.get("payload"), version_id=version_id, max_bytes=max_bytes
                 )
             )
-            output.expanduser().write_bytes(result.content)
+            write_download_bytes(result.content, destination, force=force)
             print_json({"path": str(output), "bytes": len(result.content), "media_type": result.media_type})
     except (OSError, ResponseSizeExceededError) as error:
         exit_with_error(GumloopError(str(error)), json_output=json_output)
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
+
+
+def _output_destination(output: Path, *, force: bool) -> Path:
+    destination = output.expanduser()
+    if not force and (destination.exists() or destination.is_symlink()):
+        raise GumloopError(f"Output already exists: {destination}. Use --force to replace it.")
+    return destination

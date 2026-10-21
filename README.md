@@ -244,7 +244,7 @@ gumloop sessions browser SESSION_ID --json
 
 ### Generated file lifecycle
 
-The sync/async `artifacts` resource supports `retrieve`, `content`, `rename`, `delete`, `list_versions`, `restore`, hosting configuration, and declared-script execution. These are generated files, separate from session input uploads. Display-name changes preserve the stored filename. Legacy generated files support soft deletion, version discovery, and downloads; VFS handles support queued, append-only restore and cannot be deleted through this API. Content and script downloads return bytes, bounded to 64 MiB by default.
+The sync/async `artifacts` resource supports `retrieve`, `content`, `rename`, `delete`, `list_versions`, `restore`, hosting configuration, and declared-script execution. These are generated files, separate from session input uploads. Display-name changes preserve the stored filename. Legacy generated files support soft deletion, version discovery, and downloads; VFS handles support queued, append-only restore and cannot be deleted through this API. Content and script downloads return bytes, bounded to 64 MiB by default. CLI output files are committed only after a complete write; replacing an existing file requires `--force`.
 
 ```sh
 gumloop artifacts get FILE_ID --json
@@ -260,4 +260,4 @@ gumloop artifacts scripts acknowledge-integrations FILE_ID REVIEWED_VERSION_ID -
 gumloop artifacts scripts execute FILE_ID SCRIPT_KEY --args-json '{"payload":{"query":"example"}}' --json
 ```
 
-Script execution uses the caller's current account permissions, the file's current tool policy, and ordinary execution billing. Review the declared tools before explicitly acknowledging integration consent for a version; team keys cannot record personal consent. JSON script results may be any JSON value; `download_script` or CLI `--output` requests the script's generated binary output. Hosting mutations require file sharing permission and use the same alias/domain policy as the app; the SDK does not make a private file public automatically.
+Script execution uses the caller's current account permissions, the file's current tool policy, and ordinary execution billing. Review the declared tools before explicitly acknowledging integration consent for a version; team keys cannot record personal consent. JSON script results may be any JSON value; `download_script` or CLI `--output` requests the script's generated binary output. Hosting is supported for stored legacy artifacts; VFS handle-backed files retain the app's hosting limitation. Hosting mutations require file sharing permission and use the same alias/domain policy as the app; the SDK does not make a private file public automatically.

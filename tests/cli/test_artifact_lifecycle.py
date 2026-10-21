@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import io
 import json
 from pathlib import Path
+from unittest.mock import patch
 
+import pytest
 import respx
 from typer.testing import CliRunner
 
@@ -35,7 +38,7 @@ def test_artifact_cli_binary_failure_preserves_output(cli_runner: CliRunner, tmp
     target.write_bytes(b"original")
     respx.get(f"{API_BASE}/artifacts/file/content").respond(200, content=b"big binary")
     result = cli_runner.invoke(
-        app, ["artifacts", "content", "file", "--output", str(target), "--max-bytes", "1", "--json"]
+        app, ["artifacts", "content", "file", "--output", str(target), "--max-bytes", "1", "--force", "--json"]
     )
     assert result.exit_code != 0
     assert target.read_bytes() == b"original"
@@ -50,3 +53,55 @@ def test_artifact_cli_rename_requires_choice_and_sends_null(cli_runner: CliRunne
     result = cli_runner.invoke(app, ["artifacts", "rename", "file", "--reset", "--json"])
     assert result.exit_code == 0, result.output
     assert json.loads(route.calls[0].request.content) == {"name": None}
+
+
+@pytest.mark.parametrize("script", [False, True])
+@respx.mock
+def test_artifact_output_requires_explicit_replace(cli_runner, tmp_path, script):
+    save_credentials(Credentials(api_key="key"))
+    target = tmp_path / "existing.bin"
+    target.write_bytes(b"original")
+    route = (
+        respx.post(f"{API_BASE}/artifacts/file/execute") if script else respx.get(f"{API_BASE}/artifacts/file/content")
+    ).respond(200, content=b"replacement")
+    command = ["artifacts", "scripts", "execute", "file", "data"] if script else ["artifacts", "content", "file"]
+    result = cli_runner.invoke(app, [*command, "--output", str(target), "--json"])
+    assert result.exit_code != 0
+    assert target.read_bytes() == b"original"
+    assert not route.called
+    result = cli_runner.invoke(app, [*command, "--output", str(target), "--force", "--json"])
+    assert result.exit_code == 0, result.output
+    assert target.read_bytes() == b"replacement"
+
+
+@pytest.mark.parametrize("script", [False, True])
+@respx.mock
+def test_failed_disk_write_keeps_existing_download(cli_runner, tmp_path, script):
+    save_credentials(Credentials(api_key="key"))
+    target = tmp_path / "existing.bin"
+    target.write_bytes(b"original")
+    (
+        respx.post(f"{API_BASE}/artifacts/file/execute") if script else respx.get(f"{API_BASE}/artifacts/file/content")
+    ).respond(200, content=b"replacement")
+    command = ["artifacts", "scripts", "execute", "file", "data"] if script else ["artifacts", "content", "file"]
+    open_file = io.open
+
+    def failing_open(*args, **kwargs):
+        stream = open_file(*args, **kwargs)
+        mode = kwargs.get("mode", args[1] if len(args) > 1 else "r")
+        if "w" in mode:
+            write = stream.write
+
+            def partial_write(data):
+                write(data[:3])
+                raise OSError("test disk full")
+
+            stream.write = partial_write
+        return stream
+
+    with patch.object(io, "open", autospec=True, side_effect=failing_open):
+        result = cli_runner.invoke(app, [*command, "--output", str(target), "--force", "--json"])
+    assert result.exit_code != 0
+    assert target.read_bytes() == b"original"
+    assert "test disk full" in result.output
+    assert sorted(path.name for path in tmp_path.iterdir() if path.is_file()) == ["existing.bin"]
