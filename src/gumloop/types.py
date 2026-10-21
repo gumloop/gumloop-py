@@ -347,7 +347,9 @@ class AgentTriggerCreateRequest(_Model):
     def _integration_matches_type(self) -> AgentTriggerCreateRequest:
         if (self.type == "integration") != (self.integration is not None):
             raise ValueError("integration configuration is required only for integration triggers")
-        if self.integration and (self.cron_expression or self.run_at or self.timezone):
+        if self.integration is not None and any(
+            value is not None for value in (self.cron_expression, self.run_at, self.timezone)
+        ):
             raise ValueError("integration triggers do not take schedule fields")
         return self
 
@@ -388,7 +390,7 @@ class AgentTrigger(_Model):
 
 class AgentTriggerRun(_Model):
     gummie_trigger_run_id: str
-    interaction_id: str
+    interaction_id: str | None = None
     state: str
     name: str | None = None
     message_id: str | None = None
