@@ -9,6 +9,7 @@ from pydantic import AliasChoices
 from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
+from pydantic import field_validator
 from pydantic import model_validator
 
 
@@ -1565,7 +1566,16 @@ class WikiLinkedUser(_Model):
 
 
 class WikiCard(_Model):
-    type: WikiCardType
+    type: WikiCardType | str
+
+    @field_validator("type", mode="before")
+    @classmethod
+    def _known_card_type(cls, value: Any) -> Any:
+        try:
+            return WikiCardType(value)
+        except ValueError:
+            return value
+
     entity_key: str | None = None
     name: str | None = None
     summary: str | None = None

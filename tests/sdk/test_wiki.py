@@ -41,7 +41,7 @@ def test_wiki_query_types_and_filters(client: Gumloop) -> None:
     response = client.wiki.query(WikiQueryRequest(type=WikiCardType.PROJECT, entity_key="launch"))
     assert json.loads(route.calls[0].request.content) == {"type": "project", "entity_key": "launch"}
     assert response.cards[0].facts[0].sources[0].subject_id == "user-1"
-    assert response.cards[0].type == WikiCardType.PROJECT
+    assert response.cards[0].type is WikiCardType.PROJECT
 
 
 @respx.mock
@@ -59,3 +59,11 @@ def test_wiki_not_found_preserves_api_error(client: Gumloop) -> None:
     with pytest.raises(APIStatusError) as error:
         client.wiki.query(type="project", entity_key="missing")
     assert error.value.status_code == 404
+
+
+@respx.mock
+def test_wiki_accepts_new_response_card_types(client: Gumloop) -> None:
+    respx.post(f"{API_BASE}/wiki/query").respond(200, json={"cards": [{"type": "new_backend_type"}]})
+    card = client.wiki.query().cards[0]
+    assert card.type == "new_backend_type"
+    assert card.model_dump(mode="json")["type"] == "new_backend_type"

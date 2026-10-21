@@ -37,8 +37,11 @@ def query_wiki(
     if not response.cards:
         console.print("No wiki cards found.")
     for card in response.cards:
-        console.print(f"{card.type.value}: {card.name or card.entity_key or ''}", markup=False, highlight=False)
+        label = card.type.value if isinstance(card.type, WikiCardType) else card.type
+        console.print(f"{label}: {card.name or card.entity_key or ''}", markup=False, highlight=False)
         if card.summary:
             console.print(card.summary, markup=False, highlight=False)
+        for name, value in card.row_facts.items():
+            console.print(f"  {name}: {value}", markup=False, highlight=False)
         for fact in card.facts:
             console.print(f"  {fact.kind}: {fact.text}", markup=False, highlight=False)
