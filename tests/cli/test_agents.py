@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import httpx
+import pytest
 import respx
 from typer.testing import CliRunner
 
@@ -246,6 +247,18 @@ def test_agents_update_refused_incognito_leaves_the_fields_untouched(cli_runner:
     result = cli_runner.invoke(app, ["agents", "update", "agent_abc", "--inactive", "--incognito"])
 
     assert (result.exit_code, patch_route.call_count) == (1, 0)
+
+
+@pytest.mark.parametrize("flag", ["--incognito", "--no-incognito"])
+@respx.mock
+def test_agents_update_version_and_incognito_rejected_before_mutation(cli_runner: CliRunner, flag: str) -> None:
+    save_credentials(Credentials(api_key="key"))
+    result = cli_runner.invoke(
+        app, ["agents", "update", "agent_abc", "--args-json", '{"version":4,"name":"New"}', flag, "--json"]
+    )
+    assert result.exit_code == 1
+    assert "separate command" in json.loads(result.stderr)["error"]["message"]
+    assert not respx.calls
 
 
 @respx.mock
