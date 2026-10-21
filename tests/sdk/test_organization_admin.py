@@ -18,6 +18,50 @@ ROLE = {"role_id": "role", "role_name": "Test", "is_default": False, "member_cou
 
 @pytest.mark.parametrize("asynchronous", [False, True])
 @respx.mock
+def test_empty_audit_filters_are_omitted(asynchronous: bool) -> None:
+    route = respx.get(f"{API_BASE}/get_audit_logs").respond(
+        200, json={"audit_logs": [], "total_count": 0, "page": 1, "page_size": 50, "total_pages": 0}
+    )
+
+    async def run() -> None:
+        async with AsyncGumloop(api_key="key", user_id="actor") as client:
+            await client.organizations.audit_logs(
+                "org",
+                start_time="start",
+                end_time="end",
+                event_types=[],
+                user_ids=[],
+                ip_addresses=[],
+                workspace_ids=[],
+                entity_ids=[],
+            )
+
+    if asynchronous:
+        asyncio.run(run())
+    else:
+        with Gumloop(api_key="key", user_id="actor") as client:
+            client.organizations.audit_logs(
+                "org",
+                start_time="start",
+                end_time="end",
+                event_types=[],
+                user_ids=[],
+                ip_addresses=[],
+                workspace_ids=[],
+                entity_ids=[],
+            )
+    params = dict(route.calls[0].request.url.params)
+    assert params == {
+        "organization_id": "org",
+        "start_time": "start",
+        "end_time": "end",
+        "page": "1",
+        "page_size": "50",
+    }
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@respx.mock
 def test_role_limits_pagination_and_clear(asynchronous: bool) -> None:
     listing = respx.get(f"{API_BASE}/organizations/org/roles/credit-limits").respond(
         200, json={"roles": [ROLE], "next_cursor": "next"}

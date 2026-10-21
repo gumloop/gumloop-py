@@ -41,7 +41,7 @@ def _audit_params(
                 "workspace_ids": workspace_ids,
                 "entity_ids": entity_ids,
             }.items()
-            if value is not None
+            if value
         },
     }
 
