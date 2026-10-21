@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import io
 import json
 from pathlib import Path
 from unittest.mock import patch
@@ -84,7 +83,7 @@ def test_failed_disk_write_keeps_existing_download(cli_runner, tmp_path, script)
         respx.post(f"{API_BASE}/artifacts/file/execute") if script else respx.get(f"{API_BASE}/artifacts/file/content")
     ).respond(200, content=b"replacement")
     command = ["artifacts", "scripts", "execute", "file", "data"] if script else ["artifacts", "content", "file"]
-    open_file = io.open
+    open_file = Path.open
 
     def failing_open(*args, **kwargs):
         stream = open_file(*args, **kwargs)
@@ -99,7 +98,7 @@ def test_failed_disk_write_keeps_existing_download(cli_runner, tmp_path, script)
             stream.write = partial_write
         return stream
 
-    with patch.object(io, "open", autospec=True, side_effect=failing_open):
+    with patch.object(Path, "open", autospec=True, side_effect=failing_open):
         result = cli_runner.invoke(app, [*command, "--output", str(target), "--force", "--json"])
     assert result.exit_code != 0
     assert target.read_bytes() == b"original"

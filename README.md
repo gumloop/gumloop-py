@@ -244,7 +244,7 @@ gumloop sessions browser SESSION_ID --json
 
 ### Generated file lifecycle
 
-The sync/async `artifacts` resource supports `retrieve`, `content`, `rename`, `delete`, `list_versions`, `restore`, hosting configuration, and declared-script execution. These are generated files, separate from session input uploads. Display-name changes preserve the stored filename. Legacy generated files support soft deletion, version discovery, and downloads; VFS handles support queued, append-only restore and cannot be deleted through this API. Content and script downloads return bytes, bounded to 64 MiB by default. CLI output files are committed only after a complete write; replacing an existing file requires `--force`.
+The sync/async `artifacts` resource supports `retrieve`, `content`, `rename`, `delete`, `list_versions`, `restore`, hosting configuration, and declared-script execution. These are generated files, separate from session input uploads. Display-name changes preserve the stored filename. Legacy generated files support soft deletion, version discovery, and downloads; VFS handles support queued, append-only restore and cannot be deleted through this API. Content and script downloads return bytes, bounded to 64 MiB by default. CLI downloads stage the complete bytes before installation; replacing an existing file requires `--force` and preserves its regular read/write/execute permissions. New files respect the process umask. On volumes without hard links, installation uses an exclusive copy: other readers may see that new file while it is copied, and a failed copy removes the partial output if it still belongs to the download. Existing files are never overwritten without `--force`.
 
 ```sh
 gumloop artifacts get FILE_ID --json

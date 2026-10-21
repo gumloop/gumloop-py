@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import errno
 import os
+import shutil
+import stat
 import sys
 import tempfile
 from pathlib import Path
@@ -182,20 +185,47 @@ def download_response(response: _DownloadInfo, *, output: str | None, fallback_n
     }
 
 
-def write_download_bytes(content: bytes, destination: Path, *, force: bool = False) -> None:
-    """Commit a complete download from a temporary file on the same filesystem."""
-    temporary = None
+def _install_download_exclusively(temporary: Path, destination: Path) -> None:
     try:
-        with tempfile.NamedTemporaryFile(
-            dir=destination.parent, prefix=f".{destination.name}.", delete=False
-        ) as stream:
-            temporary = Path(stream.name)
+        os.link(temporary, destination)
+        return
+    except OSError as error:
+        if error.errno not in {errno.EPERM, errno.EOPNOTSUPP, errno.ENOSYS}:
+            raise
+
+    owned = None
+    try:
+        with destination.open("xb") as output:
+            owned = os.fstat(output.fileno())
+            with temporary.open("rb") as source:
+                shutil.copyfileobj(source, output, length=1024 * 1024)
+    except BaseException:
+        if owned is not None:
+            try:
+                current = destination.lstat()
+            except FileNotFoundError:
+                pass
+            else:
+                if (current.st_dev, current.st_ino) == (owned.st_dev, owned.st_ino):
+                    destination.unlink()
+        raise
+
+
+def write_download_bytes(content: bytes, destination: Path, *, force: bool = False) -> None:
+    """Stage before installation; hard-link-free volumes require an exclusive copy."""
+    with tempfile.TemporaryDirectory(dir=destination.parent, prefix=".gumloop-download-") as directory:
+        temporary = Path(directory) / "download"
+        with temporary.open("wb") as stream:
             stream.write(content)
             stream.flush()
         if force:
+            try:
+                existing = destination.lstat()
+            except FileNotFoundError:
+                pass
+            else:
+                if stat.S_ISREG(existing.st_mode):
+                    temporary.chmod(stat.S_IMODE(existing.st_mode) & 0o777)
             temporary.replace(destination)
         else:
-            os.link(temporary, destination)
-    finally:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
+            _install_download_exclusively(temporary, destination)
