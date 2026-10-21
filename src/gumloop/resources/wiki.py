@@ -13,9 +13,7 @@ class Wiki:
     def __init__(self, client: HttpClient) -> None:
         self._client = client
 
-    def query(
-        self, request: WikiQueryRequest | Mapping[str, Any] | None = None, **kwargs: Any
-    ) -> WikiQueryResponse:
+    def query(self, request: WikiQueryRequest | Mapping[str, Any] | None = None, **kwargs: Any) -> WikiQueryResponse:
         """Read the personal wiki, optionally filtering by type and entity_key."""
         return WikiQueryResponse.model_validate(
             self._client.post("wiki/query", json=WikiQueryRequest.build(request, **kwargs))

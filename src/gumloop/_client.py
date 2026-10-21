@@ -28,6 +28,7 @@ from gumloop.resources import AsyncOrganizations
 from gumloop.resources import AsyncSessions
 from gumloop.resources import AsyncSkills
 from gumloop.resources import AsyncTeams
+from gumloop.resources import AsyncWiki
 from gumloop.resources import Brain
 from gumloop.resources import BrowserProfiles
 from gumloop.resources import Chat
@@ -39,7 +40,6 @@ from gumloop.resources import Sessions
 from gumloop.resources import Skills
 from gumloop.resources import Sync
 from gumloop.resources import Teams
-from gumloop.resources import AsyncWiki
 from gumloop.resources import Wiki
 
 DEFAULT_BASE_URL = "https://api.gumloop.com/api/v1"

@@ -14,10 +14,25 @@ from gumloop.types import WikiCardType
 from gumloop.types import WikiQueryRequest
 from tests.sdk.helpers import API_BASE
 
-RESPONSE = {"cards": [{"type": "project", "entity_key": "launch", "name": "Launch", "facts": [
-    {"id": "fact-1", "kind": "state", "text": "Planning", "origin": "user_stated", "pinned": True,
-     "sources": [{"type": "user", "subject_id": "user-1"}]}
-]}]}
+RESPONSE = {
+    "cards": [
+        {
+            "type": "project",
+            "entity_key": "launch",
+            "name": "Launch",
+            "facts": [
+                {
+                    "id": "fact-1",
+                    "kind": "state",
+                    "text": "Planning",
+                    "origin": "user_stated",
+                    "pinned": True,
+                    "sources": [{"type": "user", "subject_id": "user-1"}],
+                }
+            ],
+        }
+    ]
+}
 
 
 @respx.mock
