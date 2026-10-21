@@ -26,6 +26,7 @@ from gumloop.cli.commands.skills import skills_app
 from gumloop.cli.commands.sync import sync_app
 from gumloop.cli.commands.update import maybe_notify_update
 from gumloop.cli.commands.update import update as update_command
+from gumloop.cli.commands.voice import voice_app
 from gumloop.cli.commands.wiki import wiki_app
 from gumloop.cli.commands.workflows import workflows_app
 from gumloop.cli.context import CliContext
@@ -120,6 +121,7 @@ app.add_typer(sync_app, name="sync")
 app.add_typer(plugin_app, name="plugin")
 app.add_typer(wiki_app, name="wiki")
 app.add_typer(workflows_app, name="workflows")
+app.add_typer(voice_app, name="voice")
 
 
 def _require_supported_platform() -> None:

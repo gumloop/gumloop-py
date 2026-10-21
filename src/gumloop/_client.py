@@ -28,6 +28,7 @@ from gumloop.resources import AsyncOrganizations
 from gumloop.resources import AsyncSessions
 from gumloop.resources import AsyncSkills
 from gumloop.resources import AsyncTeams
+from gumloop.resources import AsyncVoice
 from gumloop.resources import AsyncWiki
 from gumloop.resources import AsyncWorkflows
 from gumloop.resources import Brain
@@ -41,6 +42,7 @@ from gumloop.resources import Sessions
 from gumloop.resources import Skills
 from gumloop.resources import Sync
 from gumloop.resources import Teams
+from gumloop.resources import Voice
 from gumloop.resources import Wiki
 from gumloop.resources import Workflows
 
@@ -103,6 +105,7 @@ class Gumloop:
 
         self.agents = Agents(self._http)
         self.sessions = Sessions(self._http)
+        self.voice = Voice(self._http)
         self.chat = Chat(self._http)
         self.decisions = Decisions(self._http)
         self.models = Models(self._http)
@@ -170,6 +173,7 @@ class AsyncGumloop:
 
         self.agents = AsyncAgents(self._http)
         self.sessions = AsyncSessions(self._http)
+        self.voice = AsyncVoice(self._http)
         self.chat = AsyncChat(self._http)
         self.decisions = AsyncDecisions(self._http)
         self.models = AsyncModels(self._http)

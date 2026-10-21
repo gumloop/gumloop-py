@@ -261,3 +261,28 @@ gumloop artifacts scripts execute FILE_ID SCRIPT_KEY --args-json '{"payload":{"q
 ```
 
 Script execution uses the caller's current account permissions, the file's current tool policy, and ordinary execution billing. Review current declared tools, then explicitly acknowledge the returned `consent_version_id`; `version_id` independently pins content, and a changed script draft requires new consent; team keys cannot record personal consent. JSON script results may be any JSON value; `download_script` or CLI `--output` requests the script's generated binary output. Hosting is supported for stored legacy artifacts; VFS handle-backed files retain the app's hosting limitation. Hosting mutations require file sharing permission and use the same alias/domain policy as the app; the SDK does not make a private file public automatically.
+
+### Agent voice sessions
+
+`client.voice.start(agent_id, session_id=..., offer_sdp=..., incognito=False)` exchanges your WebRTC client's SDP offer for a typed answer, voice session ID, expiry, model, voice, and transcript timing metadata. The agent must have voice enabled. Your WebRTC client handles audio and provider data channels; the SDK and CLI exchange SDP and request session shutdown. Calls use the existing Talk authorization, session ownership, credit checks, and usage billing.
+
+```python
+with Gumloop(api_key="...", user_id="...",
+             base_url="https://staging.api.gumloop.com/api/v1",
+             stream_base_url="https://staging.ws.gumloop.com/api/v1") as client:
+    started = client.voice.start("agent_id", session_id="session_id", offer_sdp=offer_sdp)
+    # Apply started.answer_sdp to your WebRTC client.
+    client.voice.end("agent_id", started.voice_session_id)
+```
+
+`AsyncGumloop` exposes the same methods with `await`. Ending a call requires the voice session's creator and current agent access. The end response acknowledges the shutdown request; the existing voice worker settles final usage. Configure `stream_base_url` explicitly for staging or custom hosts, or set `GUMLOOP_STREAM_BASE_URL` for the CLI.
+
+```sh
+export GUMLOOP_BASE_URL=https://staging.api.gumloop.com/api/v1
+export GUMLOOP_STREAM_BASE_URL=https://staging.ws.gumloop.com/api/v1
+gumloop voice start AGENT_ID --session SESSION_ID --offer-sdp-file ./offer.sdp --json
+cat ./offer.sdp | gumloop voice start AGENT_ID --session SESSION_ID --offer-sdp-stdin - --json
+gumloop voice end AGENT_ID VOICE_SESSION_ID --json
+```
+
+Pass exactly one SDP input. File and stdin offers must be nonempty UTF-8 text within 1 MiB; local read and validation failures produce structured errors with `--json` before any API request.

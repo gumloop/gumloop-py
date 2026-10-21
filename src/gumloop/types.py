@@ -740,6 +740,28 @@ class BrowserSessionResponse(_Model):
     handoffs: list[BrowserSessionHandoff] = Field(default_factory=list)
 
 
+class VoiceSessionCreateRequest(_Model):
+    session_id: str = Field(min_length=1, pattern=r"\S")
+    offer_sdp: str = Field(min_length=1, max_length=1024 * 1024, pattern=r"\S")
+    incognito: bool = Field(default=False, serialization_alias="is_incognito")
+
+
+class VoiceSessionStarted(_Model):
+    voice_session_id: str
+    answer_sdp: str
+    expires_at: int
+    model: str
+    voice: str
+    transcript_settle_ms: int
+    user_segment_gap_ms: int
+    assistant_segment_gap_ms: int
+    idle_timeout_ms: int
+
+
+class VoiceSessionEndResponse(_Model):
+    status: Literal["ending"]
+
+
 # ---------------------------------------------------------------------------
 # Session types
 # ---------------------------------------------------------------------------
