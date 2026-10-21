@@ -15,6 +15,7 @@ def resolve_json_args(
     inline: str | None,
     file_path: str | None,
     stdin_marker: str | None,
+    allow_empty: bool = True,
 ) -> dict[str, Any]:
     """Return a parsed JSON object from at most one of inline/file/stdin.
 
@@ -51,7 +52,7 @@ def resolve_json_args(
     else:
         return {}
 
-    if not raw.strip():
+    if allow_empty and not raw.strip():
         return {}
 
     try:
