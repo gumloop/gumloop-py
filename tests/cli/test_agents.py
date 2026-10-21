@@ -261,6 +261,33 @@ def test_agents_update_version_and_incognito_rejected_before_mutation(cli_runner
     assert not respx.calls
 
 
+@pytest.mark.parametrize("options", [[], ["--args-json", "{}"]])
+@respx.mock
+def test_agents_update_rejects_empty_request(cli_runner: CliRunner, options: list[str]) -> None:
+    save_credentials(Credentials(api_key="key"))
+    result = cli_runner.invoke(app, ["agents", "update", "agent_abc", *options, "--json"])
+    assert result.exit_code == 1
+    assert "at least one field" in json.loads(result.stderr)["error"]["message"]
+    assert not respx.calls
+
+
+@pytest.mark.parametrize(
+    "options,expected",
+    [
+        (["--tools-json", "[]"], {"tools": []}),
+        (["--inactive"], {"is_active": False}),
+        (["--args-json", '{"metadata":{"source":"cli"}}'], {"metadata": {"source": "cli"}}),
+    ],
+)
+@respx.mock
+def test_agents_update_keeps_explicit_empty_false_and_metadata_values(cli_runner: CliRunner, options, expected) -> None:
+    route = respx.patch(f"{API_BASE}/agents/agent_abc").respond(200, json={"agent": {"id": "agent_abc", "name": "Bot"}})
+    save_credentials(Credentials(api_key="key"))
+    result = cli_runner.invoke(app, ["agents", "update", "agent_abc", *options, "--json"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(route.calls[0].request.content) == expected
+
+
 @respx.mock
 def test_agents_attach_skills_command(cli_runner: CliRunner) -> None:
     route = respx.patch(f"{API_BASE}/agents/agent_abc/skills").mock(

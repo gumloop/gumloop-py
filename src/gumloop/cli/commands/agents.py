@@ -461,10 +461,13 @@ def update_agent(
             "tools": tools,
             "is_active": is_active,
         }
+        has_field_update = bool(request) or any(value is not None for value in fields.values())
+        if incognito is None and not has_field_update:
+            raise GumloopError("Pass at least one field to update, using flags or request JSON.")
         response = None
         if incognito is not None:
             response = cli.call_with_refresh(lambda client: client.agents.set_incognito(agent_id, incognito))
-        if incognito is None or request or any(value is not None for value in fields.values()):
+        if has_field_update:
             response = cli.call_with_refresh(
                 lambda client: client.agents.update(agent_id, request, team_id=cli.effective_team_id, **fields)
             )
