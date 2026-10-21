@@ -99,3 +99,31 @@ def test_decision_api_error(cli_runner: CliRunner) -> None:
     result = cli_runner.invoke(app, ["decisions", "create", "--args-json", json.dumps(REQUEST), "--json"])
     assert result.exit_code != 0
     assert "Model access denied" in result.output
+
+
+@respx.mock
+def test_decision_refresh_preserves_explicit_workspace(cli_runner: CliRunner) -> None:
+    from tests.sdk.helpers import OAUTH_BASE
+
+    save_credentials(Credentials(access_token="expired", refresh_token="refresh"))
+    route = respx.post(f"{API_BASE}/decisions").mock(
+        side_effect=[httpx.Response(401, json={"error": {"message": "Expired"}}), httpx.Response(200, json=RESPONSE)]
+    )
+    respx.post(f"{OAUTH_BASE}/oauth/token").respond(200, json={"access_token": "fresh"})
+    result = cli_runner.invoke(
+        app, ["--team-id", "selected", "decisions", "create", "--args-json", json.dumps(REQUEST), "--json"]
+    )
+    assert result.exit_code == 0, result.output
+    assert [call.request.url.params["team_id"] for call in route.calls] == ["selected", "selected"]
+    assert [call.request.headers["authorization"] for call in route.calls] == ["Bearer expired", "Bearer fresh"]
+
+
+@respx.mock
+def test_decision_workspace_override_does_not_change_existing_agent_get(cli_runner: CliRunner) -> None:
+    save_credentials(Credentials(access_token="personal"))
+    route = respx.get(f"{API_BASE}/agents/agent_1").respond(
+        200, json={"agent": {"id": "agent_1", "name": "Existing agent"}}
+    )
+    result = cli_runner.invoke(app, ["--team-id", "selected", "agents", "get", "agent_1", "--json"])
+    assert result.exit_code == 0, result.output
+    assert not route.calls[0].request.url.params

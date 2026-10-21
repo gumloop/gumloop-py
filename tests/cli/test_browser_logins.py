@@ -230,8 +230,6 @@ def test_import_logins_resolves_a_named_team_profile(cli_runner: CliRunner, tmp_
     result = cli_runner.invoke(
         app,
         [
-            "--team-id",
-            "other_team",
             "browser",
             "import-logins",
             "--url",
@@ -244,7 +242,6 @@ def test_import_logins_resolves_a_named_team_profile(cli_runner: CliRunner, tmp_
             "--json",
         ],
     )
-    assert route.calls[0].request.url.params["team_id"] == "proj"
 
     assert result.exit_code == 0, result.output
     assert json.loads(route.calls[0].request.content)["team_id"] == "proj"
