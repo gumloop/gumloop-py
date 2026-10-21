@@ -19,6 +19,28 @@ def _outputs(directory: Path) -> list[Path]:
     return [path for path in directory.iterdir() if path.name != "home"]
 
 
+@pytest.mark.parametrize("umask", [0o477, 0o277, 0o777])
+def test_fallback_preserves_restrictive_umask(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, umask: int) -> None:
+    def unsupported_link(source: Path, destination: Path) -> None:
+        raise OSError(errno.EOPNOTSUPP, "hard links unavailable")
+
+    monkeypatch.setattr(_downloads.os, "link", unsupported_link)
+    target = tmp_path / "download.bin"
+    error = None
+    previous = os.umask(umask)
+    try:
+        _downloads.write_download_bytes(b"complete download", target)
+    except OSError as failure:
+        error = failure
+    finally:
+        os.umask(previous)
+    assert error is None
+    assert stat.S_IMODE(target.stat().st_mode) == 0o666 & ~umask
+    target.chmod(0o600)
+    assert target.read_bytes() == b"complete download"
+    assert _outputs(tmp_path) == [target]
+
+
 @pytest.mark.parametrize("winerror", [1, 50])
 def test_download_supports_windows_unsupported_links(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, winerror: int

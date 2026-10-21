@@ -198,6 +198,8 @@ def _install_download_exclusively(temporary: Path, destination: Path) -> None:
 
     owned = None
     try:
+        # Only private staging gains read access; the new output keeps its umask-derived mode.
+        temporary.chmod(stat.S_IMODE(temporary.stat().st_mode) | stat.S_IRUSR)
         with destination.open("xb") as output:
             owned = os.fstat(output.fileno())
             with temporary.open("rb") as source:
@@ -217,6 +219,7 @@ def _install_download_exclusively(temporary: Path, destination: Path) -> None:
 def write_download_bytes(content: bytes, destination: Path, *, force: bool = False) -> None:
     """Stage before installation; hard-link-free volumes require an exclusive copy."""
     with tempfile.TemporaryDirectory(dir=destination.parent, prefix=".gumloop-download-") as directory:
+        Path(directory).chmod(0o700)
         temporary = Path(directory) / "download"
         with temporary.open("wb") as stream:
             stream.write(content)
