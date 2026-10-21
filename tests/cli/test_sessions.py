@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import httpx
+import pytest
 import respx
 from typer.testing import CliRunner
 
@@ -11,6 +12,57 @@ from gumloop.cli.credentials import Credentials
 from gumloop.cli.credentials import save_credentials
 from gumloop.cli.main import app
 from tests.sdk.helpers import API_BASE
+
+
+@pytest.mark.parametrize("bad_file", ["oversize", "directory", "duplicate"])
+@respx.mock
+def test_session_files_preflight_rejects_invalid_batch(cli_runner: CliRunner, tmp_path: Path, bad_file: str) -> None:
+    first = tmp_path / "note.txt"
+    first.write_bytes(b"hello")
+    second = tmp_path / "second"
+    if bad_file == "oversize":
+        with second.open("wb") as file:
+            file.truncate(200 * 1024 * 1024 + 1)
+    elif bad_file == "directory":
+        second.mkdir()
+    else:
+        second.mkdir()
+        second = second / "note.txt"
+        second.write_bytes(b"different")
+    save_credentials(Credentials(api_key="key"))
+    result = cli_runner.invoke(
+        app,
+        ["sessions", "send", "session_xyz", "--input", "Read", "--file", str(first), "--file", str(second), "--json"],
+    )
+    assert result.exit_code == 1
+    assert "error" in json.loads(result.output)
+    assert not respx.calls
+
+
+@respx.mock
+def test_session_files_are_read_one_at_a_time(cli_runner: CliRunner, tmp_path: Path) -> None:
+    first, second = tmp_path / "a.txt", tmp_path / "b.txt"
+    first.write_bytes(b"first")
+    second.write_bytes(b"old")
+
+    def upload(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        if body["file_name"] == "a.txt":
+            second.write_bytes(b"new")
+        else:
+            assert body["file_content"] == "bmV3"
+        return httpx.Response(201, json={"file_name": f"input/{body['file_name']}", "size": 3})
+
+    respx.post(f"{API_BASE}/sessions/session_xyz/files").mock(side_effect=upload)
+    respx.post(f"{API_BASE}/sessions/session_xyz/messages").respond(
+        200, json={"session": {"id": "session_xyz", "agent_id": "agent_abc"}}
+    )
+    save_credentials(Credentials(api_key="key"))
+    result = cli_runner.invoke(
+        app,
+        ["sessions", "send", "session_xyz", "--input", "Read", "--file", str(first), "--file", str(second), "--json"],
+    )
+    assert result.exit_code == 0, result.output
 
 
 @respx.mock
