@@ -136,7 +136,7 @@ def list_sources(
     epilog=(
         "Examples:\n"
         '  gumloop brain sources create "Engineering docs"\n'
-        '  gumloop brain sources create "Team runbooks" --team-id <team_id>\n'
+        '  gumloop --team-id <team_id> brain sources create "Team runbooks"\n'
         '  gumloop brain sources create "Company policies" --scope organization --require-approval'
     ),
 )
