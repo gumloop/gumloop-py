@@ -175,7 +175,7 @@ def create_completion(
         if modality:
             kwargs["modalities"] = modality
         if schema_file is not None:
-            schema = resolve_json_args(inline=None, file_path=str(schema_file), stdin_marker=None)
+            schema = resolve_json_args(inline=None, file_path=str(schema_file), stdin_marker=None, allow_empty=False)
             kwargs["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {"name": schema_name, "strict": True, "schema": schema},
@@ -186,8 +186,11 @@ def create_completion(
             stream_iter: Iterator[ChatStreamChunk] = cli.call_with_refresh(
                 lambda client: client.chat.completions.create(**kwargs)
             )
+            image_notice_emitted = False
             for chunk in stream_iter:
-                _emit_stream_chunk(chunk, json_mode=json_output)
+                image_notice_emitted = _emit_stream_chunk(
+                    chunk, json_mode=json_output, image_notice_emitted=image_notice_emitted
+                )
             if not json_output:
                 console.print()  # trailing newline to separate the prompt that follows
             return
@@ -220,18 +223,22 @@ def _stdout_is_tty() -> bool:
     return sys.stdout.isatty()
 
 
-def _emit_stream_chunk(chunk: ChatStreamChunk, *, json_mode: bool = False) -> None:
+def _emit_stream_chunk(
+    chunk: ChatStreamChunk, *, json_mode: bool = False, image_notice_emitted: bool = False
+) -> bool:
     if json_mode:
         # ndjson: one chunk per line, by_alias so wire field names match the SDK.
         sys.stdout.write(chunk.model_dump_json(by_alias=True) + "\n")
         sys.stdout.flush()
-        return
+        return image_notice_emitted
     for choice in chunk.choices:
         piece = getattr(choice.delta, "content", None)
         if piece:
             # markup=False so output containing [brackets] doesn't trip Rich.
             console.print(piece, end="", markup=False, highlight=False)
-        if isinstance(choice.delta.images, list) and choice.delta.images:
+        if not image_notice_emitted and isinstance(choice.delta.images, list) and choice.delta.images:
             console.print(
                 "\nGenerated image available. Use --json to retrieve the image data.", markup=False, highlight=False
             )
+            image_notice_emitted = True
+    return image_notice_emitted
