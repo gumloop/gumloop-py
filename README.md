@@ -285,4 +285,4 @@ cat ./offer.sdp | gumloop voice start AGENT_ID --session SESSION_ID --offer-sdp-
 gumloop voice end AGENT_ID VOICE_SESSION_ID --json
 ```
 
-Pass exactly one SDP input. File and stdin offers must be nonempty UTF-8 text within 1 MiB; local read and validation failures produce structured errors with `--json` before any API request.
+Pass exactly one SDP input. SDK, file and stdin offers must be nonempty UTF-8 text within 1 MiB; local read and validation failures produce structured errors with `--json` before any API request. Without `--json`, stdout contains the exact UTF-8 answer SDP bytes and the voice session ID is printed to stderr, so you can redirect the answer to a file without terminal wrapping or line-ending changes.

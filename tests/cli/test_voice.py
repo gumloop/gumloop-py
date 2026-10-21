@@ -12,6 +12,23 @@ from tests.sdk.test_voice import STARTED
 from tests.sdk.test_voice import STREAM_BASE
 
 
+@respx.mock
+def test_voice_answer_stdout_preserves_protocol_bytes(cli_runner, tmp_path, monkeypatch):
+    monkeypatch.setenv("GUMLOOP_STREAM_BASE_URL", STREAM_BASE)
+    monkeypatch.setenv("COLUMNS", "40")
+    save_credentials(Credentials(api_key="key"))
+    source = tmp_path / "offer.sdp"
+    source.write_bytes(b"v=0\r\no=synthetic-offer\r\n")
+    answer = "v=0\r\na=candidate:" + "x" * 150 + " [not-markup]\r\n"
+    respx.post(f"{STREAM_BASE}/agents/agent/voice/sessions").respond(201, json={**STARTED, "answer_sdp": answer})
+
+    result = cli_runner.invoke(app, ["voice", "start", "agent", "--session", "chat", "--offer-sdp-file", str(source)])
+
+    assert result.exit_code == 0, result.output
+    assert result.stdout_bytes == answer.encode("utf-8")
+    assert "voice-1" in result.stderr
+
+
 @pytest.mark.parametrize("from_stdin", [False, True])
 @respx.mock
 def test_voice_start_reads_sdp_and_prints_answer_metadata(cli_runner, tmp_path, monkeypatch, from_stdin):

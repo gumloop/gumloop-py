@@ -9,6 +9,7 @@ from pydantic import AliasChoices
 from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
+from pydantic import field_validator
 from pydantic import model_validator
 
 
@@ -740,10 +741,20 @@ class BrowserSessionResponse(_Model):
     handoffs: list[BrowserSessionHandoff] = Field(default_factory=list)
 
 
+MAX_SDP_OFFER_BYTES = 1024 * 1024
+
+
 class VoiceSessionCreateRequest(_Model):
     session_id: str = Field(min_length=1, pattern=r"\S")
-    offer_sdp: str = Field(min_length=1, max_length=1024 * 1024, pattern=r"\S")
+    offer_sdp: str = Field(min_length=1, pattern=r"\S")
     incognito: bool = Field(default=False, serialization_alias="is_incognito")
+
+    @field_validator("offer_sdp")
+    @classmethod
+    def validate_offer_size(cls, value: str) -> str:
+        if len(value.encode("utf-8")) > MAX_SDP_OFFER_BYTES:
+            raise ValueError("The SDP offer exceeds 1 MiB.")
+        return value
 
 
 class VoiceSessionStarted(_Model):

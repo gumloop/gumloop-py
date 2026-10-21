@@ -59,7 +59,9 @@ def test_voice_uses_explicit_stream_host_and_typed_lifecycle(asynchronous):
 
 @pytest.mark.parametrize("asynchronous", [False, True])
 @pytest.mark.parametrize(
-    ("session_id", "offer"), [("", "v=0"), ("  ", "v=0"), ("chat", "  "), ("chat", "x" * (1024 * 1024 + 1))]
+    ("session_id", "offer"),
+    [("", "v=0"), ("  ", "v=0"), ("chat", "  "), ("chat", "x" * (1024 * 1024 + 1)), ("chat", "é" * 524289)],
+    ids=["empty-session", "blank-session", "blank-offer", "oversize-ascii", "oversize-utf8"],
 )
 @respx.mock
 def test_voice_rejects_invalid_request_before_http(asynchronous, session_id, offer):

@@ -9,12 +9,14 @@ from pydantic import ValidationError
 
 from gumloop import GumloopError
 from gumloop.cli.console import console
+from gumloop.cli.console import error_console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
 from gumloop.cli.errors import exit_with_error
+from gumloop.types import MAX_SDP_OFFER_BYTES
 
 voice_app = typer.Typer(help="Exchange SDP and end live agent voice sessions.", no_args_is_help=True)
-MAX_OFFER_BYTES = 1024 * 1024
+MAX_OFFER_BYTES = MAX_SDP_OFFER_BYTES
 
 
 def _read_offer(file_path: str | None, stdin_marker: str | None) -> str:
@@ -73,9 +75,9 @@ def start_voice(
     if json_output:
         print_json(response)
     else:
-        console.print("Voice session:", response.voice_session_id, markup=False, highlight=False)
-        console.print("Answer SDP:", markup=False, highlight=False)
-        console.print(response.answer_sdp, markup=False, highlight=False)
+        error_console.print("Voice session:", response.voice_session_id, markup=False, highlight=False)
+        sys.stdout.buffer.write(response.answer_sdp.encode("utf-8"))
+        sys.stdout.buffer.flush()
 
 
 @voice_app.command("end")
