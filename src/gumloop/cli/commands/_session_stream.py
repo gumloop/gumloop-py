@@ -40,8 +40,7 @@ def print_session_stream(
             if event.finish_reason == "not_resumable":
                 raise GumloopError("This stream cannot be resumed. Retrieve the session to check its current state.")
             if event.type == "error" or event.error or event.finish_reason == "error":
-                message = event.error.get("message") if isinstance(event.error, dict) else event.error
-                raise GumloopError(event.error_message or str(message or event.error or "Agent stream failed."))
+                raise GumloopError(event.error_message or event.error or "Agent stream failed.")
     finally:
         if not json_output and cursor:
             console.print(f"\nResume cursor: {cursor}", markup=False, highlight=False)
