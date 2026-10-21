@@ -418,6 +418,10 @@ def update_agent(
 
     try:
         request = resolve_json_args(inline=args_json, file_path=args_file, stdin_marker=args)
+        if incognito is not None and "version" in request:
+            raise GumloopError(
+                "Change incognito in a separate command, then read the current agent version before a versioned update."
+            )
         if system_prompt is not None and system_prompt_file is not None:
             raise GumloopError("Pass at most one of --system-prompt or --system-prompt-file.")
         resolved_prompt = system_prompt
