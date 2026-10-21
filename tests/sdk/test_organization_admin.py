@@ -162,3 +162,31 @@ def test_admin_scoped_wire_contract(asynchronous: bool) -> None:
 def test_export_requires_explicit_scope() -> None:
     with pytest.raises(ValidationError):
         DataExportRequest.model_validate({"start_date": "start", "end_date": "end", "export_fields": ["name"]})
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("explicit_defaults", [False, True])
+@respx.mock
+def test_export_preserves_unset_and_explicit_defaults(asynchronous: bool, explicit_defaults: bool) -> None:
+    route = respx.post(f"{API_BASE}/export_data").respond(200, json={"data_export_id": "export", "state": "PENDING"})
+    required = {
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-02",
+        "export_fields": ["name"],
+        "export_scope": "personal",
+        "data_type": "agents",
+    }
+    defaults = {"export_level": "organization", "workspace_ids": [], "include_all_workspaces": False}
+    payload = {**required, **(defaults if explicit_defaults else {})}
+    request = DataExportRequest.model_validate(payload)
+
+    async def run() -> None:
+        async with AsyncGumloop(api_key="key", user_id="actor") as client:
+            await client.organizations.export_data(request)
+
+    if asynchronous:
+        asyncio.run(run())
+    else:
+        with Gumloop(api_key="key", user_id="actor") as client:
+            client.organizations.export_data(request)
+    assert json.loads(route.calls[0].request.content) == payload

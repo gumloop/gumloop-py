@@ -158,7 +158,9 @@ class Organizations:
 
     def export_data(self, request: DataExportRequest) -> DataExport:
         """Create an export with explicit personal/organization scope. No audit-log exports."""
-        return DataExport.model_validate(self._client.post("export_data", json=request.model_dump(exclude_none=True)))
+        return DataExport.model_validate(
+            self._client.post("export_data", json=request.model_dump(exclude_none=True, exclude_unset=True))
+        )
 
     def export_status(self, export_id: str, *, download_url: bool = False) -> DataExport | DataExportDownload:
         """Get status, or request a short-lived URL once completed. Only the creator can read it."""
@@ -283,7 +285,7 @@ class AsyncOrganizations:
     async def export_data(self, request: DataExportRequest) -> DataExport:
         """Create an export with explicit personal/organization scope. No audit-log exports."""
         return DataExport.model_validate(
-            await self._client.post("export_data", json=request.model_dump(exclude_none=True))
+            await self._client.post("export_data", json=request.model_dump(exclude_none=True, exclude_unset=True))
         )
 
     async def export_status(self, export_id: str, *, download_url: bool = False) -> DataExport | DataExportDownload:
