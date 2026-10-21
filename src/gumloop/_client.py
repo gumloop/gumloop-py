@@ -29,6 +29,7 @@ from gumloop.resources import AsyncSessions
 from gumloop.resources import AsyncSkills
 from gumloop.resources import AsyncTeams
 from gumloop.resources import AsyncWiki
+from gumloop.resources import AsyncWorkflows
 from gumloop.resources import Brain
 from gumloop.resources import BrowserProfiles
 from gumloop.resources import Chat
@@ -41,6 +42,7 @@ from gumloop.resources import Skills
 from gumloop.resources import Sync
 from gumloop.resources import Teams
 from gumloop.resources import Wiki
+from gumloop.resources import Workflows
 
 DEFAULT_BASE_URL = "https://api.gumloop.com/api/v1"
 DEFAULT_TIMEOUT = 90.0
@@ -107,6 +109,7 @@ class Gumloop:
         self.mcp = MCP(self._http)
         self.teams = Teams(self._http)
         self.wiki = Wiki(self._http)
+        self.workflows = Workflows(self._http)
         self.organizations = Organizations(self._http)
         self.evaluations = Evaluations(self._http)
         self.skills = Skills(self._http)
@@ -173,6 +176,7 @@ class AsyncGumloop:
         self.mcp = AsyncMCP(self._http)
         self.teams = AsyncTeams(self._http)
         self.wiki = AsyncWiki(self._http)
+        self.workflows = AsyncWorkflows(self._http)
         self.organizations = AsyncOrganizations(self._http)
         self.evaluations = AsyncEvaluations(self._http)
         self.skills = AsyncSkills(self._http)

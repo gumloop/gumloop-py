@@ -1611,3 +1611,65 @@ class WikiCard(_Model):
 
 class WikiQueryResponse(_Model):
     cards: list[WikiCard] = Field(default_factory=list)
+class Workflow(_Model):
+    saved_item_id: str
+    name: str
+    description: str | None = None
+    created_ts: str | None = None
+
+
+class WorkflowsResponse(_Model):
+    saved_items: list[Workflow] = Field(default_factory=list)
+
+
+class Workbook(_Model):
+    workbook_id: str
+    name: str
+    description: str | None = None
+    folder_id: str | None = None
+    created_ts: str | None = None
+    saved_items: list[Workflow] = Field(default_factory=list)
+
+
+class WorkbooksResponse(_Model):
+    workbooks: list[Workbook] = Field(default_factory=list)
+
+
+class WorkflowInputsResponse(_Model):
+    inputs: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class WorkflowRunStarted(_Model):
+    run_id: str
+    saved_item_id: str
+    workbook_id: str | None = None
+    url: str | None = None
+
+
+class WorkflowRun(_Model):
+    run_id: str
+    state: str
+    outputs: dict[str, Any] = Field(default_factory=dict)
+    log: Any = None
+
+
+class WorkflowRunCancelled(_Model):
+    run_id: str
+    success: bool
+
+
+class WorkflowFileUploaded(_Model):
+    success: bool
+    file_name: str
+
+
+class WorkflowFilesUploaded(_Model):
+    success: bool | None = None
+    partial_success: bool = False
+    uploaded_files: list[str] = Field(default_factory=list)
+    failed_files: list[str] = Field(default_factory=list)
+
+
+class WorkflowFileDownload(BaseModel):
+    content: bytes
+    media_type: str | None = None
