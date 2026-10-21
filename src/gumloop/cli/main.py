@@ -25,6 +25,7 @@ from gumloop.cli.commands.skills import skills_app
 from gumloop.cli.commands.sync import sync_app
 from gumloop.cli.commands.update import maybe_notify_update
 from gumloop.cli.commands.update import update as update_command
+from gumloop.cli.commands.wiki import wiki_app
 from gumloop.cli.context import CliContext
 from gumloop.cli.credentials import load_credentials
 
@@ -115,6 +116,7 @@ app.add_typer(brain_app, name="brain")
 app.add_typer(browser_app, name="browser")
 app.add_typer(sync_app, name="sync")
 app.add_typer(plugin_app, name="plugin")
+app.add_typer(wiki_app, name="wiki")
 
 
 def _require_supported_platform() -> None:
