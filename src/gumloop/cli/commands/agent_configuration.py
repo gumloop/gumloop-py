@@ -21,9 +21,11 @@ configuration_app = typer.Typer()
 triggers_app = typer.Typer(help="Manage agent schedule and webhook triggers.", no_args_is_help=True)
 knowledge_app = typer.Typer(help="Attach and scope agent Brain sources.", no_args_is_help=True)
 subagents_app = typer.Typer(help="Manage which subagents an agent can call.", no_args_is_help=True)
+rules_app = typer.Typer(help="Manage app rules scoped to one agent.", no_args_is_help=True)
 configuration_app.add_typer(triggers_app, name="triggers")
 configuration_app.add_typer(knowledge_app, name="knowledge-sources")
 configuration_app.add_typer(subagents_app, name="subagents")
+configuration_app.add_typer(rules_app, name="rules")
 AgentId = Annotated[str, typer.Argument(help="Agent id.")]
 TriggerId = Annotated[str, typer.Argument(help="Trigger id.")]
 ArgsJson = Annotated[str | None, typer.Option("--args-json", help="Request as a JSON object.")]
@@ -72,9 +74,41 @@ def set_abilities(
 
 
 @configuration_app.command("app-rules")
+@rules_app.command("list")
 def list_app_rules(ctx: typer.Context, agent_id: AgentId, json_output: JsonOutput = False) -> None:
     """List the agent's connector rules."""
     _run(ctx, lambda client: client.agents.list_app_rules(agent_id), json_output)
+
+
+@rules_app.command("create")
+def create_app_rule(
+    ctx: typer.Context, agent_id: AgentId,
+    args_json: ArgsJson = None, args_file: ArgsFile = None, args: Args = None,
+    json_output: JsonOutput = False,
+) -> None:
+    """Create an agent app rule from JSON; the server defaults it to disabled."""
+    request = _request(args_json, args_file, args, json_output)
+    _run(ctx, lambda client: client.agents.create_app_rule(agent_id, request), json_output)
+
+
+@rules_app.command("update")
+def update_app_rule(
+    ctx: typer.Context, agent_id: AgentId, rule_id: Annotated[str, typer.Argument(help="App rule id.")],
+    args_json: ArgsJson = None, args_file: ArgsFile = None, args: Args = None,
+    json_output: JsonOutput = False,
+) -> None:
+    """Patch an agent app rule; use status enabled/disabled to enable or pause it."""
+    request = _request(args_json, args_file, args, json_output)
+    _run(ctx, lambda client: client.agents.update_app_rule(agent_id, rule_id, request), json_output)
+
+
+@rules_app.command("delete")
+def delete_app_rule(
+    ctx: typer.Context, agent_id: AgentId, rule_id: Annotated[str, typer.Argument(help="App rule id.")],
+    json_output: JsonOutput = False,
+) -> None:
+    """Delete an app rule scoped to this agent."""
+    _run(ctx, lambda client: client.agents.delete_app_rule(agent_id, rule_id), json_output)
 
 
 @knowledge_app.command("list")
