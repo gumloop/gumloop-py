@@ -20,6 +20,8 @@ from gumloop.cli.commands._item_access import remove_team_option
 from gumloop.cli.commands._item_access import share_option
 from gumloop.cli.commands._item_access import share_team_option
 from gumloop.cli.commands._item_access import show_item_access
+from gumloop.cli.commands._session_files import read_file
+from gumloop.cli.commands._session_files import validate_file
 from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
@@ -290,21 +292,18 @@ def send_session(
         if not message:
             raise GumloopError("Pass --input or --input-stdin with text to send.")
 
-        if len(files or []) > 10:
-            raise GumloopError("Attach at most 10 files per message.")
-        uploads = []
-        for path in files or []:
-            try:
-                uploads.append((path.name, path.expanduser().read_bytes(), mimetypes.guess_type(path.name)[0]))
-            except OSError as error:
-                raise GumloopError(f"Could not read {path}: {error.strerror or error}") from error
+        uploads = [validate_file(path) for path in files or []]
+        if len({path.name for path in uploads}) != len(uploads):
+            raise GumloopError("Attached files must have different names; rename duplicate filenames before sending.")
         attachments = []
-        for name, content, media_type in uploads:
+        for path in uploads:
+            content = read_file(path)
             uploaded = cli.call_with_refresh(
-                lambda client, name=name, content=content, media_type=media_type: client.sessions.upload_file(
-                    session_id, name, content, media_type=media_type
+                lambda client, path=path, content=content: client.sessions.upload_file(
+                    session_id, path.name, content, media_type=mimetypes.guess_type(path.name)[0]
                 )
             )
+            del content
             attachments.append(SessionAttachment(file_name=uploaded.file_name, media_type=uploaded.media_type))
 
         response = cast(
@@ -350,10 +349,8 @@ def upload_session_file(
     """Upload a file without sending a message."""
     cli: CliContext = ctx.obj
     try:
-        try:
-            content = path.expanduser().read_bytes()
-        except OSError as error:
-            raise GumloopError(f"Could not read {path}: {error.strerror or error}") from error
+        path = validate_file(path)
+        content = read_file(path)
         response = cli.call_with_refresh(
             lambda client: client.sessions.upload_file(
                 session_id, path.name, content, media_type=media_type or mimetypes.guess_type(path.name)[0]
