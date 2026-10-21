@@ -169,10 +169,13 @@ class HttpClient:
         path: str,
         *,
         json: Any = None,
+        params: Mapping[str, Any] | None = None,
         data: Mapping[str, Any] | None = None,
         files: list[tuple[str, Any]] | None = None,
     ) -> Any:
-        return self._request("PATCH", path, json=json, data=_omit_none_params(data), files=files)
+        return self._request(
+            "PATCH", path, json=json, params=_omit_none_params(params), data=_omit_none_params(data), files=files
+        )
 
     def put(self, path: str, *, json: Any = None) -> Any:
         return self._request("PUT", path, json=json)
@@ -374,10 +377,13 @@ class AsyncHttpClient:
         path: str,
         *,
         json: Any = None,
+        params: Mapping[str, Any] | None = None,
         data: Mapping[str, Any] | None = None,
         files: list[tuple[str, Any]] | None = None,
     ) -> Any:
-        return await self._request("PATCH", path, json=json, data=_omit_none_params(data), files=files)
+        return await self._request(
+            "PATCH", path, json=json, params=_omit_none_params(params), data=_omit_none_params(data), files=files
+        )
 
     async def put(self, path: str, *, json: Any = None) -> Any:
         return await self._request("PUT", path, json=json)

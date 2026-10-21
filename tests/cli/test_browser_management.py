@@ -55,7 +55,7 @@ def test_profile_commands_use_the_scoped_developer_api(cli_runner, args, method,
     assert json.loads(result.output) == payload
     request = route.calls[0].request
     assert (json.loads(request.content) if request.content else None) == body
-    assert dict(request.url.params) == ({} if body else {"team_id": "team-1"})
+    assert dict(request.url.params) == {"team_id": "team-1"}
 
 
 @pytest.mark.parametrize(

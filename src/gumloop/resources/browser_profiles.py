@@ -32,8 +32,11 @@ class BrowserProfiles:
         return BrowserProfilesResponse.model_validate(self._client.get("browser-profiles", params={"team_id": team_id}))
 
     def create(self, name: str, *, team_id: str | None = None) -> BrowserProfile:
+        team_id = self._client.team_id if team_id is None else team_id
         body = BrowserProfileCreateRequest(name=name, team_id=team_id).model_dump(exclude_none=True)
-        return BrowserProfile.model_validate(self._client.post("browser-profiles", json=body))
+        return BrowserProfile.model_validate(
+            self._client.post("browser-profiles", json=body, params={"team_id": team_id})
+        )
 
     def get(self, profile_id: str, *, team_id: str | None = None) -> BrowserProfile:
         return BrowserProfile.model_validate(
@@ -48,11 +51,12 @@ class BrowserProfiles:
         is_default: Literal[True] | None = None,
         team_id: str | None = None,
     ) -> BrowserProfile:
+        team_id = self._client.team_id if team_id is None else team_id
         body = BrowserProfileUpdateRequest(name=name, is_default=is_default, team_id=team_id).model_dump(
             exclude_none=True
         )
         return BrowserProfile.model_validate(
-            self._client.patch(f"browser-profiles/{quote(profile_id, safe='')}", json=body)
+            self._client.patch(f"browser-profiles/{quote(profile_id, safe='')}", json=body, params={"team_id": team_id})
         )
 
     def delete(self, profile_id: str, *, team_id: str | None = None) -> BrowserProfileDeleteResponse:
@@ -94,8 +98,11 @@ class AsyncBrowserProfiles:
         )
 
     async def create(self, name: str, *, team_id: str | None = None) -> BrowserProfile:
+        team_id = self._client.team_id if team_id is None else team_id
         body = BrowserProfileCreateRequest(name=name, team_id=team_id).model_dump(exclude_none=True)
-        return BrowserProfile.model_validate(await self._client.post("browser-profiles", json=body))
+        return BrowserProfile.model_validate(
+            await self._client.post("browser-profiles", json=body, params={"team_id": team_id})
+        )
 
     async def get(self, profile_id: str, *, team_id: str | None = None) -> BrowserProfile:
         return BrowserProfile.model_validate(
@@ -110,11 +117,14 @@ class AsyncBrowserProfiles:
         is_default: Literal[True] | None = None,
         team_id: str | None = None,
     ) -> BrowserProfile:
+        team_id = self._client.team_id if team_id is None else team_id
         body = BrowserProfileUpdateRequest(name=name, is_default=is_default, team_id=team_id).model_dump(
             exclude_none=True
         )
         return BrowserProfile.model_validate(
-            await self._client.patch(f"browser-profiles/{quote(profile_id, safe='')}", json=body)
+            await self._client.patch(
+                f"browser-profiles/{quote(profile_id, safe='')}", json=body, params={"team_id": team_id}
+            )
         )
 
     async def delete(self, profile_id: str, *, team_id: str | None = None) -> BrowserProfileDeleteResponse:

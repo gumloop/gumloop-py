@@ -49,9 +49,37 @@ def test_browser_profile_operations_preserve_scope_and_parse_results(operation, 
 
     assert response.model_dump(exclude_unset=True) == payload
     request = route.calls[0].request
-    assert dict(request.url.params) == ({} if body else {"team_id": "team-1"})
+    assert dict(request.url.params) == {"team_id": "team-1"}
     assert (json.loads(request.content) if request.content else None) == body
     assert request.url.raw_path.split(b"?")[0] == ("/api/v1/" + path).encode()
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("operation", ["create", "update"])
+@pytest.mark.parametrize("override", [None, "team-override"])
+@respx.mock
+def test_profile_body_and_query_use_one_effective_team(asynchronous, operation, override):
+    method = "POST" if operation == "create" else "PATCH"
+    path = "browser-profiles" if operation == "create" else "browser-profiles/profile-1"
+    route = respx.request(method, f"{API_BASE}/{path}").respond(200, json=PROFILE)
+    kwargs = {"team_id": override} if override else {}
+    args = ("Work",) if operation == "create" else ("profile-1",)
+    if operation == "update":
+        kwargs["name"] = "Work"
+
+    async def run():
+        async with AsyncGumloop(api_key="key", team_id="team-default") as client:
+            return await getattr(client.browser_profiles, operation)(*args, **kwargs)
+
+    if asynchronous:
+        asyncio.run(run())
+    else:
+        with Gumloop(api_key="key", team_id="team-default") as client:
+            getattr(client.browser_profiles, operation)(*args, **kwargs)
+
+    request = route.calls[0].request
+    assert dict(request.url.params) == {"team_id": override or "team-default"}
+    assert json.loads(request.content)["team_id"] == (override or "team-default")
 
 
 @pytest.mark.parametrize(
