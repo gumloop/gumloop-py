@@ -16,6 +16,42 @@ from tests.sdk.helpers import API_BASE
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("oauth", [False, True])
+@respx.mock
+def test_personal_workflow_auth_and_legacy_responses(asynchronous: bool, oauth: bool) -> None:
+    start = respx.post(f"{API_BASE}/start_pipeline").respond(200, json={"run_id": "run", "url": "https://example/run"})
+    state = respx.get(f"{API_BASE}/get_pl_run").respond(200, json={"state": "DONE", "outputs": {"Output": "ok"}})
+
+    async def run() -> None:
+        async with AsyncGumloop(
+            access_token="oauth_token" if oauth else None,
+            api_key=None if oauth else "key",
+            user_id=None if oauth else "actor",
+        ) as client:
+            started = await client.workflows.start("tab")
+            assert started.saved_item_id == "tab" and started.run_id == "run"
+            assert (await client.workflows.wait(started.run_id)).run_id == "run"
+
+    if asynchronous:
+        asyncio.run(run())
+    else:
+        with Gumloop(
+            access_token="oauth_token" if oauth else None,
+            api_key=None if oauth else "key",
+            user_id=None if oauth else "actor",
+        ) as client:
+            started = client.workflows.start("tab")
+            assert started.saved_item_id == "tab" and started.run_id == "run"
+            assert client.workflows.wait(started.run_id).run_id == "run"
+    for route in (start, state):
+        headers = route.calls[0].request.headers
+        assert headers["authorization"] == f"Bearer {'oauth_token' if oauth else 'key'}"
+        assert headers.get("x-auth-key") == (None if oauth else "actor")
+    assert "user_id" not in json.loads(start.calls[0].request.content)
+    assert "user_id" not in state.calls[0].request.url.params
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
 @respx.mock
 def test_workflow_discovery_run_and_scope(asynchronous: bool) -> None:
     listings = respx.get(f"{API_BASE}/list_saved_items").respond(
