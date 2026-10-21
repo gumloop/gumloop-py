@@ -29,6 +29,8 @@ from gumloop.resources.teams import AsyncTeams
 from gumloop.resources.teams import Teams
 from gumloop.resources.wiki import AsyncWiki
 from gumloop.resources.wiki import Wiki
+from gumloop.resources.workflows import AsyncWorkflows
+from gumloop.resources.workflows import Workflows
 
 __all__ = [
     "MCP",
@@ -59,5 +61,7 @@ __all__ = [
     "Sync",
     "Teams",
     "AsyncWiki",
+    "AsyncWorkflows",
+    "Workflows",
     "Wiki",
 ]

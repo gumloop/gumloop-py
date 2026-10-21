@@ -187,3 +187,27 @@ print(client.brain.search("onboarding checklist").results[0].title)
 ```
 
 Every file carries its `sha256`, so `client.brain.list_files(source.id)` is enough to diff a local folder against the source. Only file-upload sources can be created through the API; Notion, Drive and other connected sources are set up in the Gumloop app.
+
+### Saved workflows
+
+`Gumloop` and `AsyncGumloop` expose `workflows.list()`, `list_workbooks()`, `inputs(workflow_id)`, `start()`, `get_run()`, `cancel_run()`, and `wait()`. A workflow ID is the saved tab's `saved_item_id`, not the containing `workbook_id`. `run()` starts and waits, returning a typed run with outputs; `WorkflowExecutionError` includes the terminal run on failure or termination. A polling timeout leaves the remote run active. Existing `GumloopClient.run_flow()` users remain supported.
+
+```python
+with Gumloop(api_key="...", user_id="...") as client:
+    started = client.workflows.start("saved_item_id", {"Input": "hello"})
+    result = client.workflows.wait(started.run_id, timeout=120)
+    print(result.outputs)
+```
+
+Personal keys and OAuth use personal workflow storage by default; pass `project_id` for a workspace. Team keys retain their authenticated team scope. File writes with personal credentials in a workspace require project update permission. `upload_file`/`upload_files` accept bytes; `download_file`/`download_files` return bytes with a configurable size limit (64 MiB by default), with the bulk download returned as ZIP. These APIs manage existing workflow execution and files; they do not author the visual canvas.
+
+```sh
+gumloop workflows list --json
+gumloop workflows workbooks --json
+gumloop workflows inputs SAVED_ITEM_ID --json
+gumloop workflows run SAVED_ITEM_ID --args-json '{"Input":"hello"}' --wait --timeout 120 --json
+gumloop workflows status RUN_ID --json
+gumloop workflows cancel RUN_ID --json
+gumloop workflows upload ./input.csv --json
+gumloop workflows download STORED_FILE_NAME --output ./download.csv --json
+```
