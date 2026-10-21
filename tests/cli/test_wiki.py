@@ -25,9 +25,11 @@ def test_wiki_query_filters_and_json(cli_runner: CliRunner) -> None:
 @respx.mock
 def test_wiki_human_output(cli_runner: CliRunner) -> None:
     save_credentials(Credentials(api_key="key"))
-    respx.post(f"{API_BASE}/wiki/query").mock(return_value=httpx.Response(200, json={"cards": [
-        {"type": "profile", "summary": "Prefers short replies", "facts": []}
-    ]}))
+    respx.post(f"{API_BASE}/wiki/query").mock(
+        return_value=httpx.Response(
+            200, json={"cards": [{"type": "profile", "summary": "Prefers short replies", "facts": []}]}
+        )
+    )
     result = cli_runner.invoke(app, ["wiki", "query"])
     assert result.exit_code == 0, result.output
     assert "Prefers short replies" in result.output
