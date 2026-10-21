@@ -54,6 +54,8 @@ gumloop brain search "expense policy"
 
 ## SDK
 
+Read your personal wiki from the terminal with `gumloop wiki query --json`, or filter a card with `--type project --entity-key launch`. The SDK provides the same query through `client.wiki.query(type="project", entity_key="launch")` on both synchronous and asynchronous clients. Queries are scoped to the authenticated user's personal wiki and retain the API's permission checks.
+
 To use the client as a library in your own Python project:
 
 ```bash
