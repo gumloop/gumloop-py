@@ -67,14 +67,12 @@ class Workflows:
     def start(
         self, workflow_id: str, inputs: Mapping[str, Any] | None = None, *, project_id: str | None = None
     ) -> WorkflowRunStarted:
-        return WorkflowRunStarted.model_validate(
-            self._client.post("start_pipeline", json=_start_body(workflow_id, inputs or {}, project_id))
-        )
+        result = self._client.post("start_pipeline", json=_start_body(workflow_id, inputs or {}, project_id))
+        return WorkflowRunStarted.model_validate({"saved_item_id": workflow_id, **result})
 
     def get_run(self, run_id: str, *, project_id: str | None = None) -> WorkflowRun:
-        return WorkflowRun.model_validate(
-            self._client.get("get_pl_run", params={"run_id": run_id, "project_id": project_id})
-        )
+        result = self._client.get("get_pl_run", params={"run_id": run_id, "project_id": project_id})
+        return WorkflowRun.model_validate({"run_id": run_id, **result})
 
     def cancel_run(self, run_id: str, *, project_id: str | None = None) -> WorkflowRunCancelled:
         return WorkflowRunCancelled.model_validate(
@@ -202,14 +200,12 @@ class AsyncWorkflows:
     async def start(
         self, workflow_id: str, inputs: Mapping[str, Any] | None = None, *, project_id: str | None = None
     ) -> WorkflowRunStarted:
-        return WorkflowRunStarted.model_validate(
-            await self._client.post("start_pipeline", json=_start_body(workflow_id, inputs or {}, project_id))
-        )
+        result = await self._client.post("start_pipeline", json=_start_body(workflow_id, inputs or {}, project_id))
+        return WorkflowRunStarted.model_validate({"saved_item_id": workflow_id, **result})
 
     async def get_run(self, run_id: str, *, project_id: str | None = None) -> WorkflowRun:
-        return WorkflowRun.model_validate(
-            await self._client.get("get_pl_run", params={"run_id": run_id, "project_id": project_id})
-        )
+        result = await self._client.get("get_pl_run", params={"run_id": run_id, "project_id": project_id})
+        return WorkflowRun.model_validate({"run_id": run_id, **result})
 
     async def cancel_run(self, run_id: str, *, project_id: str | None = None) -> WorkflowRunCancelled:
         return WorkflowRunCancelled.model_validate(
