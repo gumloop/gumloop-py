@@ -9,10 +9,10 @@ from gumloop._http import AsyncHttpClient
 from gumloop._http import HttpClient
 from gumloop.types import AgentAbilitiesResponse
 from gumloop.types import AgentAbilitiesUpdateRequest
-from gumloop.types import AgentAppRulesResponse
 from gumloop.types import AgentAppRuleCreateRequest
 from gumloop.types import AgentAppRuleDeleteResponse
 from gumloop.types import AgentAppRuleResponse
+from gumloop.types import AgentAppRulesResponse
 from gumloop.types import AgentAppRuleUpdateRequest
 from gumloop.types import AgentCreateRequest
 from gumloop.types import AgentDeleteResponse
@@ -281,20 +281,33 @@ class Agents:
         return AgentAppRulesResponse.model_validate(self._client.get(f"agents/{agent_id}/app-rules"))
 
     def create_app_rule(
-        self, agent_id: str, request: AgentAppRuleCreateRequest | Mapping[str, Any] | None = None, **kwargs: Any,
+        self,
+        agent_id: str,
+        request: AgentAppRuleCreateRequest | Mapping[str, Any] | None = None,
+        **kwargs: Any,
     ) -> AgentAppRuleResponse:
         """Create a rule scoped only to this agent; rules default to disabled."""
-        return AgentAppRuleResponse.model_validate(self._client.post(
-            f"agents/{agent_id}/app-rules", json=AgentAppRuleCreateRequest.build(request, **kwargs),
-        ))
+        return AgentAppRuleResponse.model_validate(
+            self._client.post(
+                f"agents/{agent_id}/app-rules",
+                json=AgentAppRuleCreateRequest.build(request, **kwargs),
+            )
+        )
 
     def update_app_rule(
-        self, agent_id: str, rule_id: str, request: AgentAppRuleUpdateRequest | Mapping[str, Any] | None = None, **kwargs: Any,
+        self,
+        agent_id: str,
+        rule_id: str,
+        request: AgentAppRuleUpdateRequest | Mapping[str, Any] | None = None,
+        **kwargs: Any,
     ) -> AgentAppRuleResponse:
         """Patch a rule; pass explicit nulls in the request mapping to clear optional fields."""
-        return AgentAppRuleResponse.model_validate(self._client.patch(
-            f"agents/{agent_id}/app-rules/{rule_id}", json=AgentAppRuleUpdateRequest.build(request, **kwargs),
-        ))
+        return AgentAppRuleResponse.model_validate(
+            self._client.patch(
+                f"agents/{agent_id}/app-rules/{rule_id}",
+                json=AgentAppRuleUpdateRequest.build(request, **kwargs),
+            )
+        )
 
     def delete_app_rule(self, agent_id: str, rule_id: str) -> AgentAppRuleDeleteResponse:
         return AgentAppRuleDeleteResponse.model_validate(self._client.delete(f"agents/{agent_id}/app-rules/{rule_id}"))
@@ -594,17 +607,28 @@ class AsyncAgents:
         return AgentAppRulesResponse.model_validate(data)
 
     async def create_app_rule(
-        self, agent_id: str, request: AgentAppRuleCreateRequest | Mapping[str, Any] | None = None, **kwargs: Any,
+        self,
+        agent_id: str,
+        request: AgentAppRuleCreateRequest | Mapping[str, Any] | None = None,
+        **kwargs: Any,
     ) -> AgentAppRuleResponse:
         """Create a rule scoped only to this agent; rules default to disabled."""
-        data = await self._client.post(f"agents/{agent_id}/app-rules", json=AgentAppRuleCreateRequest.build(request, **kwargs))
+        data = await self._client.post(
+            f"agents/{agent_id}/app-rules", json=AgentAppRuleCreateRequest.build(request, **kwargs)
+        )
         return AgentAppRuleResponse.model_validate(data)
 
     async def update_app_rule(
-        self, agent_id: str, rule_id: str, request: AgentAppRuleUpdateRequest | Mapping[str, Any] | None = None, **kwargs: Any,
+        self,
+        agent_id: str,
+        rule_id: str,
+        request: AgentAppRuleUpdateRequest | Mapping[str, Any] | None = None,
+        **kwargs: Any,
     ) -> AgentAppRuleResponse:
         """Patch a rule; pass explicit nulls in the request mapping to clear optional fields."""
-        data = await self._client.patch(f"agents/{agent_id}/app-rules/{rule_id}", json=AgentAppRuleUpdateRequest.build(request, **kwargs))
+        data = await self._client.patch(
+            f"agents/{agent_id}/app-rules/{rule_id}", json=AgentAppRuleUpdateRequest.build(request, **kwargs)
+        )
         return AgentAppRuleResponse.model_validate(data)
 
     async def delete_app_rule(self, agent_id: str, rule_id: str) -> AgentAppRuleDeleteResponse:
