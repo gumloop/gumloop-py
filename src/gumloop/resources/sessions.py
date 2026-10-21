@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 from collections.abc import AsyncIterator
 from collections.abc import Iterator
 from collections.abc import Mapping
@@ -15,6 +16,7 @@ from gumloop.types import ItemAccessChangeResponse
 from gumloop.types import ItemAccessResponse
 from gumloop.types import SessionContinueRequest
 from gumloop.types import SessionCreateRequest
+from gumloop.types import SessionFileResponse
 from gumloop.types import SessionListResponse
 from gumloop.types import SessionResponse
 from gumloop.types import SessionUpdateRequest
@@ -151,6 +153,15 @@ class Sessions:
             f"sessions/{session_id}",
             params={"stream": "true", "last_cursor": last_cursor, **kwargs},
         )
+
+    def upload_file(
+        self, session_id: str, file_name: str, file_content: bytes, *, media_type: str | None = None
+    ) -> SessionFileResponse:
+        """Upload bytes; attach the returned file_name to a follow-up message."""
+        body = {"file_name": file_name, "file_content": base64.b64encode(file_content).decode("ascii")}
+        if media_type is not None:
+            body["media_type"] = media_type
+        return SessionFileResponse.model_validate(self._client.post(f"sessions/{session_id}/files", json=body))
 
     def cancel(self, session_id: str) -> SessionResponse:
         return SessionResponse.model_validate(self._client.post(f"sessions/{session_id}/cancel", json={}))
@@ -313,6 +324,16 @@ class AsyncSessions:
             f"sessions/{session_id}",
             params={"stream": "true", "last_cursor": last_cursor, **kwargs},
         )
+
+    async def upload_file(
+        self, session_id: str, file_name: str, file_content: bytes, *, media_type: str | None = None
+    ) -> SessionFileResponse:
+        """Upload bytes; attach the returned file_name to a follow-up message."""
+        body = {"file_name": file_name, "file_content": base64.b64encode(file_content).decode("ascii")}
+        if media_type is not None:
+            body["media_type"] = media_type
+        data = await self._client.post(f"sessions/{session_id}/files", json=body)
+        return SessionFileResponse.model_validate(data)
 
     async def cancel(self, session_id: str) -> SessionResponse:
         data = await self._client.post(f"sessions/{session_id}/cancel", json={})

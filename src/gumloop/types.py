@@ -670,10 +670,20 @@ class SessionCreateRequest(_Model):
     incognito: bool = False
 
 
+class SessionAttachment(_Model):
+    file_name: str
+    media_type: str | None = None
+
+
+class SessionFileResponse(SessionAttachment):
+    size: int
+
+
 class SessionContinueRequest(_Model):
     input: str | list[Any] | None = None
     message: str | list[Any] | None = None
     stream: bool = False
+    attachments: list[SessionAttachment] | None = None
 
 
 class SessionUpdateRequest(_Model):
