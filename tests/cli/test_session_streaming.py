@@ -141,9 +141,9 @@ def test_session_resume_not_resumable_fails(cli_runner: CliRunner, json_output: 
     ],
 )
 @respx.mock
-def test_team_scoped_session_streams(cli_runner: CliRunner, command, method, path, options) -> None:
+def test_session_streams_preserve_unscoped_transport(cli_runner: CliRunner, command, method, path, options) -> None:
     route = respx.route(method=method, url=f"{STREAM_BASE}/{path}").mock(return_value=sse(EVENTS))
-    save_credentials(Credentials(api_key="team_key"))
+    save_credentials(Credentials(access_token="personal"))
     result = cli_runner.invoke(
         app,
         [
@@ -157,7 +157,7 @@ def test_team_scoped_session_streams(cli_runner: CliRunner, command, method, pat
         ],
     )
     assert result.exit_code == 0, result.output
-    assert route.calls[0].request.url.params["team_id"] == "team_1"
+    assert "team_id" not in route.calls[0].request.url.params
 
 
 @pytest.mark.parametrize("stream", [False, True])

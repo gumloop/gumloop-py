@@ -239,7 +239,7 @@ class HttpClient:
             headers=headers,
             timeout=self._stream_timeout,
             json=json,
-            params=self._scoped_params(_omit_none_params(params)),
+            params=_omit_none_params(params),
         ) as response:
             if response.status_code >= 400:
                 response.read()
@@ -265,7 +265,7 @@ class HttpClient:
             headers=headers,
             timeout=self._stream_timeout,
             json=json,
-            params=self._scoped_params(_omit_none_params(params)),
+            params=_omit_none_params(params),
         ) as response:
             if response.status_code >= 400:
                 response.read()
@@ -416,7 +416,7 @@ class AsyncHttpClient:
             headers=headers,
             timeout=self._stream_timeout,
             json=json,
-            params=self._scoped_params(_omit_none_params(params)),
+            params=_omit_none_params(params),
         ) as response:
             if response.status_code >= 400:
                 await response.aread()
@@ -440,7 +440,7 @@ class AsyncHttpClient:
             headers=headers,
             timeout=self._stream_timeout,
             json=json,
-            params=self._scoped_params(_omit_none_params(params)),
+            params=_omit_none_params(params),
         ) as response:
             if response.status_code >= 400:
                 await response.aread()
