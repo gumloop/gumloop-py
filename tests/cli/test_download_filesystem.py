@@ -11,8 +11,45 @@ import pytest
 from gumloop.cli.commands import _downloads
 
 
+class _WindowsLinkError(OSError):
+    winerror: int
+
+
 def _outputs(directory: Path) -> list[Path]:
     return [path for path in directory.iterdir() if path.name != "home"]
+
+
+@pytest.mark.parametrize("winerror", [1, 50])
+def test_download_supports_windows_unsupported_links(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, winerror: int
+) -> None:
+    def unsupported_link(source: Path, destination: Path) -> None:
+        failure = _WindowsLinkError(errno.EINVAL, "Windows hard links unavailable")
+        failure.winerror = winerror
+        raise failure
+
+    monkeypatch.setattr(_downloads.os, "link", unsupported_link)
+    target = tmp_path / "download.bin"
+    error = None
+    try:
+        _downloads.write_download_bytes(b"download", target)
+    except OSError as failure:
+        error = failure
+    assert error is None
+    assert target.read_bytes() == b"download"
+
+
+@pytest.mark.parametrize("link_errno", [errno.EINVAL, errno.EIO, errno.EACCES])
+def test_download_preserves_other_link_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, link_errno: int) -> None:
+    def failed_link(source: Path, destination: Path) -> None:
+        raise OSError(link_errno, "not an unsupported-link failure")
+
+    monkeypatch.setattr(_downloads.os, "link", failed_link)
+    target = tmp_path / "download.bin"
+    with pytest.raises(OSError) as failure:
+        _downloads.write_download_bytes(b"download", target)
+    assert failure.value.errno == link_errno
+    assert _outputs(tmp_path) == []
 
 
 @pytest.mark.parametrize("link_errno", [errno.EPERM, errno.EOPNOTSUPP])

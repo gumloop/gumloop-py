@@ -190,7 +190,10 @@ def _install_download_exclusively(temporary: Path, destination: Path) -> None:
         os.link(temporary, destination)
         return
     except OSError as error:
-        if error.errno not in {errno.EPERM, errno.EOPNOTSUPP, errno.ENOSYS}:
+        # Windows maps unsupported-function (1) and unsupported-operation (50) to EINVAL.
+        if error.errno not in {errno.EPERM, errno.EOPNOTSUPP, errno.ENOSYS} and getattr(
+            error, "winerror", None
+        ) not in (1, 50):
             raise
 
     owned = None
