@@ -97,7 +97,7 @@ class Artifacts:
     ) -> ArtifactContent:
         content, headers = self._client.post_bytes(
             f"artifacts/{artifact_id}/execute",
-            params={"version_id": version_id},
+            params={"version_id": version_id, "team_id": self._client.team_id},
             json={"key": key, "payload": payload, "download": True},
             max_bytes=max_bytes,
         )
@@ -241,7 +241,7 @@ class AsyncArtifacts:
     ) -> ArtifactContent:
         content, headers = await self._client.post_bytes(
             f"artifacts/{artifact_id}/execute",
-            params={"version_id": version_id},
+            params={"version_id": version_id, "team_id": self._client.team_id},
             json={"key": key, "payload": payload, "download": True},
             max_bytes=max_bytes,
         )

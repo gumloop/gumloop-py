@@ -130,3 +130,62 @@ def test_script_consent_uses_policy_version_independently_of_content(cli_runner)
     )
     assert acknowledged.exit_code == 0, acknowledged.output
     assert json.loads(ack.calls[0].request.content) == {"ack_type": "integrations", "version_id": "script-policy-v2"}
+
+
+@pytest.mark.parametrize(
+    "command,method,path,response",
+    [
+        (["get", "file"], "GET", "", {"id": "file"}),
+        (["rename", "file", "--name", "Renamed"], "PUT", "/name", {"name": "Renamed"}),
+        (["delete", "file"], "DELETE", "", {"deleted": True}),
+        (["versions", "file"], "GET", "/versions", {"versions": []}),
+        (
+            ["restore", "file", "version"],
+            "POST",
+            "/restore",
+            {"status": "queued", "version_id": "v", "publish_id": "p"},
+        ),
+        (["hosting", "get", "file"], "GET", "/hosting", {"enabled": False}),
+        (["hosting", "enable", "file"], "POST", "/hosting", {"enabled": True}),
+        (["hosting", "rename", "file", "alias"], "PUT", "/hosting", {"enabled": True, "alias": "alias"}),
+        (["hosting", "disable", "file"], "DELETE", "/hosting", {"enabled": False}),
+        (["scripts", "list", "file"], "GET", "", {"id": "file"}),
+        (["scripts", "acknowledge-integrations", "file", "version"], "POST", "/acknowledgements", None),
+        (["scripts", "execute", "file", "data"], "POST", "/execute", {"answer": 3}),
+    ],
+)
+@respx.mock
+def test_new_artifact_commands_forward_explicit_workspace(cli_runner, command, method, path, response):
+    save_credentials(Credentials(access_token="personal"))
+    route = respx.route(method=method, url=f"{API_BASE}/artifacts/file{path}").respond(
+        204 if response is None else 200, json=response
+    )
+    result = cli_runner.invoke(app, ["--team-id", "selected", "artifacts", *command, "--json"])
+    assert result.exit_code == 0, result.output
+    assert route.calls[0].request.url.params["team_id"] == "selected"
+
+
+@pytest.mark.parametrize("script", [False, True])
+@respx.mock
+def test_new_artifact_binary_commands_forward_explicit_workspace(cli_runner, tmp_path, script):
+    save_credentials(Credentials(access_token="personal"))
+    route = (
+        respx.post(f"{API_BASE}/artifacts/file/execute") if script else respx.get(f"{API_BASE}/artifacts/file/content")
+    ).respond(200, content=b"download")
+    command = ["scripts", "execute", "file", "data"] if script else ["content", "file"]
+    destination = tmp_path / "download.bin"
+    result = cli_runner.invoke(
+        app, ["--team-id", "selected", "artifacts", *command, "--output", str(destination), "--json"]
+    )
+    assert result.exit_code == 0, result.output
+    assert destination.read_bytes() == b"download"
+    assert route.calls[0].request.url.params["team_id"] == "selected"
+
+
+@respx.mock
+def test_existing_artifact_list_keeps_original_workspace_behavior(cli_runner):
+    save_credentials(Credentials(access_token="personal"))
+    route = respx.get(f"{API_BASE}/agents/agent_1/artifacts").respond(200, json={"artifacts": []})
+    result = cli_runner.invoke(app, ["--team-id", "selected", "artifacts", "list", "agent_1", "--json"])
+    assert result.exit_code == 0, result.output
+    assert "team_id" not in route.calls[0].request.url.params

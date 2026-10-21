@@ -205,7 +205,9 @@ class HttpClient:
         params: Mapping[str, Any] | None = None,
         max_bytes: int,
     ) -> tuple[bytes, httpx.Headers]:
-        return self._request_bytes("GET", path, params=params, max_bytes=max_bytes)
+        return self._request_bytes(
+            "GET", path, params=self._scoped_params(_omit_none_params(params)), max_bytes=max_bytes
+        )
 
     def _request_bytes(
         self,
@@ -222,7 +224,7 @@ class HttpClient:
         if extra_headers:
             headers.update(extra_headers)
         with self._client.stream(
-            method, path, headers=headers, json=json, params=self._scoped_params(_omit_none_params(params))
+            method, path, headers=headers, json=json, params=_omit_none_params(params)
         ) as response:
             if response.status_code >= 400:
                 response.read()
@@ -441,7 +443,9 @@ class AsyncHttpClient:
         params: Mapping[str, Any] | None = None,
         max_bytes: int,
     ) -> tuple[bytes, httpx.Headers]:
-        return await self._request_bytes("GET", path, params=params, max_bytes=max_bytes)
+        return await self._request_bytes(
+            "GET", path, params=self._scoped_params(_omit_none_params(params)), max_bytes=max_bytes
+        )
 
     async def _request_bytes(
         self,
@@ -458,7 +462,7 @@ class AsyncHttpClient:
         if extra_headers:
             headers.update(extra_headers)
         async with self._client.stream(
-            method, path, headers=headers, json=json, params=self._scoped_params(_omit_none_params(params))
+            method, path, headers=headers, json=json, params=_omit_none_params(params)
         ) as response:
             if response.status_code >= 400:
                 await response.aread()

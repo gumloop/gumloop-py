@@ -28,7 +28,11 @@ def get_artifact(
     """Read file metadata, script declarations, and your consent state."""
     cli: CliContext = ctx.obj
     try:
-        print_json(cli.call_with_refresh(lambda c: c.artifacts.retrieve(artifact_id, version_id=version_id)))
+        print_json(
+            cli.call_with_refresh(
+                lambda c: c.artifacts.retrieve(artifact_id, version_id=version_id), team_id=cli.effective_team_id
+            )
+        )
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
 
@@ -48,7 +52,8 @@ def content(
     try:
         destination = _output_destination(output, force=force)
         result = cli.call_with_refresh(
-            lambda c: c.artifacts.content(artifact_id, version_id=version_id, max_bytes=max_bytes)
+            lambda c: c.artifacts.content(artifact_id, version_id=version_id, max_bytes=max_bytes),
+            team_id=cli.effective_team_id,
         )
         write_download_bytes(result.content, destination, force=force)
         print_json({"path": str(output), "bytes": len(result.content), "media_type": result.media_type})
@@ -67,7 +72,9 @@ def rename(
     try:
         if reset == (name is not None):
             raise GumloopError("Pass exactly one of --name or --reset.")
-        print_json(cli.call_with_refresh(lambda c: c.artifacts.rename(artifact_id, name)))
+        print_json(
+            cli.call_with_refresh(lambda c: c.artifacts.rename(artifact_id, name), team_id=cli.effective_team_id)
+        )
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
 
@@ -77,7 +84,7 @@ def delete(ctx: typer.Context, artifact_id: str, json_output: JsonOutput = False
     """Soft-delete a legacy generated file; VFS handles cannot be deleted here."""
     cli: CliContext = ctx.obj
     try:
-        print_json(cli.call_with_refresh(lambda c: c.artifacts.delete(artifact_id)))
+        print_json(cli.call_with_refresh(lambda c: c.artifacts.delete(artifact_id), team_id=cli.effective_team_id))
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
 
@@ -87,7 +94,9 @@ def versions(ctx: typer.Context, artifact_id: str, json_output: JsonOutput = Fal
     """Discover available versions, newest first."""
     cli: CliContext = ctx.obj
     try:
-        print_json(cli.call_with_refresh(lambda c: c.artifacts.list_versions(artifact_id)))
+        print_json(
+            cli.call_with_refresh(lambda c: c.artifacts.list_versions(artifact_id), team_id=cli.effective_team_id)
+        )
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
 
@@ -97,7 +106,9 @@ def restore(ctx: typer.Context, artifact_id: str, version_id: str, json_output: 
     """Queue a historical VFS version as a new version. Legacy files cannot be restored."""
     cli: CliContext = ctx.obj
     try:
-        print_json(cli.call_with_refresh(lambda c: c.artifacts.restore(artifact_id, version_id)))
+        print_json(
+            cli.call_with_refresh(lambda c: c.artifacts.restore(artifact_id, version_id), team_id=cli.effective_team_id)
+        )
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
 
@@ -107,7 +118,7 @@ def get_hosting(ctx: typer.Context, artifact_id: str, json_output: JsonOutput = 
     """Read the file's hosting configuration."""
     cli: CliContext = ctx.obj
     try:
-        print_json(cli.call_with_refresh(lambda c: c.artifacts.get_hosting(artifact_id)))
+        print_json(cli.call_with_refresh(lambda c: c.artifacts.get_hosting(artifact_id), team_id=cli.effective_team_id))
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
 
@@ -119,7 +130,11 @@ def enable_hosting(
     """Enable hosting with a new alias or an existing reserved alias."""
     cli: CliContext = ctx.obj
     try:
-        print_json(cli.call_with_refresh(lambda c: c.artifacts.enable_hosting(artifact_id, alias=alias)))
+        print_json(
+            cli.call_with_refresh(
+                lambda c: c.artifacts.enable_hosting(artifact_id, alias=alias), team_id=cli.effective_team_id
+            )
+        )
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
 
@@ -129,7 +144,11 @@ def rename_hosting(ctx: typer.Context, artifact_id: str, alias: str, json_output
     """Change the hosted URL alias."""
     cli: CliContext = ctx.obj
     try:
-        print_json(cli.call_with_refresh(lambda c: c.artifacts.rename_hosting(artifact_id, alias)))
+        print_json(
+            cli.call_with_refresh(
+                lambda c: c.artifacts.rename_hosting(artifact_id, alias), team_id=cli.effective_team_id
+            )
+        )
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
 
@@ -139,7 +158,9 @@ def disable_hosting(ctx: typer.Context, artifact_id: str, json_output: JsonOutpu
     """Stop serving the hosted file while preserving its alias reservation."""
     cli: CliContext = ctx.obj
     try:
-        print_json(cli.call_with_refresh(lambda c: c.artifacts.disable_hosting(artifact_id)))
+        print_json(
+            cli.call_with_refresh(lambda c: c.artifacts.disable_hosting(artifact_id), team_id=cli.effective_team_id)
+        )
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
 
@@ -151,7 +172,9 @@ def scripts(
     """Read script tools and consent_version_id. Review current tools before acknowledging that ID."""
     cli: CliContext = ctx.obj
     try:
-        detail = cli.call_with_refresh(lambda c: c.artifacts.retrieve(artifact_id, version_id=version_id))
+        detail = cli.call_with_refresh(
+            lambda c: c.artifacts.retrieve(artifact_id, version_id=version_id), team_id=cli.effective_team_id
+        )
         print_json(
             {
                 "version_id": detail.version_id,
@@ -172,7 +195,9 @@ def acknowledge(ctx: typer.Context, artifact_id: str, version_id: str, json_outp
     """
     cli: CliContext = ctx.obj
     try:
-        cli.call_with_refresh(lambda c: c.artifacts.acknowledge_integrations(artifact_id, version_id))
+        cli.call_with_refresh(
+            lambda c: c.artifacts.acknowledge_integrations(artifact_id, version_id), team_id=cli.effective_team_id
+        )
         print_json({"acknowledged": True, "version_id": version_id})
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
@@ -212,7 +237,8 @@ def execute(
                 cli.call_with_refresh(
                     lambda c: c.artifacts.execute_script(
                         artifact_id, key, payload=request.get("payload"), version_id=version_id
-                    )
+                    ),
+                    team_id=cli.effective_team_id,
                 )
             )
         else:
@@ -220,7 +246,8 @@ def execute(
             result = cli.call_with_refresh(
                 lambda c: c.artifacts.download_script(
                     artifact_id, key, payload=request.get("payload"), version_id=version_id, max_bytes=max_bytes
-                )
+                ),
+                team_id=cli.effective_team_id,
             )
             write_download_bytes(result.content, destination, force=force)
             print_json({"path": str(output), "bytes": len(result.content), "media_type": result.media_type})
