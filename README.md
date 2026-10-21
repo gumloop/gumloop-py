@@ -1,6 +1,8 @@
 # Gumloop Python Client
 
-A Python client for the Gumloop API that makes it easy to run and monitor Gumloop flows, plus the `gumloop` CLI.
+A Python client and CLI for Gumloop agents, sessions, inference, tools, knowledge, and saved workflows. Use `Gumloop` or `AsyncGumloop` for new code; `GumloopClient` remains available for legacy workflow callers.
+
+See the [client capability guide](docs/client-capabilities.md) for sync/async differences, endpoint authentication, streaming behavior, and direct versus agent-mediated features.
 
 ## CLI
 
