@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from enum import Enum
 from typing import Any
 from typing import Literal
 
@@ -1480,3 +1481,65 @@ class EvaluationOptionsResponse(_Model):
     statuses: list[str] = Field(default_factory=list)
     skip_reasons: list[str] = Field(default_factory=list)
     limits: dict[str, int] = Field(default_factory=dict)
+
+
+class WikiCardType(str, Enum):
+    PERSON = "person"
+    ORGANIZATION = "organization"
+    PROJECT = "project"
+    AGENT = "agent"
+    PROFILE = "profile"
+    NOTE = "note"
+    TONE = "tone"
+    DESIGN = "design"
+
+
+class WikiQueryRequest(_Model):
+    type: WikiCardType | None = None
+    entity_key: str | None = None
+
+
+class WikiSource(_Model):
+    type: str
+    subject_id: str
+    locator: str | None = None
+    label: str | None = None
+    agent_id: str | None = None
+    observed_at: str | None = None
+
+
+class WikiFact(_Model):
+    id: str
+    kind: str
+    text: str
+    origin: str
+    pinned: bool
+    sources: list[WikiSource] = Field(default_factory=list)
+    first_seen_at: str | None = None
+    last_seen_at: str | None = None
+
+
+class WikiLinkedUser(_Model):
+    id: str
+    first_name: str | None = None
+    last_name: str | None = None
+    email: str | None = None
+    profile_picture: str | None = None
+
+
+class WikiCard(_Model):
+    type: WikiCardType
+    entity_key: str | None = None
+    name: str | None = None
+    summary: str | None = None
+    status: str = "active"
+    icon_url: str | None = None
+    linked_user: WikiLinkedUser | None = None
+    agent_ids: list[str] = Field(default_factory=list)
+    updated_at: str | None = None
+    row_facts: dict[str, str] = Field(default_factory=dict)
+    facts: list[WikiFact] = Field(default_factory=list)
+
+
+class WikiQueryResponse(_Model):
+    cards: list[WikiCard] = Field(default_factory=list)
