@@ -215,3 +215,27 @@ gumloop workflows download STORED_FILE_NAME --output ./download.csv --json
 ```
 
 CLI workflow uploads validate all paths before reading contents and accept at most 200 MiB total per command, including bulk uploads.
+
+### Browser profiles and session handoffs
+
+Both clients expose `browser_profiles.create(name, team_id=...)`, `get(profile_id)`, `update(profile_id, name=..., is_default=True)`, `delete(profile_id)`, and `remove_site(profile_id, site)`. Pass `team_id` for a team profile; omitting it selects personal scope. The `default` alias resolves only your personal default. Profile responses contain metadata, never cookie contents or encryption keys.
+
+```python
+profile = client.browser_profiles.create("Work")
+profile = client.browser_profiles.update(profile.profile_id, name="Work browser")
+view = client.sessions.browser("session_id")
+print(view.viewer_url)
+for handoff in view.handoffs:
+    print(handoff.manage_url)
+```
+
+`async_client` exposes the same methods with `await`. Browser status includes availability, the public controller identity, elapsed seconds, and authenticated Gumloop UI links. Follow the viewer or handoff link while signed in to complete a browser step; these methods do not issue browser control tokens or execute sandbox commands. Existing session approval endpoints continue to reject browser handoffs.
+
+```sh
+gumloop browser profiles create "Work" --json
+gumloop browser profiles get PROFILE_ID --json
+gumloop browser profiles update PROFILE_ID --name "Work browser" --json
+gumloop browser profiles remove-site PROFILE_ID example.com --json
+gumloop browser profiles delete PROFILE_ID --json
+gumloop sessions browser SESSION_ID --json
+```
