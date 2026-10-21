@@ -256,8 +256,8 @@ gumloop artifacts hosting get FILE_ID --json
 gumloop artifacts hosting enable FILE_ID --alias my-report --json
 gumloop artifacts hosting disable FILE_ID --json
 gumloop artifacts scripts list FILE_ID --json
-gumloop artifacts scripts acknowledge-integrations FILE_ID REVIEWED_VERSION_ID --json
+gumloop artifacts scripts acknowledge-integrations FILE_ID REVIEWED_CONSENT_VERSION_ID --json
 gumloop artifacts scripts execute FILE_ID SCRIPT_KEY --args-json '{"payload":{"query":"example"}}' --json
 ```
 
-Script execution uses the caller's current account permissions, the file's current tool policy, and ordinary execution billing. Review the declared tools before explicitly acknowledging integration consent for a version; team keys cannot record personal consent. JSON script results may be any JSON value; `download_script` or CLI `--output` requests the script's generated binary output. Hosting is supported for stored legacy artifacts; VFS handle-backed files retain the app's hosting limitation. Hosting mutations require file sharing permission and use the same alias/domain policy as the app; the SDK does not make a private file public automatically.
+Script execution uses the caller's current account permissions, the file's current tool policy, and ordinary execution billing. Review current declared tools, then explicitly acknowledge the returned `consent_version_id`; `version_id` independently pins content, and a changed script draft requires new consent; team keys cannot record personal consent. JSON script results may be any JSON value; `download_script` or CLI `--output` requests the script's generated binary output. Hosting is supported for stored legacy artifacts; VFS handle-backed files retain the app's hosting limitation. Hosting mutations require file sharing permission and use the same alias/domain policy as the app; the SDK does not make a private file public automatically.

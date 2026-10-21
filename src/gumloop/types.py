@@ -1767,6 +1767,7 @@ class ArtifactDetails(_Model):
     agent_id: str | None = None
     session_id: str | None = None
     version_id: str | None = None
+    consent_version_id: str | None = None
     filename: str | None = None
     name: str | None = None
     media_type: str | None = None

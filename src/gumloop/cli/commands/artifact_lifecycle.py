@@ -148,12 +148,17 @@ def disable_hosting(ctx: typer.Context, artifact_id: str, json_output: JsonOutpu
 def scripts(
     ctx: typer.Context, artifact_id: str, version_id: str | None = None, json_output: JsonOutput = False
 ) -> None:
-    """Read declared script keys/tools and the selected version's consent state."""
+    """Read script tools and consent_version_id. Review current tools before acknowledging that ID."""
     cli: CliContext = ctx.obj
     try:
         detail = cli.call_with_refresh(lambda c: c.artifacts.retrieve(artifact_id, version_id=version_id))
         print_json(
-            {"version_id": detail.version_id, "scripts": detail.scripts, "acknowledgements": detail.acknowledgements}
+            {
+                "version_id": detail.version_id,
+                "consent_version_id": detail.consent_version_id,
+                "scripts": detail.scripts,
+                "acknowledgements": detail.acknowledgements,
+            }
         )
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
@@ -161,7 +166,10 @@ def scripts(
 
 @scripts_app.command("acknowledge-integrations")
 def acknowledge(ctx: typer.Context, artifact_id: str, version_id: str, json_output: JsonOutput = False) -> None:
-    """Record explicit app consent for a reviewed version, using personal API key or OAuth."""
+    """Acknowledge the reviewed consent_version_id from scripts list, using personal API key or OAuth.
+
+    version_id in file details pins content; consent_version_id identifies the script policy checked at execution.
+    """
     cli: CliContext = ctx.obj
     try:
         cli.call_with_refresh(lambda c: c.artifacts.acknowledge_integrations(artifact_id, version_id))

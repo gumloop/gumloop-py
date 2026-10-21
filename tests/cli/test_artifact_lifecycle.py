@@ -104,3 +104,29 @@ def test_failed_disk_write_keeps_existing_download(cli_runner, tmp_path, script)
     assert target.read_bytes() == b"original"
     assert "test disk full" in result.output
     assert sorted(path.name for path in tmp_path.iterdir() if path.is_file()) == ["existing.bin"]
+
+
+@respx.mock
+def test_script_consent_uses_policy_version_independently_of_content(cli_runner):
+    save_credentials(Credentials(api_key="key"))
+    respx.get(f"{API_BASE}/artifacts/file").respond(
+        200,
+        json={
+            "id": "file",
+            "version_id": "vfsh1-content",
+            "consent_version_id": "script-policy-v2",
+            "scripts": {"data": {"tools": ["gmail__search"]}},
+        },
+    )
+    listed = cli_runner.invoke(app, ["artifacts", "scripts", "list", "file", "--json"])
+    assert listed.exit_code == 0, listed.output
+    details = json.loads(listed.output)
+    assert details["version_id"] == "vfsh1-content"
+    assert details.get("consent_version_id") == "script-policy-v2"
+    assert details["scripts"] == {"data": {"tools": ["gmail__search"]}}
+    ack = respx.post(f"{API_BASE}/artifacts/file/acknowledgements").respond(204)
+    acknowledged = cli_runner.invoke(
+        app, ["artifacts", "scripts", "acknowledge-integrations", "file", details["consent_version_id"], "--json"]
+    )
+    assert acknowledged.exit_code == 0, acknowledged.output
+    assert json.loads(ack.calls[0].request.content) == {"ack_type": "integrations", "version_id": "script-policy-v2"}

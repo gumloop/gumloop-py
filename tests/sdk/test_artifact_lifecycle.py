@@ -16,7 +16,13 @@ from tests.sdk.helpers import API_BASE
 @respx.mock
 def test_artifact_lifecycle_wire_contract(asynchronous: bool) -> None:
     metadata = respx.get(f"{API_BASE}/artifacts/file").respond(
-        200, json={"id": "file", "version_id": "version", "scripts": {"data": {"tools": []}}}
+        200,
+        json={
+            "id": "file",
+            "version_id": "version",
+            "consent_version_id": "consent-version",
+            "scripts": {"data": {"tools": []}},
+        },
     )
     name = respx.put(f"{API_BASE}/artifacts/file/name").respond(200, json={"name": None})
     versions = respx.get(f"{API_BASE}/artifacts/file/versions").respond(
@@ -39,7 +45,9 @@ def test_artifact_lifecycle_wire_contract(asynchronous: bool) -> None:
 
     async def run() -> None:
         async with AsyncGumloop(api_key="key", user_id="actor", team_id="team") as client:
-            assert (await client.artifacts.retrieve("file", version_id="version")).scripts == {"data": {"tools": []}}
+            detail = await client.artifacts.retrieve("file", version_id="version")
+            assert detail.scripts == {"data": {"tools": []}}
+            assert detail.consent_version_id == "consent-version"
             assert (await client.artifacts.rename("file", None)).name is None
             assert (await client.artifacts.list_versions("file")).versions[0].is_current
             assert (await client.artifacts.restore("file", "version")).status == "queued"
@@ -55,7 +63,9 @@ def test_artifact_lifecycle_wire_contract(asynchronous: bool) -> None:
         asyncio.run(run())
     else:
         with Gumloop(api_key="key", user_id="actor", team_id="team") as client:
-            assert client.artifacts.retrieve("file", version_id="version").scripts == {"data": {"tools": []}}
+            detail = client.artifacts.retrieve("file", version_id="version")
+            assert detail.scripts == {"data": {"tools": []}}
+            assert detail.consent_version_id == "consent-version"
             assert client.artifacts.rename("file", None).name is None
             assert client.artifacts.list_versions("file").versions[0].is_current
             assert client.artifacts.restore("file", "version").status == "queued"
