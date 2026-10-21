@@ -28,7 +28,7 @@ def create_decision(
     cli: CliContext = ctx.obj
     try:
         request = resolve_json_args(inline=args_json, file_path=args_file, stdin_marker=args)
-        response = cli.call_with_refresh(lambda client: client.decisions.create(request))
+        response = cli.call_with_refresh(lambda client: client.decisions.create(request), team_id=cli.effective_team_id)
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
 

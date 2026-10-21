@@ -44,13 +44,13 @@ class CliContext:
     def effective_auth_method(self) -> str | None:
         return self.credentials.auth_method
 
-    def build_client(self) -> Gumloop:
+    def build_client(self, *, team_id: str | None = None) -> Gumloop:
         # x-auth-key (user_id header) is API-key auth only; OAuth omits it.
         using_api_key = self.effective_auth_method == "api_key"
         return Gumloop(
             access_token=self.credentials.bearer_token,
             user_id=self.effective_user_id if using_api_key else None,
-            team_id=self.effective_team_id,
+            team_id=team_id,
             base_url=self.effective_base_url,
         )
 
@@ -75,8 +75,8 @@ class CliContext:
         save_credentials(self.credentials)
         return True
 
-    def call_with_refresh(self, fn: Callable[[Gumloop], T]) -> T:
-        client = self.build_client()
+    def call_with_refresh(self, fn: Callable[[Gumloop], T], *, team_id: str | None = None) -> T:
+        client = self.build_client(team_id=team_id)
         try:
             return fn(client)
         except APIStatusError as error:
@@ -105,4 +105,4 @@ class CliContext:
                 raise
             if not refreshed:
                 raise
-            return fn(self.build_client())
+            return fn(self.build_client(team_id=team_id))
