@@ -71,7 +71,7 @@ def rename(
 
 @artifacts_app.command("delete")
 def delete(ctx: typer.Context, artifact_id: str, json_output: JsonOutput = False) -> None:
-    """Soft-delete a generated file; versions and stored bytes are retained."""
+    """Soft-delete a legacy generated file; VFS handles cannot be deleted here."""
     cli: CliContext = ctx.obj
     try:
         print_json(cli.call_with_refresh(lambda c: c.artifacts.delete(artifact_id)))
