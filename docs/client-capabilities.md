@@ -8,6 +8,7 @@ The CLI uses these same resources. Run `gumloop <group> <command> --help` for th
 | --- | --- | --- |
 | Agent configuration, attachments, subagents, abilities, evaluations | `client.agents` | `gumloop agents` |
 | Agent app restrictions | `client.agents.list_app_rules`, `create_app_rule`, `update_app_rule`, `delete_app_rule` | `gumloop agents rules` |
+| Integration trigger catalog, configuration, status, run history, and credit totals | `client.agents` trigger methods | `gumloop agents triggers` |
 | Agent conversations and resumable event streams | `client.sessions` | `gumloop sessions` |
 | Session-file inputs | `client.sessions.upload_file` and message attachments | `gumloop sessions upload`, `send --file` |
 | Pending tool approvals and human input | `client.sessions.resolve_approvals` | `gumloop sessions approvals` |
@@ -34,6 +35,8 @@ Session execution, session-file uploads, queues, approvals, decisions, personal 
 Personal API keys use `api_key` plus `user_id`. OAuth uses `access_token`. SDK environment fallback reads `GUMLOOP_ACCESS_TOKEN`, `GUMLOOP_USER_ID`, and `GUMLOOP_TEAM_ID`; `GUMLOOP_API_KEY` is a CLI variable. For an alternate backend, set both `base_url` and `stream_base_url` explicitly rather than assuming they share a host.
 
 Connector discovery lists available tools and account selectors. Creating or reconnecting an account can still require interactive consent. Tool execution rechecks account access and can incur charges or external effects.
+
+Integration trigger configuration pins exact connector accounts and validates current owner, workspace, and app policy. Catalog and run inspection retain trigger permissions; enabling or changing an active trigger uses the existing external subscription or polling lifecycle and billing. Configuration replacement requires the trigger creator. Shared trigger template and instance management remain separate operations.
 
 ## Response timing and structured requests
 
