@@ -852,7 +852,7 @@ class StreamEvent(_Model):
     # Wire format uses camelCase on these two; surface snake_case attributes
     # to callers while still accepting the wire names on deserialize.
     finish_reason: str | None = Field(default=None, validation_alias="finishReason")
-    error: str | None = None
+    error: str | dict[str, Any] | None = None
     error_message: str | None = Field(default=None, validation_alias="errorMessage")
 
 

@@ -23,6 +23,7 @@ from gumloop.cli.commands._item_access import share_team_option
 from gumloop.cli.commands._item_access import show_item_access
 from gumloop.cli.commands._session_files import read_file
 from gumloop.cli.commands._session_files import validate_file
+from gumloop.cli.commands._session_stream import print_session_stream
 from gumloop.cli.commands._text_input import resolve_text_input
 from gumloop.cli.commands.session_queue import queue_app
 from gumloop.cli.console import console
@@ -72,6 +73,12 @@ def create_session(
         bool,
         typer.Option("--incognito", help="Run the session incognito: nothing is saved."),
     ] = False,
+    metadata_json: Annotated[
+        str | None, typer.Option("--metadata-json", help="Session metadata as a JSON object.")
+    ] = None,
+    stream: Annotated[
+        bool, typer.Option("--stream", help="Stream events; --json emits NDJSON with resume cursors.")
+    ] = False,
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Print the raw SDK response as JSON."),
@@ -84,6 +91,27 @@ def create_session(
         if name is not None and not name.strip():
             raise GumloopError("Pass a non-empty --name.")
         message = resolve_text_input(input_text, input_stdin)
+        metadata = (
+            resolve_json_args(inline=metadata_json, file_path=None, stdin_marker=None)
+            if metadata_json is not None
+            else None
+        )
+        if stream:
+            if not message:
+                raise GumloopError("Pass --input or --input-stdin with text to start a stream.")
+            print_session_stream(
+                cli,
+                lambda client: client.sessions.stream(
+                    agent_id,
+                    input=message,
+                    session_id=session_id,
+                    name=name,
+                    metadata=metadata,
+                    incognito=True if incognito else None,
+                ),
+                json_output=json_output,
+            )
+            return
 
         # cast narrows SessionResponse | Iterator to the non-streaming branch
         # (we never pass stream=True).
@@ -96,6 +124,7 @@ def create_session(
                     session_id=session_id,
                     name=name,
                     incognito=True if incognito else None,
+                    metadata=metadata,
                 )
             ),
         )
@@ -274,6 +303,9 @@ def send_session(
     files: Annotated[
         list[Path] | None, typer.Option("--file", help="Upload and attach a local file. Repeatable.")
     ] = None,
+    stream: Annotated[
+        bool, typer.Option("--stream", help="Stream events; --json emits NDJSON with resume cursors.")
+    ] = False,
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Print the raw SDK response as JSON."),
@@ -300,6 +332,18 @@ def send_session(
             )
             del content
             attachments.append(SessionAttachment(file_name=uploaded.file_name, media_type=uploaded.media_type))
+
+        if stream:
+            print_session_stream(
+                cli,
+                lambda client: client.sessions.stream_message(
+                    session_id,
+                    input=message,
+                    attachments=attachments or None,
+                ),
+                json_output=json_output,
+            )
+            return
 
         response = cast(
             SessionResponse,
@@ -331,6 +375,27 @@ def send_session(
         for m in session.messages[-5:]:
             content = m.content if isinstance(m.content, str) else str(m.content or "")
             console.print(f"  [{m.role or ''}] {content[:200]}", markup=False, highlight=False)
+
+
+@sessions_app.command(
+    "resume", epilog="Example:\n  gumloop sessions resume session_abc --cursor 'cursor_from_stream' --json"
+)
+def resume_session(
+    ctx: typer.Context,
+    session_id: Annotated[str, typer.Argument(help="Session to reconnect to.")],
+    cursor: Annotated[str, typer.Option("--cursor", help="Last stream_cursor received; replay starts after it.")],
+    json_output: Annotated[bool, typer.Option("--json", help="Emit session events as NDJSON.")] = False,
+) -> None:
+    """Resume an event stream after a disconnect without sending another message."""
+    cli: CliContext = ctx.obj
+    try:
+        if not cursor.strip():
+            raise GumloopError("Pass a non-empty --cursor.")
+        print_session_stream(
+            cli, lambda client: client.sessions.resume_stream(session_id, cursor), json_output=json_output
+        )
+    except GumloopError as error:
+        exit_with_error(error, json_output=json_output)
 
 
 @sessions_app.command(
