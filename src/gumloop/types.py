@@ -1611,6 +1611,8 @@ class WikiCard(_Model):
 
 class WikiQueryResponse(_Model):
     cards: list[WikiCard] = Field(default_factory=list)
+
+
 class Workflow(_Model):
     saved_item_id: str
     name: str
