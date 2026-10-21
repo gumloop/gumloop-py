@@ -18,7 +18,7 @@ The CLI uses these same resources. Run `gumloop <group> <command> --help` for th
 | Connector tools, resources, prompts, and account discovery | `client.mcp` | `gumloop mcp` |
 | Personal wiki cards | `client.wiki.query` | `gumloop wiki query` |
 | Company Brain search and source files | `client.brain` | `gumloop brain` |
-| Generated files and sharing | `client.artifacts` | `gumloop artifacts` |
+| Generated-file metadata, content, sharing, versions, restore, hosting, and declared scripts | `client.artifacts` | `gumloop artifacts` |
 | Browser profiles and authenticated session viewer links | `client.browser_profiles`, `client.sessions.browser` | `gumloop browser`, `gumloop sessions browser` |
 | Existing saved workflow execution and file transfers | `client.workflows` | `gumloop workflows` |
 | Managed coding-agent skills | `client.sync` (synchronous only) | `gumloop sync` |
