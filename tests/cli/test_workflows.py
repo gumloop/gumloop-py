@@ -7,10 +7,36 @@ import pytest
 import respx
 from typer.testing import CliRunner
 
+from gumloop.cli.commands import _workflow_files
 from gumloop.cli.credentials import Credentials
 from gumloop.cli.credentials import save_credentials
 from gumloop.cli.main import app
 from tests.sdk.helpers import API_BASE
+
+
+@pytest.mark.parametrize("invalid", ["missing", "directory", "duplicate", "aggregate"])
+@respx.mock
+def test_workflow_upload_preflight_rejects_without_requests(
+    cli_runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, invalid: str
+) -> None:
+    save_credentials(Credentials(api_key="key"))
+    first = tmp_path / "one.txt"
+    first.write_bytes(b"123")
+    second = tmp_path / "two.txt"
+    if invalid == "directory":
+        second.mkdir()
+    elif invalid == "duplicate":
+        folder = tmp_path / "other"
+        folder.mkdir()
+        second = folder / first.name
+        second.write_bytes(b"456")
+    elif invalid == "aggregate":
+        second.write_bytes(b"456")
+        monkeypatch.setattr(_workflow_files, "MAX_UPLOAD_BYTES", 5)
+    result = cli_runner.invoke(app, ["workflows", "upload", str(first), str(second), "--json"])
+    assert result.exit_code == 1
+    assert json.loads(result.stderr)["error"]["message"]
+    assert not respx.calls
 
 
 @pytest.mark.parametrize("bulk", [False, True])
