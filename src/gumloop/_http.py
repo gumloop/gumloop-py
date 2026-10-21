@@ -194,7 +194,9 @@ class HttpClient:
         headers["Content-Type"] = "application/json"
         if extra_headers:
             headers.update(extra_headers)
-        with self._client.stream("POST", path, headers=headers, json=json) as response:
+        with self._client.stream(
+            "POST", path, headers=headers, json=json, params=self._scoped_params(None)
+        ) as response:
             if response.status_code >= 400:
                 response.read()
                 raise to_api_error(response)
@@ -388,6 +390,33 @@ class AsyncHttpClient:
 
     async def delete(self, path: str) -> Any:
         return await self._request("DELETE", path)
+
+    async def post_bytes(
+        self,
+        path: str,
+        *,
+        json: Any = None,
+        extra_headers: Mapping[str, str] | None = None,
+        max_bytes: int,
+    ) -> tuple[bytes, httpx.Headers]:
+        headers = auth_headers(self.access_token, self.user_id)
+        headers["Content-Type"] = "application/json"
+        if extra_headers:
+            headers.update(extra_headers)
+        async with self._client.stream(
+            "POST", path, headers=headers, json=json, params=self._scoped_params(None)
+        ) as response:
+            if response.status_code >= 400:
+                await response.aread()
+                raise to_api_error(response)
+            chunks: list[bytes] = []
+            total = 0
+            async for chunk in response.aiter_bytes():
+                total += len(chunk)
+                if total > max_bytes:
+                    raise ResponseSizeExceededError(f"response body exceeds {max_bytes} bytes")
+                chunks.append(chunk)
+            return b"".join(chunks), response.headers
 
     async def post_to_stream_host(self, path: str, *, json: Any = None) -> Any:
         headers = auth_headers(self.access_token, self.user_id)
