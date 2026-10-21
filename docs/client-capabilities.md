@@ -36,7 +36,7 @@ Connector discovery lists available tools and account selectors. Creating or rec
 
 ## Response timing and structured requests
 
-`sessions.create()` and `sessions.send()` return the immediate session response. The agent may continue running after that response. Use `sessions.stream()` or CLI `--stream` to follow events. CLI `--stream --json` emits NDJSON; save the last `stream_cursor` and pass it to `sessions resume` after a disconnect. Resume follows the existing session without resubmitting the user message.
+`sessions.create()` and `sessions.send()` return the immediate session response. The agent may continue running after that response. Use `sessions.stream()` or CLI `--stream` to follow events. CLI `--stream --json` emits NDJSON; save the last `stream_cursor` and pass it to `sessions resume` after a disconnect. Resume follows the existing session without resubmitting the user message, provided its stream is still resumable. A saved cursor does not guarantee resume: a completed stream or a session the backend no longer considers resumable returns `finish_reason: "not_resumable"`. Retrieve the session to inspect its current state; do not resend the message automatically.
 
 A pending approval or human-input request is a separate operation from sending text. Read its current request ID and response schema, then call `resolve_approvals`. The server rejects stale requests and callers without the required authority. Browser handoffs use their authenticated UI links rather than generic approval resolution.
 
