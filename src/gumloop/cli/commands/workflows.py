@@ -123,15 +123,16 @@ def upload(
             raise GumloopError("Upload file names must be unique.")
         contents = {name: path.expanduser().read_bytes() for name, path in zip(names, files, strict=True)}
         if len(files) == 1:
-            print_json(
-                cli.call_with_refresh(
-                    lambda c: c.workflows.upload_file(names[0], contents[names[0]], project_id=project_id)
-                )
+            result = cli.call_with_refresh(
+                lambda c: c.workflows.upload_file(names[0], contents[names[0]], project_id=project_id)
             )
+            print_json(result)
+            if result.success is False:
+                raise typer.Exit(1)
         else:
             result = cli.call_with_refresh(lambda c: c.workflows.upload_files(contents, project_id=project_id))
             print_json(result)
-            if result.partial_success or result.failed_files:
+            if result.success is False or result.partial_success or result.failed_files:
                 raise typer.Exit(1)
     except OSError as error:
         exit_with_error(GumloopError(f"Could not read upload file: {error}"), json_output=json_output)

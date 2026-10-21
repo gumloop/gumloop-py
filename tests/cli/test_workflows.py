@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 import respx
 from typer.testing import CliRunner
 
@@ -10,6 +11,20 @@ from gumloop.cli.credentials import Credentials
 from gumloop.cli.credentials import save_credentials
 from gumloop.cli.main import app
 from tests.sdk.helpers import API_BASE
+
+
+@pytest.mark.parametrize("bulk", [False, True])
+@respx.mock
+def test_cli_workflow_explicit_upload_failure_exits_nonzero(cli_runner: CliRunner, tmp_path: Path, bulk: bool) -> None:
+    save_credentials(Credentials(api_key="key"))
+    paths = [tmp_path / "one.txt", *([tmp_path / "two.txt"] if bulk else [])]
+    for path in paths:
+        path.write_text("test")
+    payload = {"success": False} if bulk else {"success": False, "file_name": "one.txt"}
+    respx.post(f"{API_BASE}/{'upload_files' if bulk else 'upload_file'}").respond(200, json=payload)
+    result = cli_runner.invoke(app, ["workflows", "upload", *map(str, paths), "--json"])
+    assert result.exit_code == 1
+    assert json.loads(result.stdout)["success"] is False
 
 
 @respx.mock
