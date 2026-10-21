@@ -50,6 +50,7 @@ class CliContext:
         return Gumloop(
             access_token=self.credentials.bearer_token,
             user_id=self.effective_user_id if using_api_key else None,
+            team_id=self.effective_team_id,
             base_url=self.effective_base_url,
         )
 

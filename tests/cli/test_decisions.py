@@ -25,6 +25,35 @@ RESPONSE = {
 }
 
 
+@pytest.mark.parametrize("scope_source", ["flag", "environment", "flag_overrides_environment"])
+@respx.mock
+def test_decision_team_scope(cli_runner: CliRunner, monkeypatch, scope_source: str) -> None:
+    save_credentials(Credentials(api_key="key"))
+    route = respx.post(f"{API_BASE}/decisions").respond(200, json=RESPONSE)
+    if scope_source != "flag":
+        monkeypatch.setenv("GUMLOOP_TEAM_ID", "environment_team")
+    else:
+        monkeypatch.delenv("GUMLOOP_TEAM_ID", raising=False)
+    options = ["--team-id", "flag_team"] if scope_source != "environment" else []
+    result = cli_runner.invoke(app, [*options, "decisions", "create", "--args-json", json.dumps(REQUEST), "--json"])
+    assert result.exit_code == 0, result.output
+    assert route.calls[0].request.url.params["team_id"] == (
+        "environment_team" if scope_source == "environment" else "flag_team"
+    )
+
+
+@respx.mock
+def test_decision_file_requires_utf8(cli_runner: CliRunner, tmp_path) -> None:
+    save_credentials(Credentials(api_key="key"))
+    path = tmp_path / "invalid.json"
+    path.write_bytes(b"\xff")
+    result = cli_runner.invoke(app, ["decisions", "create", "--args-file", str(path), "--json"])
+    assert result.exit_code == 1
+    assert "UTF-8" in json.loads(result.output)["error"]["message"]
+    assert "Traceback" not in result.output
+    assert not respx.calls
+
+
 @pytest.mark.parametrize("source", ["inline", "file", "stdin"])
 @respx.mock
 def test_decision_request_sources(cli_runner: CliRunner, tmp_path, source: str) -> None:
