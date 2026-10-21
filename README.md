@@ -239,3 +239,23 @@ gumloop browser profiles remove-site PROFILE_ID example.com --json
 gumloop browser profiles delete PROFILE_ID --json
 gumloop sessions browser SESSION_ID --json
 ```
+
+### Generated file lifecycle
+
+The sync/async `artifacts` resource supports `retrieve`, `content`, `rename`, `delete`, `list_versions`, `restore`, hosting configuration, and declared-script execution. These are generated files, separate from session input uploads. Display-name changes preserve the stored filename; deletion is soft and preserves file versions. Restore is queued and append-only for VFS handles; legacy generated files support version discovery and downloads but cannot be restored. Content and script downloads return bytes, bounded to 64 MiB by default.
+
+```sh
+gumloop artifacts get FILE_ID --json
+gumloop artifacts content FILE_ID --output ./file.bin --json
+gumloop artifacts rename FILE_ID --name "Quarterly report" --json
+gumloop artifacts versions FILE_ID --json
+gumloop artifacts restore VFS_FILE_ID VERSION_ID --json
+gumloop artifacts hosting get FILE_ID --json
+gumloop artifacts hosting enable FILE_ID --alias my-report --json
+gumloop artifacts hosting disable FILE_ID --json
+gumloop artifacts scripts list FILE_ID --json
+gumloop artifacts scripts acknowledge-integrations FILE_ID REVIEWED_VERSION_ID --json
+gumloop artifacts scripts execute FILE_ID SCRIPT_KEY --args-json '{"payload":{"query":"example"}}' --json
+```
+
+Script execution uses the caller's current account permissions, the file's current tool policy, and ordinary execution billing. Review the declared tools before explicitly acknowledging integration consent for a version; team keys cannot record personal consent. JSON script results may be any JSON value; `download_script` or CLI `--output` requests the script's generated binary output. Hosting mutations require file sharing permission and use the same alias/domain policy as the app; the SDK does not make a private file public automatically.
