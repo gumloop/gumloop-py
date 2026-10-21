@@ -36,6 +36,7 @@ class BrowserProfiles:
         return BrowserProfileImportResponse.model_validate(
             self._client.post(
                 f"browser-profiles/{profile_id}/cookies",
+                params={"team_id": team_id} if team_id else None,
                 json=_body(team_id, url=url, cookies=cookies),
             )
         )
@@ -61,6 +62,7 @@ class AsyncBrowserProfiles:
         return BrowserProfileImportResponse.model_validate(
             await self._client.post(
                 f"browser-profiles/{profile_id}/cookies",
+                params={"team_id": team_id} if team_id else None,
                 json=_body(team_id, url=url, cookies=cookies),
             )
         )
