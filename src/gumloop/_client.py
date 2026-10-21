@@ -39,6 +39,8 @@ from gumloop.resources import Sessions
 from gumloop.resources import Skills
 from gumloop.resources import Sync
 from gumloop.resources import Teams
+from gumloop.resources import AsyncWiki
+from gumloop.resources import Wiki
 
 DEFAULT_BASE_URL = "https://api.gumloop.com/api/v1"
 DEFAULT_TIMEOUT = 90.0
@@ -104,6 +106,7 @@ class Gumloop:
         self.models = Models(self._http)
         self.mcp = MCP(self._http)
         self.teams = Teams(self._http)
+        self.wiki = Wiki(self._http)
         self.organizations = Organizations(self._http)
         self.evaluations = Evaluations(self._http)
         self.skills = Skills(self._http)
@@ -169,6 +172,7 @@ class AsyncGumloop:
         self.models = AsyncModels(self._http)
         self.mcp = AsyncMCP(self._http)
         self.teams = AsyncTeams(self._http)
+        self.wiki = AsyncWiki(self._http)
         self.organizations = AsyncOrganizations(self._http)
         self.evaluations = AsyncEvaluations(self._http)
         self.skills = AsyncSkills(self._http)
