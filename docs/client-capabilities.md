@@ -17,7 +17,7 @@ The CLI uses these same resources. Run `gumloop <group> <command> --help` for th
 | Model discovery and task routing | `client.models` | `gumloop models` |
 | Connector tools, resources, prompts, and account discovery | `client.mcp` | `gumloop mcp` |
 | Personal wiki cards | `client.wiki.query` | `gumloop wiki query` |
-| Company Brain search and source files | `client.brain` | `gumloop brain` |
+| Company Brain search, connected source lifecycle, account browse, sync history, issues, and source files | `client.brain` | `gumloop brain` |
 | Generated-file metadata, content, sharing, versions, restore, hosting, and declared scripts | `client.artifacts` | `gumloop artifacts` |
 | Browser profiles and authenticated session viewer links | `client.browser_profiles`, `client.sessions.browser` | `gumloop browser`, `gumloop sessions browser` |
 | Agent voice SDP exchange and shutdown | `client.voice.start`, `client.voice.end` | `gumloop voice` |
@@ -52,6 +52,8 @@ Chat completions are independent model calls. Agent sessions can use configured 
 Text-to-image generation uses an image-capable chat model and image modalities. Reference-image editing additionally supplies image content in the request and requires backend/model support. Use JSON output to retain generated images; human CLI output prints text. Image configuration is supplied in the structured request's `image_config`.
 
 Browser profile APIs manage stored sign-ins. A session browser response supplies authenticated viewer/handoff links and availability metadata, without granting standalone browser control. Voice settings on an agent enable its voice capability. `voice.start()` exchanges your WebRTC peer's SDP offer for answer SDP and call metadata; `voice.end()` requests creator-owned call shutdown through the existing Talk lifecycle and billing. Your media peer handles audio and provider data channels. Set the stream base explicitly for staging or custom hosts; the CLI reads SDP from a file or stdin and never opens a microphone.
+
+Connected Brain sources reuse account authorization and source-specific setup from the app. New connected sources remain drafts until their estimates are approved; requesting sync does not bypass setup or approval. Configuration reads and updates require source management permission, and indexed browsing and issue details retain document access checks. Source sharing and role changes are separate management operations.
 
 Session attachments, Brain source uploads, generated files, and workflow files are separate storage namespaces. An ID or filename from one does not automatically become a valid input to another. Downloading a known generated-file version also does not imply that the caller can restore it or publish it.
 
