@@ -16,6 +16,8 @@ from gumloop.cli.commands.brain import brain_app
 from gumloop.cli.commands.browser import browser_app
 from gumloop.cli.commands.chat import chat_app
 from gumloop.cli.commands.decisions import decisions_app
+from gumloop.cli.commands.discovery import organizations_app
+from gumloop.cli.commands.discovery import teams_app
 from gumloop.cli.commands.evaluations import evaluations_app
 from gumloop.cli.commands.mcp import mcp_app
 from gumloop.cli.commands.models import models_app
@@ -117,6 +119,8 @@ app.add_typer(browser_app, name="browser")
 app.add_typer(sync_app, name="sync")
 app.add_typer(plugin_app, name="plugin")
 app.add_typer(wiki_app, name="wiki")
+app.add_typer(teams_app, name="teams")
+app.add_typer(organizations_app, name="organizations")
 
 
 def _require_supported_platform() -> None:

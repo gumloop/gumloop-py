@@ -100,6 +100,15 @@ print(output)
 
 ## Authenticate with a team API key
 
+Find IDs without leaving the terminal:
+
+```bash
+gumloop teams list --json
+gumloop organizations list --json
+```
+
+Use a returned team ID with the global `--team-id` option. These commands list memberships; organization administration remains outside this command group.
+
 Team (workspace) API keys are scoped to a single team. Pass the team's ID and
 the acting member's user ID — every request is validated against that team and
 only reaches resources the team owns.
