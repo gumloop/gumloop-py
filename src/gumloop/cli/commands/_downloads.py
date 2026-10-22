@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import errno
+import os
+import shutil
+import stat
 import sys
+import tempfile
 from pathlib import Path
 from pathlib import PurePosixPath
 from pathlib import PureWindowsPath
@@ -178,3 +183,55 @@ def download_response(response: _DownloadInfo, *, output: str | None, fallback_n
         "filename": server_filename,
         "media_type": response.media_type,
     }
+
+
+def _install_download_exclusively(temporary: Path, destination: Path) -> None:
+    try:
+        os.link(temporary, destination)
+        return
+    except OSError as error:
+        # Windows maps unsupported-function (1) and unsupported-operation (50) to EINVAL.
+        if error.errno not in {errno.EPERM, errno.EOPNOTSUPP, errno.ENOSYS} and getattr(
+            error, "winerror", None
+        ) not in (1, 50):
+            raise
+
+    owned = None
+    try:
+        # Only private staging gains read access; the new output keeps its umask-derived mode.
+        temporary.chmod(stat.S_IMODE(temporary.stat().st_mode) | stat.S_IRUSR)
+        with destination.open("xb") as output:
+            owned = os.fstat(output.fileno())
+            with temporary.open("rb") as source:
+                shutil.copyfileobj(source, output, length=1024 * 1024)
+    except BaseException:
+        if owned is not None:
+            try:
+                current = destination.lstat()
+            except FileNotFoundError:
+                pass
+            else:
+                if (current.st_dev, current.st_ino) == (owned.st_dev, owned.st_ino):
+                    destination.unlink()
+        raise
+
+
+def write_download_bytes(content: bytes, destination: Path, *, force: bool = False) -> None:
+    """Stage before installation; hard-link-free volumes require an exclusive copy."""
+    with tempfile.TemporaryDirectory(dir=destination.parent, prefix=".gumloop-download-") as directory:
+        Path(directory).chmod(0o700)
+        temporary = Path(directory) / "download"
+        with temporary.open("wb") as stream:
+            stream.write(content)
+            stream.flush()
+        if force:
+            try:
+                existing = destination.lstat()
+            except FileNotFoundError:
+                pass
+            else:
+                if stat.S_ISREG(existing.st_mode):
+                    temporary.chmod(stat.S_IMODE(existing.st_mode) & 0o777)
+            temporary.replace(destination)
+        else:
+            _install_download_exclusively(temporary, destination)

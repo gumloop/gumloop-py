@@ -225,3 +225,14 @@ The SDK generates a key per call when one is absent. A separate call without an
 explicit key can create a duplicate. The SDK does not automatically retry HTTP
 requests. Acceptance confirms storage, not processing. Capacity refusal can leave a message
 queued, and a failed dispatch can leave it in the transcript unprocessed.
+
+### Generated file lifecycle
+
+The sync/async `artifacts` resource supports `retrieve`, `content`, `rename`, `delete`, and `list_versions`, alongside existing listing, signed downloads, and sharing. Generated files are separate from session input uploads. Display-name changes preserve the stored filename. Deletion soft-deletes legacy files; VFS handles cannot be deleted through this API. Content downloads return bytes bounded to 64 MiB by default. CLI content downloads stage complete bytes before installation; replacing an existing file requires `--force` and preserves its regular permissions. New files respect the process umask. On volumes without hard links, installation uses an exclusive copy; a failed copy removes its own partial output.
+
+```sh
+gumloop artifacts get FILE_ID --json
+gumloop artifacts content FILE_ID --output ./file.bin --json
+gumloop artifacts rename FILE_ID --name "Quarterly report" --json
+gumloop artifacts versions FILE_ID --json
+```

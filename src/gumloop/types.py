@@ -1677,3 +1677,43 @@ class WikiCard(_Model):
 
 class WikiQueryResponse(_Model):
     cards: list[WikiCard] = Field(default_factory=list)
+
+
+class ArtifactDetails(_Model):
+    id: str
+    agent_id: str | None = None
+    session_id: str | None = None
+    version_id: str | None = None
+    filename: str | None = None
+    name: str | None = None
+    media_type: str | None = None
+    size: int | None = None
+    files: dict[str, dict[str, Any]] = Field(default_factory=dict)
+
+
+class ArtifactVersion(_Model):
+    version_id: str
+    major_version: int | None = None
+    created_ts: str | None = None
+    is_deployed: bool | None = None
+    is_current: bool | None = None
+    filename: str | None = None
+    media_type: str | None = None
+    size: int | None = None
+
+
+class ArtifactVersionsResponse(_Model):
+    versions: list[ArtifactVersion] = Field(default_factory=list)
+
+
+class ArtifactDeletedResponse(_Model):
+    deleted: bool
+
+
+class ArtifactNameResponse(_Model):
+    name: str | None = None
+
+
+class ArtifactContent(BaseModel):
+    content: bytes
+    media_type: str | None = None
