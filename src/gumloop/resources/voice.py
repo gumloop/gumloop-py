@@ -16,16 +16,18 @@ class Voice:
     def start(self, agent_id: str, *, session_id: str, offer_sdp: str, incognito: bool = False) -> VoiceSessionStarted:
         body = VoiceSessionCreateRequest(session_id=session_id, offer_sdp=offer_sdp, incognito=incognito)
         return VoiceSessionStarted.model_validate(
-            self._client.post_to_stream_origin(
+            self._client.post_to_stream_host(
                 f"gummies/{quote(agent_id, safe='')}/voice/sessions",
                 json=body.model_dump(by_alias=True),
+                origin=True,
             )
         )
 
     def end(self, agent_id: str, voice_session_id: str) -> VoiceSessionEndResponse:
         return VoiceSessionEndResponse.model_validate(
-            self._client.post_to_stream_origin(
+            self._client.post_to_stream_host(
                 f"gummies/{quote(agent_id, safe='')}/voice/sessions/{quote(voice_session_id, safe='')}/end",
+                origin=True,
             )
         )
 
@@ -39,15 +41,17 @@ class AsyncVoice:
     ) -> VoiceSessionStarted:
         body = VoiceSessionCreateRequest(session_id=session_id, offer_sdp=offer_sdp, incognito=incognito)
         return VoiceSessionStarted.model_validate(
-            await self._client.post_to_stream_origin(
+            await self._client.post_to_stream_host(
                 f"gummies/{quote(agent_id, safe='')}/voice/sessions",
                 json=body.model_dump(by_alias=True),
+                origin=True,
             )
         )
 
     async def end(self, agent_id: str, voice_session_id: str) -> VoiceSessionEndResponse:
         return VoiceSessionEndResponse.model_validate(
-            await self._client.post_to_stream_origin(
+            await self._client.post_to_stream_host(
                 f"gummies/{quote(agent_id, safe='')}/voice/sessions/{quote(voice_session_id, safe='')}/end",
+                origin=True,
             )
         )

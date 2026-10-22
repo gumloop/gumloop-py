@@ -69,7 +69,9 @@ async def exchange(args: argparse.Namespace) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Send a WAV to an enabled agent and record received audio.")
-    parser.add_argument("--agent-id", required=True)
+    parser.add_argument(
+        "--agent-id", required=True, help="Concrete agent ID; gumball and analytics aliases are unsupported."
+    )
     parser.add_argument("--session-id", required=True)
     parser.add_argument("--stream-base-url", required=True)
     parser.add_argument("--input", type=Path, required=True)

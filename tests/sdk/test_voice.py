@@ -118,7 +118,15 @@ def test_voice_default_incognito_and_configured_origin(asynchronous):
 @respx.mock
 def test_voice_origin_helper_preserves_chat_base_path(asynchronous):
     chat = respx.post(f"{STREAM_BASE}/chat/completions").respond(
-        200, json={"id": "chat", "object": "chat.completion", "created": 1, "model": "m", "choices": []}
+        200,
+        json={
+            "id": "chat",
+            "object": "chat.completion",
+            "created": 1,
+            "model": "m",
+            "choices": [],
+            "system_fingerprint": None,
+        },
     )
 
     async def run():
@@ -131,3 +139,49 @@ def test_voice_origin_helper_preserves_chat_base_path(asynchronous):
         with Gumloop(access_token="oauth", stream_base_url=STREAM_BASE) as client:
             client.chat.completions.create(model="m", messages=[{"role": "user", "content": "hello"}])
     assert chat.called
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("agent_id", ["gumball", "analytics"])
+@pytest.mark.parametrize("operation", ["start", "end"])
+@respx.mock
+def test_voice_delegates_agent_identifier_policy_to_server(asynchronous, agent_id, operation):
+    suffix = "" if operation == "start" else "/voice/end"
+    route = respx.post(f"{STREAM_ORIGIN}/gummies/{agent_id}/voice/sessions{suffix}").respond(
+        404, json={"error": {"message": "Agent not found"}}
+    )
+
+    async def run():
+        async with AsyncGumloop(access_token="oauth", stream_base_url=STREAM_BASE) as client:
+            if operation == "start":
+                await client.voice.start(agent_id, session_id="chat", offer_sdp="v=0")
+            else:
+                await client.voice.end(agent_id, "voice")
+
+    with pytest.raises(APIStatusError):
+        if asynchronous:
+            asyncio.run(run())
+        else:
+            with Gumloop(access_token="oauth", stream_base_url=STREAM_BASE) as client:
+                if operation == "start":
+                    client.voice.start(agent_id, session_id="chat", offer_sdp="v=0")
+                else:
+                    client.voice.end(agent_id, "voice")
+    assert route.call_count == 1
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@respx.mock
+def test_voice_preserves_concrete_agent_prefix(asynchronous):
+    route = respx.post(f"{STREAM_ORIGIN}/gummies/agent_concrete/voice/sessions").respond(201, json=STARTED)
+
+    async def run():
+        async with AsyncGumloop(access_token="oauth", stream_base_url=STREAM_BASE) as client:
+            await client.voice.start("agent_concrete", session_id="chat", offer_sdp="v=0")
+
+    if asynchronous:
+        asyncio.run(run())
+    else:
+        with Gumloop(access_token="oauth", stream_base_url=STREAM_BASE) as client:
+            client.voice.start("agent_concrete", session_id="chat", offer_sdp="v=0")
+    assert route.called
