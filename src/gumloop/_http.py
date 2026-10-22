@@ -217,7 +217,9 @@ class HttpClient:
         headers["Content-Type"] = "application/json"
         if extra_headers:
             headers.update(extra_headers)
-        with self._client.stream(method, path, headers=headers, json=json, params=_omit_none_params(params)) as response:
+        with self._client.stream(
+            method, path, headers=headers, json=json, params=_omit_none_params(params)
+        ) as response:
             if response.status_code >= 400:
                 response.read()
                 raise to_api_error(response)
