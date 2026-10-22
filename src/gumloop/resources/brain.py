@@ -12,11 +12,15 @@ from gumloop.types import BrainFileListResponse
 from gumloop.types import BrainFileUploadResponse
 from gumloop.types import BrainSearchRequest
 from gumloop.types import BrainSearchResponse
+from gumloop.types import BrainSourceChildrenResponse
 from gumloop.types import BrainSourceCreateRequest
 from gumloop.types import BrainSourceDeleteResponse
 from gumloop.types import BrainSourceEstimateResponse
+from gumloop.types import BrainSourceHistoryResponse
+from gumloop.types import BrainSourceIssuesResponse
 from gumloop.types import BrainSourceListResponse
 from gumloop.types import BrainSourceResponse
+from gumloop.types import BrainSourceSyncResponse
 
 
 class Brain:
@@ -77,6 +81,40 @@ class Brain:
                 json=BrainSourceCreateRequest.build(
                     name=name, scope=scope, team_id=team_id, require_approval=require_approval, **kwargs
                 ),
+            )
+        )
+
+    def sync_source(self, source_id: str) -> BrainSourceSyncResponse:
+        """Request sync for an existing ready, active connected source."""
+        return BrainSourceSyncResponse.model_validate(self._client.post(f"brain/sources/{source_id}/sync"))
+
+    def list_sync_runs(
+        self, source_id: str, *, page_size: int | None = None, cursor: str | None = None
+    ) -> BrainSourceHistoryResponse:
+        return BrainSourceHistoryResponse.model_validate(
+            self._client.get(f"brain/sources/{source_id}/sync-runs", params={"page_size": page_size, "cursor": cursor})
+        )
+
+    def list_source_issues(
+        self, source_id: str, *, page_size: int | None = None, cursor: str | None = None
+    ) -> BrainSourceIssuesResponse:
+        return BrainSourceIssuesResponse.model_validate(
+            self._client.get(f"brain/sources/{source_id}/issues", params={"page_size": page_size, "cursor": cursor})
+        )
+
+    def list_source_children(
+        self,
+        source_id: str,
+        *,
+        parent_id: str | None = None,
+        query: str | None = None,
+        page_size: int | None = None,
+        cursor: str | None = None,
+    ) -> BrainSourceChildrenResponse:
+        return BrainSourceChildrenResponse.model_validate(
+            self._client.get(
+                f"brain/sources/{source_id}/children",
+                params={"parent_id": parent_id, "query": query, "page_size": page_size, "cursor": cursor},
             )
         )
 
@@ -176,6 +214,44 @@ class AsyncBrain:
             ),
         )
         return BrainSourceResponse.model_validate(data)
+
+    async def sync_source(self, source_id: str) -> BrainSourceSyncResponse:
+        """Request sync for an existing ready, active connected source."""
+        return BrainSourceSyncResponse.model_validate(await self._client.post(f"brain/sources/{source_id}/sync"))
+
+    async def list_sync_runs(
+        self, source_id: str, *, page_size: int | None = None, cursor: str | None = None
+    ) -> BrainSourceHistoryResponse:
+        return BrainSourceHistoryResponse.model_validate(
+            await self._client.get(
+                f"brain/sources/{source_id}/sync-runs", params={"page_size": page_size, "cursor": cursor}
+            )
+        )
+
+    async def list_source_issues(
+        self, source_id: str, *, page_size: int | None = None, cursor: str | None = None
+    ) -> BrainSourceIssuesResponse:
+        return BrainSourceIssuesResponse.model_validate(
+            await self._client.get(
+                f"brain/sources/{source_id}/issues", params={"page_size": page_size, "cursor": cursor}
+            )
+        )
+
+    async def list_source_children(
+        self,
+        source_id: str,
+        *,
+        parent_id: str | None = None,
+        query: str | None = None,
+        page_size: int | None = None,
+        cursor: str | None = None,
+    ) -> BrainSourceChildrenResponse:
+        return BrainSourceChildrenResponse.model_validate(
+            await self._client.get(
+                f"brain/sources/{source_id}/children",
+                params={"parent_id": parent_id, "query": query, "page_size": page_size, "cursor": cursor},
+            )
+        )
 
     async def get_source(self, source_id: str) -> BrainSourceResponse:
         return BrainSourceResponse.model_validate(await self._client.get(f"brain/sources/{source_id}"))

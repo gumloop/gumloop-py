@@ -1064,6 +1064,90 @@ class BrainSourceListResponse(_Model):
     next_cursor: str | None = None
 
 
+class BrainSourceSyncResponse(_Model):
+    source_id: str
+    status: Literal["queued"]
+    sync_run_id: str | None = None
+
+
+class BrainSourceSyncRun(_Model):
+    sync_run_id: str
+    source_id: str | None = None
+    connector_id: str
+    status: str
+    trigger: str
+    sync_mode: str
+    coverage_status: str
+    budget_status: str
+    docs_seen: int = 0
+    docs_changed: int = 0
+    docs_deleted: int = 0
+    docs_skipped: int = 0
+    chunks_indexed: int = 0
+    total_units: int | None = None
+    units_processed: int = 0
+    progress_unit: str | None = None
+    error_code: str | None = None
+    created_ts: str | None = None
+    started_at: str | None = None
+    finished_at: str | None = None
+    credit_cost: float = 0
+    require_approval: bool = False
+    estimated_credits: float | None = None
+    estimated_tokens: int | None = None
+    estimate_is_sampled: bool | None = None
+    estimated_documents_sampled: int | None = None
+    estimated_documents_total: int | None = None
+
+
+class BrainSourceHistoryResponse(_Model):
+    items: list[BrainSourceSyncRun] = Field(default_factory=list)
+    next_cursor: str | None = None
+
+
+class BrainSourceIssue(_Model):
+    source_item_key: str
+    title: str | None = None
+    url: str | None = None
+    status: str
+    error: str | None = None
+    skip_reason: str | None = None
+    verdict: str | None = None
+    hidden_from_search: bool = False
+    updated_ts: str | None = None
+    details_hidden: bool = False
+
+
+class BrainSourceIssuesResponse(_Model):
+    items: list[BrainSourceIssue] = Field(default_factory=list)
+    next_cursor: str | None = None
+
+
+class BrainSourceChild(_Model):
+    document_id: str
+    title: str
+    kind: str
+    is_document: bool
+    child_count: int | None = None
+    descendant_doc_count: int | None = None
+    retrieval_count: int = 0
+    url: str | None = None
+    updated_at: str | None = None
+    status: str
+    error: str | None = None
+    ancestors: list[str] = Field(default_factory=list)
+
+
+class BrainSourceChildrenResponse(_Model):
+    source_id: str | None = None
+    connector_id: str
+    parent_id: str | None = None
+    items: list[BrainSourceChild] = Field(default_factory=list)
+    total_count: int | None = None
+    next_cursor: str | None = None
+    has_more: bool = False
+
+
 class BrainSourceDeleteResponse(_Model):
     deleted: bool
 
