@@ -26,7 +26,6 @@ The feature parity audit adds client adapters over existing APIs and selected ba
 | Integration trigger catalog, explicit-account creation/configuration, and run history | `client.agents` trigger methods | `gumloop agents triggers` |
 | Team and organization membership discovery | `client.teams.list`, `client.organizations.list` | `gumloop teams list`, `gumloop organizations list` |
 | Native WebRTC voice signaling with OAuth | `client.voice.start`, `client.voice.end` | Python SDK only |
-| Existing saved workflow execution and file transfers | `client.workflows` | `gumloop workflows` |
 | Managed coding-agent skills | `client.sync` (synchronous only) | `gumloop sync` |
 | Bundled coding-agent instructions | Local CLI installation | `gumloop plugin install` |
 
@@ -50,8 +49,6 @@ A pending approval or human-input request is a separate operation from sending t
 
 Commands that accept `--args-file`, `--args-json`, or `--args -` use the SDK request shape. Choose one JSON source. Explicit flags override corresponding JSON fields. Nested settings and lists follow their endpoint's replacement or merge rules; inspect the current resource before updating them. An agent update's `version` is an optimistic-concurrency check, not a historical version to restore.
 
-`workflows.start()` starts a saved tab. `wait()` polls an existing run; `run()` combines the two. A polling timeout leaves the remote run active, and `cancel_run()` stops it. The runnable ID is the tab's `saved_item_id`, not its containing `workbook_id`. These operations execute existing workflows rather than authoring their visual canvas.
-
 ## Direct calls and agent tools
 
 Chat completions are independent model calls. Agent sessions can use configured tools, maintain conversation state, request approvals, and delegate work. Support for a tool inside an agent does not imply that the SDK exposes that tool's internal runtime directly.
@@ -62,7 +59,7 @@ Personal browser CRUD manages stored profiles; `sessions.browser` returns only `
 
 `voice.start(agent_id, session_id=..., offer_sdp=..., incognito=False)` and `voice.end(agent_id, voice_session_id)` adapt existing native voice endpoints on the configured streaming host. Supply a concrete agent ID; the `gumball` and `analytics` aliases are unsupported. The caller owns its WebRTC peer, audio tracks, offer/answer exchange, and cleanup. Voice is SDK-only, with no CLI command or new public voice API. Calls can incur charges. A known native prompt-read issue awaits a platform fix; no successful live-call verification is claimed.
 
-Session attachments, Brain source uploads, generated files, and workflow files are separate storage namespaces. An ID or filename from one does not automatically become a valid input to another. Artifact `retrieve` and `content` accept a version ID; `content` defaults to a 64 MiB maximum. Rename changes a legacy generated file's display name; VFS files cannot be renamed through this API. Delete soft-deletes a legacy generated file and does not delete VFS handles. CLI content requires an explicit output path and `--force` to replace an existing file. Version restoration, hosting, and script execution are outside this client surface.
+Session attachments, Brain source uploads, and generated files are separate storage namespaces. An ID or filename from one does not automatically become a valid input to another. Artifact `retrieve` and `content` accept a version ID; `content` defaults to a 64 MiB maximum. Rename changes a legacy generated file's display name; VFS files cannot be renamed through this API. Delete soft-deletes a legacy generated file and does not delete VFS handles. CLI content requires an explicit output path and `--force` to replace an existing file. Version restoration, hosting, and script execution are outside this client surface.
 
 Integration-trigger creation defaults to disabled when `enabled` is omitted; schedule and webhook defaults retain their existing behavior. Every integration activation requires explicit concrete account IDs for the operator's required account types. Legacy default-only account selections must be rebound explicitly. Replacing an active integration configuration requires an explicit enabled choice. Catalog, configuration inspection, run history, and statistics expose the existing trigger engine; permissions, billing, execution, and retries remain its responsibility.
 

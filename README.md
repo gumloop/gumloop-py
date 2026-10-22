@@ -1,6 +1,6 @@
 # Gumloop Python Client
 
-A Python client and CLI for Gumloop agents, sessions, inference, tools, knowledge, and saved workflows. Use `Gumloop` or `AsyncGumloop` for new code; `GumloopClient` remains available for legacy workflow callers.
+A Python client and CLI for Gumloop agents, sessions, inference, tools, and knowledge. Use `Gumloop` or `AsyncGumloop` for new code; `GumloopClient` remains available for legacy workflow callers.
 
 See the [client capability guide](docs/client-capabilities.md) for sync/async differences, endpoint authentication, streaming behavior, and direct versus agent-mediated features.
 
@@ -66,7 +66,7 @@ Answer pending tool approvals, human input, and checkpoints with `gumloop sessio
 
 Manage pending agent messages with `gumloop sessions queue list|add|edit|delete|send`. Add/edit accept `--input` or `--input-stdin -`; all support `--json`. Queue `send` immediately promotes a message and interrupts any active run. Sync and async SDK clients expose `sessions.list_queue`, `queue_message`, `edit_queued_message`, `delete_queued_message`, and `send_queued_message`; queue responses include ordered typed messages with IDs, state, and position.
 
-Upload and attach files to an existing session with `gumloop sessions send SESSION_ID --input 'Read this file' --file report.pdf --json`. Repeat `--file` for several files. `gumloop sessions upload SESSION_ID report.pdf --json` uploads without sending a message. In Python, `client.sessions.upload_file(session_id, "report.pdf", pdf_bytes)` returns a stored file reference that can be passed to `client.sessions.send(session_id, input="Read this", attachments=[{"file_name": uploaded.file_name}])`. Both sync and async clients support this; uploads belong to that session, separately from Brain sources and workflow files.
+Upload and attach files to an existing session with `gumloop sessions send SESSION_ID --input 'Read this file' --file report.pdf --json`. Repeat `--file` for several files. `gumloop sessions upload SESSION_ID report.pdf --json` uploads without sending a message. In Python, `client.sessions.upload_file(session_id, "report.pdf", pdf_bytes)` returns a stored file reference that can be passed to `client.sessions.send(session_id, input="Read this", attachments=[{"file_name": uploaded.file_name}])`. Both sync and async clients support this; uploads belong to that session, separately from Brain sources.
 
 Read your personal wiki from the terminal with `gumloop wiki query --json`, or filter a card with `--type project --entity-key launch`. The SDK provides the same query through `client.wiki.query(type="project", entity_key="launch")` on both synchronous and asynchronous clients. Queries are scoped to the authenticated user's personal wiki and retain the API's permission checks.
 
