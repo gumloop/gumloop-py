@@ -55,7 +55,7 @@ gumloop decisions create (--args-json '{...}' | --args-file decision.json | --ar
 cat decision.json | gumloop decisions create --args - --json
 ```
 
-The JSON object uses the SDK decision request shape: `model`, `state`, and `questions`. For example, `{"model":"typesafe/jev-1.14","state":{"message":"The screen is blank"},"questions":{"is_bug":{"type":"noul","instructions":"Is this a software defect?"}}}`. Use `models list --json` to discover decision models and the canonical model ID accepted by the API. Human output includes the model and each named answer; `--json` includes the complete response and usage. With OAuth or a personal API key, select workspace policy and billing with the global `--team-id` flag or `GUMLOOP_TEAM_ID`.
+The JSON object uses the SDK decision request shape: `model`, `state`, and `questions`. For example, `{"model":"typesafe/jev-1.14","state":{"message":"The screen is blank"},"questions":{"is_bug":{"type":"noul","instructions":"Is this a software defect?"}}}`. Use the decision endpoint's supported model ID; model discovery can report a different identifier. Human output includes the model and each named answer; `--json` includes the complete response and usage. With OAuth or a personal API key, select workspace policy and billing with the global `--team-id` flag or `GUMLOOP_TEAM_ID`.
 
 ## Sessions
 
