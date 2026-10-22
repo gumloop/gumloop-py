@@ -176,11 +176,11 @@ class HttpClient:
     ) -> Any:
         return self._request("PATCH", path, json=json, data=_omit_none_params(data), files=files)
 
-    def put(self, path: str, *, json: Any = None) -> Any:
-        return self._request("PUT", path, json=json)
+    def put(self, path: str, *, json: Any = None, params: Mapping[str, Any] | None = None) -> Any:
+        return self._request("PUT", path, json=json, params=_omit_none_params(params))
 
-    def delete(self, path: str) -> Any:
-        return self._request("DELETE", path)
+    def delete(self, path: str, *, params: Mapping[str, Any] | None = None) -> Any:
+        return self._request("DELETE", path, params=_omit_none_params(params))
 
     def post_bytes(
         self,
@@ -190,36 +190,11 @@ class HttpClient:
         extra_headers: Mapping[str, str] | None = None,
         max_bytes: int,
     ) -> tuple[bytes, httpx.Headers]:
-        return self._request_bytes("POST", path, json=json, extra_headers=extra_headers, max_bytes=max_bytes)
-
-    def get_bytes(
-        self,
-        path: str,
-        *,
-        params: Mapping[str, Any] | None = None,
-        max_bytes: int,
-    ) -> tuple[bytes, httpx.Headers]:
-        return self._request_bytes(
-            "GET", path, params=self._scoped_params(_omit_none_params(params)), max_bytes=max_bytes
-        )
-
-    def _request_bytes(
-        self,
-        method: str,
-        path: str,
-        *,
-        json: Any = None,
-        params: Mapping[str, Any] | None = None,
-        extra_headers: Mapping[str, str] | None = None,
-        max_bytes: int,
-    ) -> tuple[bytes, httpx.Headers]:
         headers = auth_headers(self.access_token, self.user_id)
         headers["Content-Type"] = "application/json"
         if extra_headers:
             headers.update(extra_headers)
-        with self._client.stream(
-            method, path, headers=headers, json=json, params=_omit_none_params(params)
-        ) as response:
+        with self._client.stream("POST", path, headers=headers, json=json) as response:
             if response.status_code >= 400:
                 response.read()
                 raise to_api_error(response)
@@ -408,51 +383,11 @@ class AsyncHttpClient:
     ) -> Any:
         return await self._request("PATCH", path, json=json, data=_omit_none_params(data), files=files)
 
-    async def put(self, path: str, *, json: Any = None) -> Any:
-        return await self._request("PUT", path, json=json)
+    async def put(self, path: str, *, json: Any = None, params: Mapping[str, Any] | None = None) -> Any:
+        return await self._request("PUT", path, json=json, params=_omit_none_params(params))
 
-    async def delete(self, path: str) -> Any:
-        return await self._request("DELETE", path)
-
-    async def get_bytes(
-        self,
-        path: str,
-        *,
-        params: Mapping[str, Any] | None = None,
-        max_bytes: int,
-    ) -> tuple[bytes, httpx.Headers]:
-        return await self._request_bytes(
-            "GET", path, params=self._scoped_params(_omit_none_params(params)), max_bytes=max_bytes
-        )
-
-    async def _request_bytes(
-        self,
-        method: str,
-        path: str,
-        *,
-        json: Any = None,
-        params: Mapping[str, Any] | None = None,
-        extra_headers: Mapping[str, str] | None = None,
-        max_bytes: int,
-    ) -> tuple[bytes, httpx.Headers]:
-        headers = auth_headers(self.access_token, self.user_id)
-        headers["Content-Type"] = "application/json"
-        if extra_headers:
-            headers.update(extra_headers)
-        async with self._client.stream(
-            method, path, headers=headers, json=json, params=_omit_none_params(params)
-        ) as response:
-            if response.status_code >= 400:
-                await response.aread()
-                raise to_api_error(response)
-            chunks: list[bytes] = []
-            total = 0
-            async for chunk in response.aiter_bytes():
-                total += len(chunk)
-                if total > max_bytes:
-                    raise ResponseSizeExceededError(f"response body exceeds {max_bytes} bytes")
-                chunks.append(chunk)
-            return b"".join(chunks), response.headers
+    async def delete(self, path: str, *, params: Mapping[str, Any] | None = None) -> Any:
+        return await self._request("DELETE", path, params=_omit_none_params(params))
 
     async def post_to_stream_host(self, path: str, *, json: Any = None) -> Any:
         headers = auth_headers(self.access_token, self.user_id)

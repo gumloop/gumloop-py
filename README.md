@@ -228,11 +228,11 @@ queued, and a failed dispatch can leave it in the transcript unprocessed.
 
 ### Generated file lifecycle
 
-The sync/async `artifacts` resource supports `retrieve`, `content`, `rename`, `delete`, and `list_versions`, alongside existing listing, signed downloads, and sharing. Generated files are separate from session input uploads. Display-name changes preserve the stored filename and are supported only for legacy files; VFS handles return `versioned_fs_rename_unsupported`. Deletion soft-deletes legacy files; VFS handles cannot be deleted through this API. Content downloads return bytes bounded to 64 MiB by default. CLI content downloads stage complete bytes before installation; replacing an existing file requires `--force` and preserves its regular permissions. New files respect the process umask. On volumes without hard links, installation uses an exclusive copy; a failed copy removes its own partial output.
+The sync/async `artifacts` resource adds `rename`, `delete`, and `list_versions` alongside existing listing, signed downloads, and sharing. Use `artifacts.download()` to obtain the filename, media type, size, and signed download URL, or `gumloop artifacts download` to save file bytes. Generated files are separate from session input uploads. Display-name changes preserve the stored filename and are supported only for legacy files; VFS handles return `versioned_fs_rename_unsupported`. Deletion soft-deletes legacy files; VFS handles cannot be deleted through this API.
 
 ```sh
-gumloop artifacts get FILE_ID --json
-gumloop artifacts content FILE_ID --output ./file.bin --json
+gumloop artifacts download FILE_ID --output ./file.bin --json
 gumloop artifacts rename FILE_ID --name "Quarterly report" --json
+gumloop artifacts get FILE_ID --json  # existing download metadata and signed URL
 gumloop artifacts versions FILE_ID --json
 ```
