@@ -8,6 +8,7 @@ from collections.abc import Iterator
 from collections.abc import Mapping
 from typing import Any
 from typing import TypeVar
+from urllib.parse import urlsplit
 
 import httpx
 from httpx_sse import EventSource
@@ -226,6 +227,15 @@ class HttpClient:
             raise to_api_error(response)
         return response.json() if response.content else None
 
+    def post_to_stream_origin(self, path: str, *, json: Any = None) -> Any:
+        headers = auth_headers(self.access_token, self.user_id)
+        headers["Content-Type"] = "application/json"
+        url = urlsplit(self._stream_base_url)._replace(path="/" + path.lstrip("/"), query="", fragment="").geturl()
+        response = self._client.post(url, headers=headers, timeout=self._stream_timeout, json=json)
+        if response.status_code >= 400:
+            raise to_api_error(response)
+        return response.json() if response.content else None
+
     def stream(
         self,
         method: str,
@@ -405,6 +415,15 @@ class AsyncHttpClient:
             timeout=self._stream_timeout,
             json=json,
         )
+        if response.status_code >= 400:
+            raise to_api_error(response)
+        return response.json() if response.content else None
+
+    async def post_to_stream_origin(self, path: str, *, json: Any = None) -> Any:
+        headers = auth_headers(self.access_token, self.user_id)
+        headers["Content-Type"] = "application/json"
+        url = urlsplit(self._stream_base_url)._replace(path="/" + path.lstrip("/"), query="", fragment="").geturl()
+        response = await self._client.post(url, headers=headers, timeout=self._stream_timeout, json=json)
         if response.status_code >= 400:
             raise to_api_error(response)
         return response.json() if response.content else None

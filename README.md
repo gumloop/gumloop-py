@@ -288,3 +288,13 @@ gumloop agents triggers stats AGENT_ID TRIGGER_ID --json
 ```
 
 This contract does not manage shared trigger templates or instances and does not accept raw internal event JSON. Use OAuth or a personal API key for configuration and inspection.
+
+### Agent voice sessions
+
+`client.voice.start(agent_id, session_id=..., offer_sdp=..., incognito=False)` and `client.voice.end(agent_id, voice_session_id)` use the existing OAuth native Talk routes on the configured stream host. The agent must have voice enabled. Use an OAuth access token; personal and team API keys are not supported by these native routes. The Python `session_id` argument is serialized as native `interaction_id`; `is_incognito` is sent explicitly, including its default `false`. SDP must be nonempty UTF-8 text within 1 MiB. `AsyncGumloop` exposes the same methods with `await`. Ending a call requires its creator and current agent access; the worker settles final usage.
+
+The runnable [WAV media example](examples/voice_wav.py) sends an explicit WAV source, creates the `oai-events` channel, applies the answer SDP, records received audio, and closes the call and media peer in `finally`. It never opens a microphone. Install the optional media dependency with `pip install gumloop aiortc`; it is not a core SDK dependency. Supply `GUMLOOP_ACCESS_TOKEN` through your environment, plus an existing agent and session. Executing this command starts a real call using normal Talk credits and billing; this example is not run by the test suite.
+
+```sh
+python examples/voice_wav.py --agent-id AGENT_ID --session-id SESSION_ID --stream-base-url https://staging.ws.gumloop.com/api/v1 --input ./source.wav --output ./received.wav --seconds 30
+```
