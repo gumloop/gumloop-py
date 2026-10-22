@@ -237,16 +237,15 @@ gumloop artifacts get FILE_ID --json  # existing download metadata and signed UR
 gumloop artifacts versions FILE_ID --json
 ```
 
-### Personal browser profiles and session viewer links
+### Personal browser profiles
 
-Both clients expose personal `browser_profiles.create(name)`, `get(profile_id)`, `update(profile_id, name=..., is_default=True)`, and `delete(profile_id)`. These new methods reject a client configured with `team_id`. Existing profile list and cookie-import behavior is unchanged. Profile responses contain metadata, not cookie values.
+Both clients expose personal `browser_profiles.create(name)`, `get(profile_id)`, `update(profile_id, name=..., is_default=True)`, and `delete(profile_id)`. These personal methods ignore the global team selection. Existing profile list and cookie-import behavior is unchanged. Profile responses contain metadata, not cookie values.
 
 ```sh
 gumloop browser profiles create "Research" --json
 gumloop browser profiles get PROFILE_ID --json
 gumloop browser profiles update PROFILE_ID --name "Research" --default --json
 gumloop browser profiles delete PROFILE_ID --json
-gumloop sessions browser SESSION_ID --json
 ```
 
-The new management commands do not accept team selection. `sessions.browser(session_id)` returns the session ID and authenticated viewer URL only; it grants no standalone browser control or browser control state. OAuth or a personal API key and current session access are required.
+Personal profile management uses the authenticated user regardless of global team selection.

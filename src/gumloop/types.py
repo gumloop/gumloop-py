@@ -677,11 +677,6 @@ class BrowserProfileDeleteResponse(_Model):
     status: Literal["success"]
 
 
-class BrowserSessionResponse(_Model):
-    session_id: str
-    viewer_url: str
-
-
 # ---------------------------------------------------------------------------
 # Session types
 # ---------------------------------------------------------------------------

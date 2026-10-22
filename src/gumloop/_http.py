@@ -143,8 +143,8 @@ class HttpClient:
     def __exit__(self, *_args: object) -> None:
         self.close()
 
-    def get(self, path: str, *, params: Mapping[str, Any] | None = None) -> Any:
-        return self._request("GET", path, params=_omit_none_params(params))
+    def get(self, path: str, *, params: Mapping[str, Any] | None = None, scoped: bool = True) -> Any:
+        return self._request("GET", path, params=_omit_none_params(params), scoped=scoped)
 
     def post(
         self,
@@ -152,6 +152,7 @@ class HttpClient:
         *,
         json: Any = None,
         params: Mapping[str, Any] | None = None,
+        scoped: bool = True,
         data: Mapping[str, Any] | None = None,
         files: list[tuple[str, Any]] | None = None,
         extra_headers: Mapping[str, str] | None = None,
@@ -161,6 +162,7 @@ class HttpClient:
             path,
             json=json,
             params=_omit_none_params(params),
+            scoped=scoped,
             data=_omit_none_params(data),
             files=files,
             extra_headers=extra_headers,
@@ -171,16 +173,17 @@ class HttpClient:
         path: str,
         *,
         json: Any = None,
+        scoped: bool = True,
         data: Mapping[str, Any] | None = None,
         files: list[tuple[str, Any]] | None = None,
     ) -> Any:
-        return self._request("PATCH", path, json=json, data=_omit_none_params(data), files=files)
+        return self._request("PATCH", path, json=json, data=_omit_none_params(data), files=files, scoped=scoped)
 
     def put(self, path: str, *, json: Any = None, params: Mapping[str, Any] | None = None) -> Any:
         return self._request("PUT", path, json=json, params=_omit_none_params(params))
 
-    def delete(self, path: str, *, params: Mapping[str, Any] | None = None) -> Any:
-        return self._request("DELETE", path, params=_omit_none_params(params))
+    def delete(self, path: str, *, params: Mapping[str, Any] | None = None, scoped: bool = True) -> Any:
+        return self._request("DELETE", path, params=_omit_none_params(params), scoped=scoped)
 
     def post_bytes(
         self,
@@ -291,6 +294,7 @@ class HttpClient:
         path: str,
         *,
         extra_headers: Mapping[str, str] | None = None,
+        scoped: bool = True,
         **kwargs: Any,
     ) -> Any:
         # Headers are rebuilt per request so ``access_token`` / ``user_id``
@@ -300,7 +304,7 @@ class HttpClient:
             headers["Content-Type"] = "application/json"
         if extra_headers:
             headers.update(extra_headers)
-        kwargs["params"] = self._scoped_params(kwargs.get("params"))
+        kwargs["params"] = self._scoped_params(kwargs.get("params")) if scoped else kwargs.get("params")
         response = self._client.request(method, path, headers=headers, **kwargs)
         if response.status_code >= 400:
             raise to_api_error(response)
@@ -350,8 +354,8 @@ class AsyncHttpClient:
     async def __aexit__(self, *_args: object) -> None:
         await self.aclose()
 
-    async def get(self, path: str, *, params: Mapping[str, Any] | None = None) -> Any:
-        return await self._request("GET", path, params=_omit_none_params(params))
+    async def get(self, path: str, *, params: Mapping[str, Any] | None = None, scoped: bool = True) -> Any:
+        return await self._request("GET", path, params=_omit_none_params(params), scoped=scoped)
 
     async def post(
         self,
@@ -359,6 +363,7 @@ class AsyncHttpClient:
         *,
         json: Any = None,
         params: Mapping[str, Any] | None = None,
+        scoped: bool = True,
         data: Mapping[str, Any] | None = None,
         files: list[tuple[str, Any]] | None = None,
         extra_headers: Mapping[str, str] | None = None,
@@ -368,6 +373,7 @@ class AsyncHttpClient:
             path,
             json=json,
             params=_omit_none_params(params),
+            scoped=scoped,
             data=_omit_none_params(data),
             files=files,
             extra_headers=extra_headers,
@@ -378,16 +384,17 @@ class AsyncHttpClient:
         path: str,
         *,
         json: Any = None,
+        scoped: bool = True,
         data: Mapping[str, Any] | None = None,
         files: list[tuple[str, Any]] | None = None,
     ) -> Any:
-        return await self._request("PATCH", path, json=json, data=_omit_none_params(data), files=files)
+        return await self._request("PATCH", path, json=json, data=_omit_none_params(data), files=files, scoped=scoped)
 
     async def put(self, path: str, *, json: Any = None, params: Mapping[str, Any] | None = None) -> Any:
         return await self._request("PUT", path, json=json, params=_omit_none_params(params))
 
-    async def delete(self, path: str, *, params: Mapping[str, Any] | None = None) -> Any:
-        return await self._request("DELETE", path, params=_omit_none_params(params))
+    async def delete(self, path: str, *, params: Mapping[str, Any] | None = None, scoped: bool = True) -> Any:
+        return await self._request("DELETE", path, params=_omit_none_params(params), scoped=scoped)
 
     async def post_to_stream_host(self, path: str, *, json: Any = None) -> Any:
         headers = auth_headers(self.access_token, self.user_id)
@@ -468,6 +475,7 @@ class AsyncHttpClient:
         path: str,
         *,
         extra_headers: Mapping[str, str] | None = None,
+        scoped: bool = True,
         **kwargs: Any,
     ) -> Any:
         headers = auth_headers(self.access_token, self.user_id)
@@ -475,7 +483,7 @@ class AsyncHttpClient:
             headers["Content-Type"] = "application/json"
         if extra_headers:
             headers.update(extra_headers)
-        kwargs["params"] = self._scoped_params(kwargs.get("params"))
+        kwargs["params"] = self._scoped_params(kwargs.get("params")) if scoped else kwargs.get("params")
         response = await self._client.request(method, path, headers=headers, **kwargs)
         if response.status_code >= 400:
             raise to_api_error(response)

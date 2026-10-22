@@ -311,11 +311,6 @@ def list_profiles(
     console.print("[dim]Rename, remove sites from, or delete profiles on the Secrets page in Gumloop.[/dim]")
 
 
-def _require_personal_profile_scope(cli: CliContext) -> None:
-    if cli.effective_team_id:
-        raise GumloopError("Personal browser profile management does not accept --team-id.")
-
-
 @profiles_app.command("create")
 def create_profile(
     ctx: typer.Context,
@@ -324,12 +319,9 @@ def create_profile(
 ) -> None:
     cli: CliContext = ctx.obj
     try:
-        _require_personal_profile_scope(cli)
         if not name.strip():
             raise GumloopError("Pass a non-empty profile name.")
-        response = cli.call_with_refresh(
-            lambda client: client.browser_profiles.create(name)
-        )
+        response = cli.call_with_refresh(lambda client: client.browser_profiles.create(name))
     except (GumloopError, ValidationError) as error:
         exit_with_error(error, json_output=json_output)
     if json_output:
@@ -346,10 +338,7 @@ def get_profile(
 ) -> None:
     cli: CliContext = ctx.obj
     try:
-        _require_personal_profile_scope(cli)
-        response = cli.call_with_refresh(
-            lambda client: client.browser_profiles.get(profile_id)
-        )
+        response = cli.call_with_refresh(lambda client: client.browser_profiles.get(profile_id))
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
     if json_output:
@@ -368,7 +357,6 @@ def update_profile(
 ) -> None:
     cli: CliContext = ctx.obj
     try:
-        _require_personal_profile_scope(cli)
         if name is None and not make_default:
             raise GumloopError("Pass --name or --default to update a profile.")
         if name is not None and not name.strip():
@@ -396,10 +384,7 @@ def delete_profile(
 ) -> None:
     cli: CliContext = ctx.obj
     try:
-        _require_personal_profile_scope(cli)
-        response = cli.call_with_refresh(
-            lambda client: client.browser_profiles.delete(profile_id)
-        )
+        response = cli.call_with_refresh(lambda client: client.browser_profiles.delete(profile_id))
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
     if json_output:
