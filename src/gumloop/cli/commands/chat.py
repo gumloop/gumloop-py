@@ -10,6 +10,7 @@ import typer
 
 from gumloop import GumloopError
 from gumloop.cli.commands._args_input import resolve_json_args
+from gumloop.cli.commands._text_input import resolve_text_input
 from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
@@ -127,10 +128,6 @@ def create_completion(
     cli: CliContext = ctx.obj
 
     try:
-        if prompt is not None and message_stdin is not None:
-            raise GumloopError("Pass at most one of PROMPT or --message-stdin.")
-        if message_stdin is not None and message_stdin != "-":
-            raise GumloopError("--message-stdin only accepts '-' (reads from stdin).")
         if stream and no_stream:
             raise GumloopError("Pass at most one of --stream and --no-stream.")
         if max_tokens is not None and max_completion_tokens is not None:
@@ -141,7 +138,9 @@ def create_completion(
             raise GumloopError("Pass structured request JSON or PROMPT/--message-stdin/--system, not both.")
         kwargs = resolve_json_args(inline=args_json, file_path=args_file, stdin_marker=args)
         if not structured:
-            user_message = sys.stdin.read() if message_stdin == "-" else prompt
+            user_message = resolve_text_input(
+                prompt, message_stdin, text_option="PROMPT", stdin_option="--message-stdin"
+            )
             if not user_message:
                 raise GumloopError("Pass a PROMPT, --message-stdin -, or structured request JSON with messages.")
             messages: list[dict[str, Any]] = [{"role": "system", "content": s} for s in (system or [])]
