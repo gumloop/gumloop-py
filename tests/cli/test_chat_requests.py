@@ -26,7 +26,7 @@ REQUEST = {
             ],
         },
         {"role": "assistant", "content": "Blue"},
-        {"role": "user", "content": "Make it red"},
+        {"role": "user", "content": "Which color was mentioned?"},
     ],
     "image_config": {"aspect_ratio": "1:1", "image_size": "1K"},
     "provider": {"sort": "latency"},
