@@ -41,6 +41,27 @@ sessions_app = typer.Typer(
 sessions_app.add_typer(queue_app, name="queue")
 
 
+@sessions_app.command("browser")
+def get_session_browser(
+    ctx: typer.Context,
+    session_id: Annotated[str, typer.Argument(help="Session whose authenticated browser viewer link to read.")],
+    json_output: Annotated[
+        bool, typer.Option("--json", help="Print the authenticated browser viewer link as JSON.")
+    ] = False,
+) -> None:
+    cli: CliContext = ctx.obj
+    try:
+        if cli.effective_team_id:
+            raise GumloopError("Session browser viewer links do not accept --team-id.")
+        response = cli.call_with_refresh(lambda client: client.sessions.browser(session_id))
+    except GumloopError as error:
+        exit_with_error(error, json_output=json_output)
+    if json_output:
+        print_json(response)
+        return
+    console.print("View in Gumloop:", response.viewer_url, markup=False, highlight=False)
+
+
 @sessions_app.command(
     "create",
     epilog=(

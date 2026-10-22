@@ -12,8 +12,10 @@ from uuid import uuid4
 
 from gumloop._http import AsyncHttpClient
 from gumloop._http import HttpClient
+from gumloop.errors import GumloopError
 from gumloop.resources._item_access import item_access_body
 from gumloop.resources._validation import request_validation
+from gumloop.types import BrowserSessionResponse
 from gumloop.types import ItemAccessChangeResponse
 from gumloop.types import ItemAccessResponse
 from gumloop.types import SessionApprovalsRequest
@@ -33,6 +35,11 @@ from gumloop.types import StreamEvent
 class Sessions:
     def __init__(self, client: HttpClient) -> None:
         self._client = client
+
+    def browser(self, session_id: str) -> BrowserSessionResponse:
+        if self._client.team_id:
+            raise GumloopError("Session browser viewer links require a client without team_id.")
+        return BrowserSessionResponse.model_validate(self._client.get(f"sessions/{session_id}/browser"))
 
     def list(
         self,
@@ -271,6 +278,11 @@ class Sessions:
 class AsyncSessions:
     def __init__(self, client: AsyncHttpClient) -> None:
         self._client = client
+
+    async def browser(self, session_id: str) -> BrowserSessionResponse:
+        if self._client.team_id:
+            raise GumloopError("Session browser viewer links require a client without team_id.")
+        return BrowserSessionResponse.model_validate(await self._client.get(f"sessions/{session_id}/browser"))
 
     async def list(
         self,
