@@ -107,7 +107,7 @@ gumloop teams list --json
 gumloop organizations list --json
 ```
 
-Use a returned team ID with the global `--team-id` option. These commands list memberships; organization administration remains outside this command group.
+Use a returned team ID with the global `--team-id` option. These commands list memberships; organization administration remains outside this command group. Team-key `teams list` requires `--team-id` and returns only that team. `organizations list` requires a personal API key or OAuth; team keys are unsupported.
 
 Team (workspace) API keys are scoped to a single team. Pass the team's ID and
 the acting member's user ID — every request is validated against that team and

@@ -22,7 +22,7 @@ def list_teams(
     """List accessible teams and their IDs for use with --team-id."""
     cli: CliContext = ctx.obj
     try:
-        response = cli.call_with_refresh(lambda client: client.teams.list())
+        response = cli.call_with_refresh(lambda client: client.teams.list(team_id=cli.effective_team_id))
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
 
@@ -41,7 +41,7 @@ def list_organizations(
     ctx: typer.Context,
     json_output: Annotated[bool, typer.Option("--json", help="Print organization IDs and names as JSON.")] = False,
 ) -> None:
-    """List the organizations you belong to."""
+    """List organizations (personal API key or OAuth; team keys are unsupported)."""
     cli: CliContext = ctx.obj
     try:
         response = cli.call_with_refresh(lambda client: client.organizations.list())
