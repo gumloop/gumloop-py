@@ -262,3 +262,29 @@ gumloop browser profiles delete PROFILE_ID --json
 ```
 
 Personal profile management uses the authenticated user regardless of global team selection.
+
+### Integration triggers
+
+Use `client.agents.list_trigger_operators(agent_id)` to discover registered integration operators, parameter schemas, and required credential types available under your current policy. Integration creation defaults to disabled when `enabled` is omitted; activate only with an explicit `enabled=True`. Create an integration trigger with the existing typed `create_trigger` method; the async client has the same methods with `await`. Supply resolved IDs/maps for dynamic parameters and explicit account IDs from connector account discovery. Catalog reads do not call the external integration. Account creation or reconnection may require interactive consent.
+
+```python
+created = client.agents.create_trigger("agent_id", type="integration", prompt="Summarize new mail",
+    enabled=False, integration={"operator_name": "Gmail Reader", "parameters": {"Label": "Inbox"},
+        "credentials_to_use": {"gmail_access_token": {"secret_id": "account_id", "is_personal_credential": True}}})
+current = client.agents.get_trigger("agent_id", created.trigger.id)
+runs = client.agents.list_trigger_runs("agent_id", created.trigger.id, page_size=20, states=["FAILED"])
+stats = client.agents.get_trigger_stats("agent_id", created.trigger.id)
+```
+
+`update_trigger(..., integration=...)` replaces the operator configuration as a whole and preserves the trigger's prompt, name and continuation unless explicitly changed. Replacing an active integration requires an explicit `enabled` choice. Configuration replacement requires the trigger creator; personal accounts remain bound to that creator. Workspace accounts require current workspace access. Every activation requires concrete account pins belonging to the selected owner and matching the required credential types; missing or unavailable pins are rejected. Legacy default-only rows must be explicitly rebound before activation. Reads return public configuration and status without credentials or internal event state. Run history uses cursor pagination; stats preserve native run/poll credit accounting. Enabling or changing an active integration uses the platform's existing external subscription/polling lifecycle and billing.
+
+```sh
+gumloop agents triggers catalog AGENT_ID --json
+gumloop agents triggers create AGENT_ID --args-file ./integration-trigger.json --json
+gumloop agents triggers get AGENT_ID TRIGGER_ID --json
+gumloop agents triggers update AGENT_ID TRIGGER_ID --args-json '{"enabled":false}' --json
+gumloop agents triggers runs AGENT_ID TRIGGER_ID --limit 20 --state FAILED --json
+gumloop agents triggers stats AGENT_ID TRIGGER_ID --json
+```
+
+This contract does not manage shared trigger templates or instances and does not accept raw internal event JSON. Use OAuth or a personal API key for configuration and inspection.
