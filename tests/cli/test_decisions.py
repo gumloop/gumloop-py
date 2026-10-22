@@ -50,7 +50,8 @@ def test_decision_file_requires_utf8(cli_runner: CliRunner, tmp_path) -> None:
     result = cli_runner.invoke(app, ["decisions", "create", "--args-file", str(path), "--json"])
     assert result.exit_code == 1
     assert "UTF-8" in json.loads(result.output)["error"]["message"]
-    assert "Traceback" not in result.output
+    assert isinstance(result.exception, SystemExit)
+    assert json.loads(result.output)["error"]["type"] == "gumloop_error"
     assert not respx.calls
 
 
@@ -87,7 +88,8 @@ def test_decision_invalid_request(cli_runner: CliRunner, raw: str) -> None:
     save_credentials(Credentials(api_key="key"))
     result = cli_runner.invoke(app, ["decisions", "create", "--args-json", raw, "--json"])
     assert result.exit_code != 0
-    assert "Traceback" not in result.output
+    assert isinstance(result.exception, SystemExit)
+    assert json.loads(result.output)["error"]["type"] == "gumloop_error"
 
 
 @respx.mock

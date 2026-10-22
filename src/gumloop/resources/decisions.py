@@ -44,13 +44,14 @@ class Decisions:
         self,
         request: DecisionsRequest | Mapping[str, Any] | None = None,
         *,
+        team_id: str | None = None,
         model: str | None = None,
         state: Json | None = None,
         questions: Mapping[str, DecisionsQuestion | Mapping[str, Any]] | None = None,
         **kwargs: Any,
     ) -> DecisionsResponse:
         body = _build_request(request, {"model": model, "state": state, "questions": questions, **kwargs})
-        data = self._client.post(_PATH, json=to_wire_dict(body))
+        data = self._client.post(_PATH, json=to_wire_dict(body), params={"team_id": team_id})
         return DecisionsResponse.model_validate(data)
 
 
@@ -62,11 +63,12 @@ class AsyncDecisions:
         self,
         request: DecisionsRequest | Mapping[str, Any] | None = None,
         *,
+        team_id: str | None = None,
         model: str | None = None,
         state: Json | None = None,
         questions: Mapping[str, DecisionsQuestion | Mapping[str, Any]] | None = None,
         **kwargs: Any,
     ) -> DecisionsResponse:
         body = _build_request(request, {"model": model, "state": state, "questions": questions, **kwargs})
-        data = await self._client.post(_PATH, json=to_wire_dict(body))
+        data = await self._client.post(_PATH, json=to_wire_dict(body), params={"team_id": team_id})
         return DecisionsResponse.model_validate(data)
