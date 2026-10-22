@@ -4,10 +4,12 @@
 
 The CLI uses these same resources. Run `gumloop <group> <command> --help` for the command's accepted fields, and use `--json` when consuming its output from a script.
 
+The feature parity audit adds client support over existing staging APIs. Organization and team administration, membership controls, custom roles, credit caps, and organization exports remain main-platform features; this audit adds no SDK methods or CLI commands for them.
+
 | Capability | Python resource | CLI entry point |
 | --- | --- | --- |
 | Agent configuration, attachments, subagents, abilities, evaluations | `client.agents` | `gumloop agents` |
-| Agent app restrictions | `client.agents.list_app_rules`, `create_app_rule`, `update_app_rule`, `delete_app_rule` | `gumloop agents rules` |
+| Read agent app restrictions | `client.agents.list_app_rules` | `gumloop agents app-rules` |
 | Agent conversations and resumable event streams | `client.sessions` | `gumloop sessions` |
 | Session-file inputs | `client.sessions.upload_file` and message attachments | `gumloop sessions upload`, `send --file` |
 | Pending tool approvals and human input | `client.sessions.resolve_approvals` | `gumloop sessions approvals` |
@@ -17,9 +19,9 @@ The CLI uses these same resources. Run `gumloop <group> <command> --help` for th
 | Model discovery and task routing | `client.models` | `gumloop models` |
 | Connector tools, resources, prompts, and account discovery | `client.mcp` | `gumloop mcp` |
 | Personal wiki cards | `client.wiki.query` | `gumloop wiki query` |
-| Company Brain search and source files | `client.brain` | `gumloop brain` |
+| Company Brain search and uploaded-file sources | `client.brain` | `gumloop brain` |
 | Generated files and sharing | `client.artifacts` | `gumloop artifacts` |
-| Browser profiles and authenticated session viewer links | `client.browser_profiles`, `client.sessions.browser` | `gumloop browser`, `gumloop sessions browser` |
+| Browser profile listing and cookie import | `client.browser_profiles` | `gumloop browser profiles list`, `gumloop browser import-logins` |
 | Existing saved workflow execution and file transfers | `client.workflows` | `gumloop workflows` |
 | Managed coding-agent skills | `client.sync` (synchronous only) | `gumloop sync` |
 | Bundled coding-agent instructions | Local CLI installation | `gumloop plugin install` |
@@ -48,10 +50,10 @@ Commands that accept `--args-file`, `--args-json`, or `--args -` use the SDK req
 
 Chat completions are independent model calls. Agent sessions can use configured tools, maintain conversation state, request approvals, and delegate work. Support for a tool inside an agent does not imply that the SDK exposes that tool's internal runtime directly.
 
-Text-to-image generation uses an image-capable chat model and image modalities. Reference-image editing additionally supplies image content in the request and requires backend/model support. Use JSON output to retain generated images; human CLI output prints text. Image configuration is supplied in the structured request's `image_config`.
+Text-to-image generation uses an image-capable chat model and image modalities. Use JSON output to retain generated images; human CLI output prints text. Image configuration is supplied in the structured request's `image_config`. Vision inputs to ordinary chat are supported; direct reference-image editing is not implemented by staging's image-generation handler and is outside this audit's client changes.
 
-Browser profile APIs manage stored sign-ins. A session browser response supplies authenticated viewer/handoff links and availability metadata, without granting standalone browser control. Voice settings on an agent configure its voice capability; establishing a live call requires a separate SDP/WebRTC session lifecycle and a media peer. A text stream is not a voice connection.
+Browser profile APIs list stored profiles and import sign-ins. Profile CRUD and browser viewer/handoff links have no matching public client endpoint in this audit. Voice settings on an agent configure its voice capability; this client does not establish live WebRTC calls. A text stream is not a voice connection.
 
-Session attachments, Brain source uploads, generated files, and workflow files are separate storage namespaces. An ID or filename from one does not automatically become a valid input to another. Downloading a known generated-file version also does not imply that the caller can restore it or publish it.
+Session attachments, Brain source uploads, generated files, and workflow files are separate storage namespaces. An ID or filename from one does not automatically become a valid input to another. Generated-file restore, hosting, and script execution are outside this audit's client changes.
 
-Changes to organization membership, custom roles, credit caps, and shared administration can affect other people. Treat those operations as a separate deployment and validation decision from personal-resource workflows.
+Agent trigger methods support existing schedule and webhook APIs. Integration-trigger configuration and connected Brain source lifecycle require additional backend APIs and are outside this audit's client changes. Configure those features on the main platform.
