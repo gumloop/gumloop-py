@@ -128,12 +128,22 @@ class Sessions:
     def send(
         self,
         session_id: str,
-        request: SessionContinueRequest | Mapping[str, Any] | None = None,
+        request: None = None,
         *,
         delivery: Literal["immediate"] = "immediate",
         stream: Literal[False] | None = None,
         **kwargs: Any,
     ) -> SessionResponse: ...
+    @overload
+    def send(
+        self,
+        session_id: str,
+        request: SessionContinueRequest | Mapping[str, Any],
+        *,
+        delivery: Literal["immediate", "queued"] | None = None,
+        stream: bool | None = None,
+        **kwargs: Any,
+    ) -> SessionResponse | SessionMessageReceipt | Iterator[StreamEvent]: ...
     def send(
         self,
         session_id: str,
@@ -304,12 +314,22 @@ class AsyncSessions:
     async def send(
         self,
         session_id: str,
-        request: SessionContinueRequest | Mapping[str, Any] | None = None,
+        request: None = None,
         *,
         delivery: Literal["immediate"] = "immediate",
         stream: Literal[False] | None = None,
         **kwargs: Any,
     ) -> SessionResponse: ...
+    @overload
+    async def send(
+        self,
+        session_id: str,
+        request: SessionContinueRequest | Mapping[str, Any],
+        *,
+        delivery: Literal["immediate", "queued"] | None = None,
+        stream: bool | None = None,
+        **kwargs: Any,
+    ) -> SessionResponse | SessionMessageReceipt | AsyncIterator[StreamEvent]: ...
     async def send(
         self,
         session_id: str,

@@ -682,8 +682,26 @@ class SessionContinueRequest(_Model):
             if not self.message_id or not self.message_id.strip():
                 raise ValueError("message_id is required for queued delivery")
             content = self.input if self.input is not None else self.message
-            if not content or (isinstance(content, str) and not content.strip()):
+            if isinstance(content, list):
+                texts = []
+                for part in content:
+                    if isinstance(part, str):
+                        texts.append(part)
+                    elif (
+                        isinstance(part, dict)
+                        and part.get("type") in ("text", "input_text")
+                        and isinstance(part.get("text"), str)
+                    ):
+                        texts.append(part["text"])
+                    else:
+                        raise ValueError("queued delivery supports only text input")
+                content = "\n".join(text for text in texts if text)
+            if not isinstance(content, str) or not content.strip():
                 raise ValueError("input or message is required for queued delivery")
+            if self.input is not None:
+                self.input = content
+            else:
+                self.message = content
             if self.stream or getattr(self, "attachments", None) or getattr(self, "approval_responses", None):
                 raise ValueError("queued delivery does not support streaming, attachments, or approvals")
         elif self.message_id is not None:
