@@ -299,9 +299,11 @@ def test_queued_send_returns_receipt_without_polling(asynchronous: bool) -> None
     kwargs: dict[str, Any] = {"message": "Report complete", "delivery": "queued", "message_id": "report_1"}
 
     if asynchronous:
+
         async def send():
             async with AsyncGumloop(access_token="token") as client:
                 return await client.sessions.send("session_123", **kwargs)
+
         result = asyncio.run(send())
     else:
         with Gumloop(access_token="token") as client:
@@ -314,20 +316,27 @@ def test_queued_send_returns_receipt_without_polling(asynchronous: bool) -> None
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])
-@pytest.mark.parametrize("extra", [
-    {}, {"message_id": ""}, {"message_id": "   "},
-    {"message_id": "report_1", "stream": True},
-    {"message_id": "report_1", "attachments": [{"file_path": "file.txt"}]},
-])
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {},
+        {"message_id": ""},
+        {"message_id": "   "},
+        {"message_id": "report_1", "stream": True},
+        {"message_id": "report_1", "attachments": [{"file_path": "file.txt"}]},
+    ],
+)
 @respx.mock
 def test_queued_send_validates_delivery_before_http(asynchronous: bool, extra: dict[str, Any]) -> None:
     kwargs: dict[str, Any] = {"message": "Report complete", "delivery": "queued", **extra}
 
     with pytest.raises(ValueError, match="message_id|queued delivery"):
         if asynchronous:
+
             async def send():
                 async with AsyncGumloop(access_token="token") as client:
                     return await client.sessions.send("session_123", **kwargs)
+
             asyncio.run(send())
         else:
             with Gumloop(access_token="token") as client:
