@@ -176,11 +176,11 @@ class HttpClient:
     ) -> Any:
         return self._request("PATCH", path, json=json, data=_omit_none_params(data), files=files)
 
-    def put(self, path: str, *, json: Any = None) -> Any:
-        return self._request("PUT", path, json=json)
+    def put(self, path: str, *, json: Any = None, params: Mapping[str, Any] | None = None) -> Any:
+        return self._request("PUT", path, json=json, params=_omit_none_params(params))
 
-    def delete(self, path: str) -> Any:
-        return self._request("DELETE", path)
+    def delete(self, path: str, *, params: Mapping[str, Any] | None = None) -> Any:
+        return self._request("DELETE", path, params=_omit_none_params(params))
 
     def post_bytes(
         self,
@@ -383,11 +383,11 @@ class AsyncHttpClient:
     ) -> Any:
         return await self._request("PATCH", path, json=json, data=_omit_none_params(data), files=files)
 
-    async def put(self, path: str, *, json: Any = None) -> Any:
-        return await self._request("PUT", path, json=json)
+    async def put(self, path: str, *, json: Any = None, params: Mapping[str, Any] | None = None) -> Any:
+        return await self._request("PUT", path, json=json, params=_omit_none_params(params))
 
-    async def delete(self, path: str) -> Any:
-        return await self._request("DELETE", path)
+    async def delete(self, path: str, *, params: Mapping[str, Any] | None = None) -> Any:
+        return await self._request("DELETE", path, params=_omit_none_params(params))
 
     async def post_to_stream_host(self, path: str, *, json: Any = None) -> Any:
         headers = auth_headers(self.access_token, self.user_id)

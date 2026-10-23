@@ -7,9 +7,12 @@ from typing import Any
 from gumloop._http import AsyncHttpClient
 from gumloop._http import HttpClient
 from gumloop.resources._item_access import item_access_body
+from gumloop.types import ArtifactDeletedResponse
 from gumloop.types import ArtifactDownloadResponse
 from gumloop.types import ArtifactListResponse
+from gumloop.types import ArtifactNameResponse
 from gumloop.types import ArtifactPasswordResponse
+from gumloop.types import ArtifactVersionsResponse
 from gumloop.types import ItemAccessChangeResponse
 from gumloop.types import ItemAccessResponse
 
@@ -17,6 +20,22 @@ from gumloop.types import ItemAccessResponse
 class Artifacts:
     def __init__(self, client: HttpClient) -> None:
         self._client = client
+
+    def delete(self, artifact_id: str, *, team_id: str | None = None) -> ArtifactDeletedResponse:
+        return ArtifactDeletedResponse.model_validate(
+            self._client.delete(f"artifacts/{artifact_id}", params={"team_id": team_id})
+        )
+
+    def rename(self, artifact_id: str, name: str | None, *, team_id: str | None = None) -> ArtifactNameResponse:
+        """Change the display name; None resets it without changing the stored filename."""
+        return ArtifactNameResponse.model_validate(
+            self._client.put(f"artifacts/{artifact_id}/name", json={"name": name}, params={"team_id": team_id})
+        )
+
+    def list_versions(self, artifact_id: str, *, team_id: str | None = None) -> ArtifactVersionsResponse:
+        return ArtifactVersionsResponse.model_validate(
+            self._client.get(f"artifacts/{artifact_id}/versions", params={"team_id": team_id})
+        )
 
     def list(
         self,
@@ -81,6 +100,22 @@ class Artifacts:
 class AsyncArtifacts:
     def __init__(self, client: AsyncHttpClient) -> None:
         self._client = client
+
+    async def delete(self, artifact_id: str, *, team_id: str | None = None) -> ArtifactDeletedResponse:
+        return ArtifactDeletedResponse.model_validate(
+            await self._client.delete(f"artifacts/{artifact_id}", params={"team_id": team_id})
+        )
+
+    async def rename(self, artifact_id: str, name: str | None, *, team_id: str | None = None) -> ArtifactNameResponse:
+        """Change the display name; None resets it without changing the stored filename."""
+        return ArtifactNameResponse.model_validate(
+            await self._client.put(f"artifacts/{artifact_id}/name", json={"name": name}, params={"team_id": team_id})
+        )
+
+    async def list_versions(self, artifact_id: str, *, team_id: str | None = None) -> ArtifactVersionsResponse:
+        return ArtifactVersionsResponse.model_validate(
+            await self._client.get(f"artifacts/{artifact_id}/versions", params={"team_id": team_id})
+        )
 
     async def list(
         self,
