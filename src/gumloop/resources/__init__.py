@@ -27,6 +27,8 @@ from gumloop.resources.skills import Skills
 from gumloop.resources.sync import Sync
 from gumloop.resources.teams import AsyncTeams
 from gumloop.resources.teams import Teams
+from gumloop.resources.voice import AsyncVoice
+from gumloop.resources.voice import Voice
 from gumloop.resources.wiki import AsyncWiki
 from gumloop.resources.wiki import Wiki
 
@@ -60,4 +62,6 @@ __all__ = [
     "Teams",
     "AsyncWiki",
     "Wiki",
+    "AsyncVoice",
+    "Voice",
 ]

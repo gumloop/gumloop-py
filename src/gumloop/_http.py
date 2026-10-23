@@ -8,6 +8,7 @@ from collections.abc import Iterator
 from collections.abc import Mapping
 from typing import Any
 from typing import TypeVar
+from urllib.parse import urlsplit
 
 import httpx
 from httpx_sse import EventSource
@@ -210,14 +211,18 @@ class HttpClient:
                 chunks.append(chunk)
             return b"".join(chunks), response.headers
 
-    def post_to_stream_host(self, path: str, *, json: Any = None) -> Any:
+    def post_to_stream_host(self, path: str, *, json: Any = None, origin: bool = False) -> Any:
         # Endpoints whose streaming variant lives on the stream host (e.g. chat
         # completions) must accept their unary counterparts at the same host —
         # the api host has no handler for them.
         headers = auth_headers(self.access_token, self.user_id)
         headers["Content-Type"] = "application/json"
         response = self._client.post(
-            f"{self._stream_base_url}/{path.lstrip('/')}",
+            (
+                urlsplit(self._stream_base_url)._replace(path="/" + path.lstrip("/"), query="", fragment="").geturl()
+                if origin
+                else f"{self._stream_base_url}/{path.lstrip('/')}"
+            ),
             headers=headers,
             timeout=self._stream_timeout,
             json=json,
@@ -396,11 +401,15 @@ class AsyncHttpClient:
     async def delete(self, path: str, *, params: Mapping[str, Any] | None = None, scoped: bool = True) -> Any:
         return await self._request("DELETE", path, params=_omit_none_params(params), scoped=scoped)
 
-    async def post_to_stream_host(self, path: str, *, json: Any = None) -> Any:
+    async def post_to_stream_host(self, path: str, *, json: Any = None, origin: bool = False) -> Any:
         headers = auth_headers(self.access_token, self.user_id)
         headers["Content-Type"] = "application/json"
         response = await self._client.post(
-            f"{self._stream_base_url}/{path.lstrip('/')}",
+            (
+                urlsplit(self._stream_base_url)._replace(path="/" + path.lstrip("/"), query="", fragment="").geturl()
+                if origin
+                else f"{self._stream_base_url}/{path.lstrip('/')}"
+            ),
             headers=headers,
             timeout=self._stream_timeout,
             json=json,
