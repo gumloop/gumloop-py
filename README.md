@@ -169,14 +169,25 @@ receipt = client.sessions.send(
     "session_id",
     message="The investigation is complete.",
     delivery="queued",
-    message_id="job_991_investigation_report",
+    idempotency_key="job_991_investigation_report",
 )
 ```
 
 Queued delivery returns an acceptance receipt as soon as the report is stored.
 A running session reads it at the next safe point; a settled session can start a
 new turn. Queued reports do not bypass a pending approval or restart a stopped
-chat. Reuse the same `message_id` when retrying the same report. Using that ID for
-different content returns a conflict. IDs are scoped to the session and sender;
-retry protection checks the stored queue and transcript. Queued delivery supports
-text input without streaming, attachments, or approval responses.
+chat. The receipt's `message_id` identifies the stored message and is assigned by
+the server. Accepted means stored, not yet read or processed by the agent.
+
+`idempotency_key` is optional. The SDK generates a key for each queued send when
+one is absent and sends it in the `Idempotency-Key` HTTP header. Reuse a stable
+key for the same report when retrying across separate calls or job restarts.
+Without an explicit key, a separate send creates a new message. The SDK does not
+automatically retry HTTP requests.
+
+The same key and content return the original receipt; the same key with different
+content returns a conflict. Keys are scoped to the session and sender. Retry
+protection lasts while the report remains in the stored queue or transcript; it
+does not have a fixed retention window. Raw API callers can omit the header to
+create a new message. Queued delivery supports text input without streaming,
+attachments, or approval responses.

@@ -674,13 +674,13 @@ class SessionContinueRequest(_Model):
     message: str | list[Any] | None = None
     stream: bool = False
     delivery: Literal["immediate", "queued"] = "immediate"
-    message_id: str | None = Field(default=None, min_length=1, max_length=256)
+    idempotency_key: str | None = Field(default=None, min_length=1, max_length=256)
 
     @model_validator(mode="after")
     def validate_delivery(self) -> SessionContinueRequest:
         if self.delivery == "queued":
-            if not self.message_id or not self.message_id.strip():
-                raise ValueError("message_id is required for queued delivery")
+            if self.idempotency_key is not None and not self.idempotency_key.strip():
+                raise ValueError("idempotency_key cannot be blank")
             content = self.input if self.input is not None else self.message
             if isinstance(content, list):
                 texts = []
@@ -704,8 +704,8 @@ class SessionContinueRequest(_Model):
                 self.message = content
             if self.stream or getattr(self, "attachments", None) or getattr(self, "approval_responses", None):
                 raise ValueError("queued delivery does not support streaming, attachments, or approvals")
-        elif self.message_id is not None:
-            raise ValueError("message_id requires queued delivery")
+        elif self.idempotency_key is not None:
+            raise ValueError("idempotency_key requires queued delivery")
         return self
 
 

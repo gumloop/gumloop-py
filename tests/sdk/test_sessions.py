@@ -295,9 +295,9 @@ def test_async_sessions_stream_methods() -> None:
 @respx.mock
 def test_queued_send_returns_receipt_without_polling(asynchronous: bool) -> None:
     route = respx.post(f"{API_BASE}/sessions/session_123/messages").mock(
-        return_value=httpx.Response(202, json={"message_id": "report_1", "status": "accepted"})
+        return_value=httpx.Response(202, json={"message_id": "stored_message_1", "status": "accepted"})
     )
-    kwargs: dict[str, Any] = {"message": "Report complete", "delivery": "queued", "message_id": "report_1"}
+    kwargs: dict[str, Any] = {"message": "Report complete", "delivery": "queued", "idempotency_key": "report_1"}
 
     if asynchronous:
 
@@ -311,27 +311,57 @@ def test_queued_send_returns_receipt_without_polling(asynchronous: bool) -> None
             result = client.sessions.send("session_123", **kwargs)
 
     assert isinstance(result, SessionMessageReceipt)
-    assert result.model_dump() == {"message_id": "report_1", "status": "accepted"}
+    assert result.model_dump() == {"message_id": "stored_message_1", "status": "accepted"}
     assert len(respx.calls) == 1
-    assert request_json(route.calls[0].request) == kwargs
+    assert request_json(route.calls[0].request) == {"message": "Report complete", "delivery": "queued"}
+    assert route.calls[0].request.headers["Idempotency-Key"] == "report_1"
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@respx.mock
+def test_queued_send_generates_a_separate_key_for_each_call(asynchronous: bool) -> None:
+    route = respx.post(f"{API_BASE}/sessions/session_123/messages").mock(
+        return_value=httpx.Response(202, json={"message_id": "stored_message_1", "status": "accepted"})
+    )
+
+    if asynchronous:
+
+        async def send():
+            async with AsyncGumloop(access_token="token") as client:
+                for _ in range(2):
+                    await client.sessions.send("session_123", message="Report complete", delivery="queued")
+
+        asyncio.run(send())
+    else:
+        with Gumloop(access_token="token") as client:
+            for _ in range(2):
+                client.sessions.send("session_123", message="Report complete", delivery="queued")
+
+    assert len(route.calls) == 2
+    keys = [call.request.headers["Idempotency-Key"] for call in route.calls]
+    assert all(keys)
+    assert keys[0] != keys[1]
+    assert [request_json(call.request) for call in route.calls] == [
+        {"message": "Report complete", "delivery": "queued"},
+        {"message": "Report complete", "delivery": "queued"},
+    ]
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])
 @pytest.mark.parametrize(
     "extra",
     [
-        {},
-        {"message_id": ""},
-        {"message_id": "   "},
-        {"message_id": "report_1", "stream": True},
-        {"message_id": "report_1", "attachments": [{"file_path": "file.txt"}]},
+        {"idempotency_key": ""},
+        {"idempotency_key": "   "},
+        {"idempotency_key": "report_1", "stream": True},
+        {"idempotency_key": "report_1", "attachments": [{"file_path": "file.txt"}]},
     ],
 )
 @respx.mock
 def test_queued_send_validates_delivery_before_http(asynchronous: bool, extra: dict[str, Any]) -> None:
     kwargs: dict[str, Any] = {"message": "Report complete", "delivery": "queued", **extra}
 
-    with pytest.raises(ValueError, match="message_id|queued delivery"):
+    with pytest.raises(ValueError, match="idempotency_key|queued delivery"):
         if asynchronous:
 
             async def send():
@@ -359,7 +389,7 @@ def test_queued_send_validates_delivery_before_http(asynchronous: bool, extra: d
 )
 @respx.mock
 def test_queued_send_rejects_nontext_parts_before_http(asynchronous: bool, content_field: str, content: list) -> None:
-    kwargs: dict[str, Any] = {content_field: content, "delivery": "queued", "message_id": "report_1"}
+    kwargs: dict[str, Any] = {content_field: content, "delivery": "queued", "idempotency_key": "report_1"}
 
     with pytest.raises(ValueError, match="queued delivery"):
         if asynchronous:
@@ -381,12 +411,12 @@ def test_queued_send_rejects_nontext_parts_before_http(asynchronous: bool, conte
 @respx.mock
 def test_queued_request_object_returns_receipt(asynchronous: bool, request_model: bool) -> None:
     route = respx.post(f"{API_BASE}/sessions/session_123/messages").mock(
-        return_value=httpx.Response(202, json={"message_id": "report_1", "status": "accepted"})
+        return_value=httpx.Response(202, json={"message_id": "stored_message_1", "status": "accepted"})
     )
     payload = {
         "message": [{"type": "text", "text": "First"}, {"type": "input_text", "text": "Second"}],
         "delivery": "queued",
-        "message_id": "report_1",
+        "idempotency_key": "report_1",
     }
     request = SessionContinueRequest.model_validate(payload) if request_model else payload
 
@@ -402,10 +432,10 @@ def test_queued_request_object_returns_receipt(asynchronous: bool, request_model
             result = client.sessions.send("session_123", request)
 
     assert isinstance(result, SessionMessageReceipt)
-    assert result.model_dump() == {"message_id": "report_1", "status": "accepted"}
+    assert result.model_dump() == {"message_id": "stored_message_1", "status": "accepted"}
     assert request_json(route.calls[0].request) == {
         "message": "First\nSecond",
         "delivery": "queued",
-        "message_id": "report_1",
     }
     assert len(respx.calls) == 1
+    assert route.calls[0].request.headers["Idempotency-Key"] == "report_1"
