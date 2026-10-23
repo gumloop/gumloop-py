@@ -169,6 +169,7 @@ receipt = client.sessions.send(
     "session_id",
     message="The investigation is complete.",
     delivery="queued",
+    idempotency_key="job_991_report",
 )
 ```
 
@@ -178,7 +179,13 @@ session can start another turn. Stops, pending approvals, queue order, and
 concurrency limits still apply. Queued delivery supports text without streaming,
 attachments, or approval responses.
 
-Every send creates a new queued message. There is no retry-key contract or
-automatic HTTP retry: repeating a call after a timeout can create a duplicate.
-Acceptance confirms storage, not processing. Capacity refusal can leave a message
+`idempotency_key` is optional and accepts 1–256 visible ASCII characters without
+spaces. Reuse it when retrying the same report across separate calls or job
+restarts. The same key and content return the original receipt; changed content
+under that key returns 409. Keys are scoped to the session and sender, and retry
+protection lasts while the message remains in the queue or transcript.
+
+The SDK generates a key per call when one is absent. A separate call without an
+explicit key can create a duplicate. The SDK does not automatically retry HTTP
+requests. Acceptance confirms storage, not processing. Capacity refusal can leave a message
 queued, and a failed dispatch can leave it in the transcript unprocessed.

@@ -674,6 +674,7 @@ class SessionContinueRequest(_Model):
     message: str | list[Any] | None = None
     stream: bool = False
     delivery: Literal["immediate", "queued"] = "immediate"
+    idempotency_key: str | None = Field(default=None, min_length=1, max_length=256, pattern=r"^[!-~]+\z")
 
     @model_validator(mode="after")
     def validate_delivery(self) -> SessionContinueRequest:
@@ -701,6 +702,8 @@ class SessionContinueRequest(_Model):
                 self.message = content
             if self.stream or getattr(self, "attachments", None) or getattr(self, "approval_responses", None):
                 raise ValueError("queued delivery does not support streaming, attachments, or approvals")
+        elif self.idempotency_key is not None:
+            raise ValueError("idempotency_key requires queued delivery")
         return self
 
 

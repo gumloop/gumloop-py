@@ -292,12 +292,15 @@ def test_async_sessions_stream_methods() -> None:
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("key", [None, "report_1"])
 @respx.mock
-def test_queued_send_returns_receipt_without_polling(asynchronous: bool) -> None:
+def test_queued_send_returns_receipt_without_polling(asynchronous: bool, key: str | None) -> None:
     route = respx.post(f"{API_BASE}/sessions/session_123/messages").mock(
         return_value=httpx.Response(202, json={"message_id": "stored_message_1", "status": "accepted"})
     )
     kwargs: dict[str, Any] = {"message": "Report complete", "delivery": "queued"}
+    if key is not None:
+        kwargs["idempotency_key"] = key
 
     if asynchronous:
 
@@ -314,18 +317,21 @@ def test_queued_send_returns_receipt_without_polling(asynchronous: bool) -> None
     assert result.model_dump() == {"message_id": "stored_message_1", "status": "accepted"}
     assert len(respx.calls) == 1
     assert request_json(route.calls[0].request) == {"message": "Report complete", "delivery": "queued"}
+    assert route.calls[0].request.headers["Idempotency-Key"]
+    if key is not None:
+        assert route.calls[0].request.headers["Idempotency-Key"] == key
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])
 @pytest.mark.parametrize(
     "extra",
-    [{"stream": True}, {"attachments": [{"file_path": "file.txt"}]}],
+    [{"stream": True}, {"attachments": [{"file_path": "file.txt"}]}, {"idempotency_key": "report\n"}],
 )
 @respx.mock
 def test_queued_send_validates_delivery_before_http(asynchronous: bool, extra: dict[str, Any]) -> None:
     kwargs: dict[str, Any] = {"message": "Report complete", "delivery": "queued", **extra}
 
-    with pytest.raises(ValueError, match="queued delivery"):
+    with pytest.raises(ValueError, match="queued delivery|idempotency_key"):
         if asynchronous:
 
             async def send():
