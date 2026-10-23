@@ -6,15 +6,19 @@ from typing import Annotated
 from typing import Any
 
 import typer
+from pydantic import ValidationError
 from rich.markup import escape as escape_markup
 
 from gumloop import GumloopError
+from gumloop.cli.commands._args_input import resolve_json_args
+from gumloop.cli.commands.agent_configuration import configuration_app
 from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
 from gumloop.cli.errors import exit_with_error
 
 agents_app = typer.Typer(help="Manage Gumloop agents.", no_args_is_help=True, rich_markup_mode="rich")
+agents_app.add_typer(configuration_app)
 
 
 @agents_app.command(
@@ -226,7 +230,14 @@ def export_agent_version(
 )
 def create_agent(
     ctx: typer.Context,
-    name: Annotated[str, typer.Option("--name", help="Display name for the new agent.")],
+    name: Annotated[str | None, typer.Option("--name", help="Display name for the new agent.")] = None,
+    args_json: Annotated[
+        str | None, typer.Option("--args-json", help="Full agent request as JSON; explicit flags override it.")
+    ] = None,
+    args_file: Annotated[
+        str | None, typer.Option("--args-file", help="File containing the full agent request JSON.")
+    ] = None,
+    args: Annotated[str | None, typer.Option("--args", help="Use '-' to read request JSON from stdin.")] = None,
     model: Annotated[
         str | None,
         typer.Option("--model", help="Model name (for example 'auto'). Defaults to Gumloop's Auto router."),
@@ -271,6 +282,7 @@ def create_agent(
     cli: CliContext = ctx.obj
 
     try:
+        request = resolve_json_args(inline=args_json, file_path=args_file, stdin_marker=args)
         # Resolve --system-prompt vs --system-prompt-file (at most one).
         if system_prompt is not None and system_prompt_file is not None:
             raise GumloopError("Pass at most one of --system-prompt or --system-prompt-file.")
@@ -312,6 +324,7 @@ def create_agent(
 
         response = cli.call_with_refresh(
             lambda client: client.agents.create(
+                request,
                 name=name,
                 model_name=model,
                 description=description,
@@ -322,7 +335,7 @@ def create_agent(
                 incognito=True if incognito else None,
             )
         )
-    except GumloopError as error:
+    except (GumloopError, ValidationError) as error:
         exit_with_error(error, json_output=json_output)
 
     if json_output:
@@ -348,6 +361,11 @@ def create_agent(
 def update_agent(
     ctx: typer.Context,
     agent_id: Annotated[str, typer.Argument(help="ID of the agent to update.")],
+    args_json: Annotated[
+        str | None, typer.Option("--args-json", help="Full update request as JSON; explicit flags override it.")
+    ] = None,
+    args_file: Annotated[str | None, typer.Option("--args-file", help="File containing the agent update JSON.")] = None,
+    args: Annotated[str | None, typer.Option("--args", help="Use '-' to read request JSON from stdin.")] = None,
     name: Annotated[str | None, typer.Option("--name")] = None,
     model: Annotated[str | None, typer.Option("--model")] = None,
     description: Annotated[str | None, typer.Option("--description")] = None,
@@ -399,6 +417,11 @@ def update_agent(
     cli: CliContext = ctx.obj
 
     try:
+        request = resolve_json_args(inline=args_json, file_path=args_file, stdin_marker=args)
+        if incognito is not None and "version" in request:
+            raise GumloopError(
+                "Change incognito in a separate command, then read the current agent version before a versioned update."
+            )
         if system_prompt is not None and system_prompt_file is not None:
             raise GumloopError("Pass at most one of --system-prompt or --system-prompt-file.")
         resolved_prompt = system_prompt
@@ -438,14 +461,17 @@ def update_agent(
             "tools": tools,
             "is_active": is_active,
         }
+        has_field_update = bool(request) or any(value is not None for value in fields.values())
+        if incognito is None and not has_field_update:
+            raise GumloopError("Pass at least one field to update, using flags or request JSON.")
         response = None
         if incognito is not None:
             response = cli.call_with_refresh(lambda client: client.agents.set_incognito(agent_id, incognito))
-        if incognito is None or any(value is not None for value in fields.values()):
+        if has_field_update:
             response = cli.call_with_refresh(
-                lambda client: client.agents.update(agent_id, team_id=cli.effective_team_id, **fields)
+                lambda client: client.agents.update(agent_id, request, team_id=cli.effective_team_id, **fields)
             )
-    except GumloopError as error:
+    except (GumloopError, ValidationError) as error:
         exit_with_error(error, json_output=json_output)
 
     if json_output:
@@ -523,6 +549,12 @@ def attach_mcp_server(
     ctx: typer.Context,
     agent_id: Annotated[str, typer.Argument(help="ID of the agent to attach the MCP server to.")],
     server_id: Annotated[str, typer.Argument(help="ID of the MCP server to attach.")],
+    args_json: Annotated[
+        str | None,
+        typer.Option("--args-json", help="Connector account, credential, approval and restriction config as JSON."),
+    ] = None,
+    args_file: Annotated[str | None, typer.Option("--args-file", help="File containing connector config JSON.")] = None,
+    args: Annotated[str | None, typer.Option("--args", help="Use '-' to read config JSON from stdin.")] = None,
     approval_mode: Annotated[
         str | None,
         typer.Option("--approval-mode", help="Tool-call approval mode for this server."),
@@ -535,9 +567,10 @@ def attach_mcp_server(
     """Attach an MCP server to an agent, or update its config (idempotent upsert)."""
     cli: CliContext = ctx.obj
     try:
-        response = cli.call_with_refresh(
-            lambda client: client.agents.attach_mcp_server(agent_id, server_id, approval_mode=approval_mode)
-        )
+        config = resolve_json_args(inline=args_json, file_path=args_file, stdin_marker=args)
+        if approval_mode is not None:
+            config["approval_mode"] = approval_mode
+        response = cli.call_with_refresh(lambda client: client.agents.attach_mcp_server(agent_id, server_id, **config))
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
 
