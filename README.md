@@ -169,32 +169,16 @@ receipt = client.sessions.send(
     "session_id",
     message="The investigation is complete.",
     delivery="queued",
-    idempotency_key="job_991_investigation_report",
 )
 ```
 
-Queued delivery returns an acceptance receipt as soon as the report is stored.
-A running session reads it at the next safe point; a settled session can start a
-new turn. Queued reports do not bypass a pending approval or restart a stopped
-chat. The receipt's `message_id` identifies the stored message and is assigned by
-the server. Accepted confirms storage, not processing by the agent.
-
-`idempotency_key` is optional and accepts 1–256 visible ASCII characters without
-spaces. The SDK generates a key for each queued send when
-one is absent and sends it in the `Idempotency-Key` HTTP header. Reuse a stable
-key for the same report when retrying across separate calls or job restarts.
-Without an explicit key, a separate send creates a new message. The SDK does not
-automatically retry HTTP requests.
-
-The same key and content return the original receipt; the same key with different
-content returns a conflict. Keys are scoped to the session and sender. Retry
-protection lasts while the report remains in the stored queue or transcript; it
-does not have a fixed retention window. Raw API callers can omit the header to
-create a new message. Queued delivery supports text input without streaming,
+Queued delivery returns a storage receipt with a server-assigned `message_id`.
+A running session reads it through the existing queue drain; an eligible settled
+session can start another turn. Stops, pending approvals, queue order, and
+concurrency limits still apply. Queued delivery supports text without streaming,
 attachments, or approval responses.
 
-Queued sends use the existing queue delivery lifecycle. A concurrency limit can
-leave a report queued without another attempt when capacity becomes free on a
-different session. A failed dispatch can leave the report in the transcript
-unprocessed. Retrying its key returns the original storage receipt; it does not
-guarantee recovery or replay after a failed dispatch.
+Every send creates a new queued message. There is no retry-key contract or
+automatic HTTP retry: repeating a call after a timeout can create a duplicate.
+Acceptance confirms storage, not processing. Capacity refusal can leave a message
+queued, and a failed dispatch can leave it in the transcript unprocessed.

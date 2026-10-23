@@ -7,7 +7,6 @@ from collections.abc import Sequence
 from typing import Any
 from typing import Literal
 from typing import overload
-from uuid import uuid4
 
 from gumloop._http import AsyncHttpClient
 from gumloop._http import HttpClient
@@ -156,15 +155,9 @@ class Sessions:
             raise ValueError("input or message is required")
         if body.get("stream") is True:
             return self._client.stream("POST", f"sessions/{session_id}/messages", json=body)
-        if body.get("delivery") == "queued":
-            idempotency_key = body.pop("idempotency_key", None) or str(uuid4())
-            data = self._client.post(
-                f"sessions/{session_id}/messages",
-                json=body,
-                extra_headers={"Idempotency-Key": idempotency_key},
-            )
-            return SessionMessageReceipt.model_validate(data)
         data = self._client.post(f"sessions/{session_id}/messages", json=body)
+        if body.get("delivery") == "queued":
+            return SessionMessageReceipt.model_validate(data)
         return SessionResponse.model_validate(data)
 
     def stream_message(
@@ -348,15 +341,9 @@ class AsyncSessions:
             raise ValueError("input or message is required")
         if body.get("stream") is True:
             return self._client.stream("POST", f"sessions/{session_id}/messages", json=body)
-        if body.get("delivery") == "queued":
-            idempotency_key = body.pop("idempotency_key", None) or str(uuid4())
-            data = await self._client.post(
-                f"sessions/{session_id}/messages",
-                json=body,
-                extra_headers={"Idempotency-Key": idempotency_key},
-            )
-            return SessionMessageReceipt.model_validate(data)
         data = await self._client.post(f"sessions/{session_id}/messages", json=body)
+        if body.get("delivery") == "queued":
+            return SessionMessageReceipt.model_validate(data)
         return SessionResponse.model_validate(data)
 
     def stream_message(
