@@ -161,3 +161,22 @@ print(client.brain.search("onboarding checklist").results[0].title)
 ```
 
 Every file carries its `sha256`, so `client.brain.list_files(source.id)` is enough to diff a local folder against the source. Only file-upload sources can be created through the API; Notion, Drive and other connected sources are set up in the Gumloop app.
+
+### Queue a report for a busy session
+
+```python
+receipt = client.sessions.send(
+    "session_id",
+    message="The investigation is complete.",
+    delivery="queued",
+    message_id="job_991_investigation_report",
+)
+```
+
+Queued delivery returns an acceptance receipt as soon as the report is stored.
+A running session reads it at the next safe point; a settled session can start a
+new turn. Queued reports do not bypass a pending approval or restart a stopped
+chat. Reuse the same `message_id` when retrying the same report. Using that ID for
+different content returns a conflict. IDs are scoped to the session and sender;
+retry protection checks the stored queue and transcript. Queued delivery supports
+text input without streaming, attachments, or approval responses.

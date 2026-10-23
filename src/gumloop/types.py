@@ -673,6 +673,22 @@ class SessionContinueRequest(_Model):
     input: str | list[Any] | None = None
     message: str | list[Any] | None = None
     stream: bool = False
+    delivery: Literal["immediate", "queued"] = "immediate"
+    message_id: str | None = Field(default=None, min_length=1, max_length=256)
+
+    @model_validator(mode="after")
+    def validate_delivery(self) -> SessionContinueRequest:
+        if self.delivery == "queued":
+            if not self.message_id or not self.message_id.strip():
+                raise ValueError("message_id is required for queued delivery")
+            content = self.input if self.input is not None else self.message
+            if not content or (isinstance(content, str) and not content.strip()):
+                raise ValueError("input or message is required for queued delivery")
+            if self.stream or getattr(self, "attachments", None) or getattr(self, "approval_responses", None):
+                raise ValueError("queued delivery does not support streaming, attachments, or approvals")
+        elif self.message_id is not None:
+            raise ValueError("message_id requires queued delivery")
+        return self
 
 
 class SessionUpdateRequest(_Model):
@@ -725,6 +741,11 @@ class Session(_Model):
     usage: SessionUsage | None = None
     provenance: SessionProvenance | None = None
     incognito: bool = False
+
+
+class SessionMessageReceipt(_Model):
+    message_id: str
+    status: Literal["accepted"]
 
 
 class SessionResponse(_Model):
