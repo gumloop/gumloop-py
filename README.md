@@ -183,7 +183,8 @@ attachments, or approval responses.
 spaces. Reuse it when retrying the same report across separate calls or job
 restarts. The same key and content return the original receipt; changed content
 under that key returns 409. Keys are scoped to the session and sender, and retry
-protection lasts while the message remains in the queue or transcript.
+protection lasts while the message remains in the queue or transcript. Deleting a
+queued message removes its key reservation; stop retries when canceling it.
 
 The SDK generates a key per call when one is absent. A separate call without an
 explicit key can create a duplicate. The SDK does not automatically retry HTTP
