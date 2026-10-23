@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from typing import Any
 from typing import Literal
 from typing import overload
+from uuid import uuid4
 
 from gumloop._http import AsyncHttpClient
 from gumloop._http import HttpClient
@@ -16,6 +17,7 @@ from gumloop.types import ItemAccessResponse
 from gumloop.types import SessionContinueRequest
 from gumloop.types import SessionCreateRequest
 from gumloop.types import SessionListResponse
+from gumloop.types import SessionMessageReceipt
 from gumloop.types import SessionResponse
 from gumloop.types import SessionUpdateRequest
 from gumloop.types import StreamEvent
@@ -109,30 +111,58 @@ class Sessions:
         session_id: str,
         request: SessionContinueRequest | Mapping[str, Any] | None = None,
         *,
-        stream: Literal[True],
+        delivery: Literal["queued"],
+        stream: Literal[False] | None = None,
         **kwargs: Any,
-    ) -> Iterator[StreamEvent]: ...
+    ) -> SessionMessageReceipt: ...
     @overload
     def send(
         self,
         session_id: str,
         request: SessionContinueRequest | Mapping[str, Any] | None = None,
         *,
+        stream: Literal[True],
+        delivery: Literal["immediate"] = "immediate",
+        **kwargs: Any,
+    ) -> Iterator[StreamEvent]: ...
+    @overload
+    def send(
+        self,
+        session_id: str,
+        request: None = None,
+        *,
+        delivery: Literal["immediate"] = "immediate",
         stream: Literal[False] | None = None,
         **kwargs: Any,
     ) -> SessionResponse: ...
+    @overload
+    def send(
+        self,
+        session_id: str,
+        request: SessionContinueRequest | Mapping[str, Any],
+        *,
+        delivery: Literal["immediate", "queued"] | None = None,
+        stream: bool | None = None,
+        **kwargs: Any,
+    ) -> SessionResponse | SessionMessageReceipt | Iterator[StreamEvent]: ...
     def send(
         self,
         session_id: str,
         request: SessionContinueRequest | Mapping[str, Any] | None = None,
         **kwargs: Any,
-    ) -> SessionResponse | Iterator[StreamEvent]:
+    ) -> SessionResponse | SessionMessageReceipt | Iterator[StreamEvent]:
         body = SessionContinueRequest.build(request, **kwargs)
         if body.get("input") is None and body.get("message") is None:
             raise ValueError("input or message is required")
         if body.get("stream") is True:
             return self._client.stream("POST", f"sessions/{session_id}/messages", json=body)
-        return SessionResponse.model_validate(self._client.post(f"sessions/{session_id}/messages", json=body))
+        headers = None
+        if body.get("delivery") == "queued":
+            headers = {"Idempotency-Key": body.pop("idempotency_key", None) or str(uuid4())}
+        data = self._client.post(f"sessions/{session_id}/messages", json=body, extra_headers=headers)
+        if body.get("delivery") == "queued":
+            return SessionMessageReceipt.model_validate(data)
+        return SessionResponse.model_validate(data)
 
     def stream_message(
         self,
@@ -270,30 +300,57 @@ class AsyncSessions:
         session_id: str,
         request: SessionContinueRequest | Mapping[str, Any] | None = None,
         *,
-        stream: Literal[True],
+        delivery: Literal["queued"],
+        stream: Literal[False] | None = None,
         **kwargs: Any,
-    ) -> AsyncIterator[StreamEvent]: ...
+    ) -> SessionMessageReceipt: ...
     @overload
     async def send(
         self,
         session_id: str,
         request: SessionContinueRequest | Mapping[str, Any] | None = None,
         *,
+        stream: Literal[True],
+        delivery: Literal["immediate"] = "immediate",
+        **kwargs: Any,
+    ) -> AsyncIterator[StreamEvent]: ...
+    @overload
+    async def send(
+        self,
+        session_id: str,
+        request: None = None,
+        *,
+        delivery: Literal["immediate"] = "immediate",
         stream: Literal[False] | None = None,
         **kwargs: Any,
     ) -> SessionResponse: ...
+    @overload
+    async def send(
+        self,
+        session_id: str,
+        request: SessionContinueRequest | Mapping[str, Any],
+        *,
+        delivery: Literal["immediate", "queued"] | None = None,
+        stream: bool | None = None,
+        **kwargs: Any,
+    ) -> SessionResponse | SessionMessageReceipt | AsyncIterator[StreamEvent]: ...
     async def send(
         self,
         session_id: str,
         request: SessionContinueRequest | Mapping[str, Any] | None = None,
         **kwargs: Any,
-    ) -> SessionResponse | AsyncIterator[StreamEvent]:
+    ) -> SessionResponse | SessionMessageReceipt | AsyncIterator[StreamEvent]:
         body = SessionContinueRequest.build(request, **kwargs)
         if body.get("input") is None and body.get("message") is None:
             raise ValueError("input or message is required")
         if body.get("stream") is True:
             return self._client.stream("POST", f"sessions/{session_id}/messages", json=body)
-        data = await self._client.post(f"sessions/{session_id}/messages", json=body)
+        headers = None
+        if body.get("delivery") == "queued":
+            headers = {"Idempotency-Key": body.pop("idempotency_key", None) or str(uuid4())}
+        data = await self._client.post(f"sessions/{session_id}/messages", json=body, extra_headers=headers)
+        if body.get("delivery") == "queued":
+            return SessionMessageReceipt.model_validate(data)
         return SessionResponse.model_validate(data)
 
     def stream_message(

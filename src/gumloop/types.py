@@ -673,6 +673,38 @@ class SessionContinueRequest(_Model):
     input: str | list[Any] | None = None
     message: str | list[Any] | None = None
     stream: bool = False
+    delivery: Literal["immediate", "queued"] = "immediate"
+    idempotency_key: str | None = Field(default=None, min_length=1, max_length=256, pattern=r"^[!-~]+\z")
+
+    @model_validator(mode="after")
+    def validate_delivery(self) -> SessionContinueRequest:
+        if self.delivery == "queued":
+            content = self.input if self.input is not None else self.message
+            if isinstance(content, list):
+                texts = []
+                for part in content:
+                    if isinstance(part, str):
+                        texts.append(part)
+                    elif (
+                        isinstance(part, dict)
+                        and part.get("type") in ("text", "input_text")
+                        and isinstance(part.get("text"), str)
+                    ):
+                        texts.append(part["text"])
+                    else:
+                        raise ValueError("queued delivery supports only text input")
+                content = "\n".join(text for text in texts if text)
+            if not isinstance(content, str) or not content.strip():
+                raise ValueError("input or message is required for queued delivery")
+            if self.input is not None:
+                self.input = content
+            else:
+                self.message = content
+            if self.stream or getattr(self, "attachments", None) or getattr(self, "approval_responses", None):
+                raise ValueError("queued delivery does not support streaming, attachments, or approvals")
+        elif self.idempotency_key is not None:
+            raise ValueError("idempotency_key requires queued delivery")
+        return self
 
 
 class SessionUpdateRequest(_Model):
@@ -725,6 +757,11 @@ class Session(_Model):
     usage: SessionUsage | None = None
     provenance: SessionProvenance | None = None
     incognito: bool = False
+
+
+class SessionMessageReceipt(_Model):
+    message_id: str
+    status: Literal["accepted"]
 
 
 class SessionResponse(_Model):

@@ -161,3 +161,32 @@ print(client.brain.search("onboarding checklist").results[0].title)
 ```
 
 Every file carries its `sha256`, so `client.brain.list_files(source.id)` is enough to diff a local folder against the source. Only file-upload sources can be created through the API; Notion, Drive and other connected sources are set up in the Gumloop app.
+
+### Queue a report for a busy session
+
+```python
+receipt = client.sessions.send(
+    "session_id",
+    message="The investigation is complete.",
+    delivery="queued",
+    idempotency_key="job_991_report",
+)
+```
+
+Queued delivery returns a storage receipt with a server-assigned `message_id`.
+A running session reads it through the existing queue drain; an eligible settled
+session can start another turn. Stops, pending approvals, queue order, and
+concurrency limits still apply. Queued delivery supports text without streaming,
+attachments, or approval responses.
+
+`idempotency_key` is optional and accepts 1–256 visible ASCII characters without
+spaces. Reuse it when retrying the same report across separate calls or job
+restarts. The same key and content return the original receipt; changed content
+under that key returns 409. Keys are scoped to the session and sender, and retry
+protection lasts while the message remains in the queue or transcript. Deleting a
+queued message removes its key reservation; stop retries when canceling it.
+
+The SDK generates a key per call when one is absent. A separate call without an
+explicit key can create a duplicate. The SDK does not automatically retry HTTP
+requests. Acceptance confirms storage, not processing. Capacity refusal can leave a message
+queued, and a failed dispatch can leave it in the transcript unprocessed.
