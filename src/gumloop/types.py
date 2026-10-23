@@ -674,7 +674,7 @@ class SessionContinueRequest(_Model):
     message: str | list[Any] | None = None
     stream: bool = False
     delivery: Literal["immediate", "queued"] = "immediate"
-    idempotency_key: str | None = Field(default=None, min_length=1, max_length=256, pattern=r"^[!-~]+$")
+    idempotency_key: str | None = Field(default=None, min_length=1, max_length=256, pattern=r"^[!-~]+\z")
 
     @model_validator(mode="after")
     def validate_delivery(self) -> SessionContinueRequest:

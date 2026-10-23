@@ -355,6 +355,7 @@ def test_queued_send_generates_a_separate_key_for_each_call(asynchronous: bool) 
         {"idempotency_key": "   "},
         {"idempotency_key": "résumé-1"},
         {"idempotency_key": "report\n1"},
+        {"idempotency_key": "report_1\n"},
         {"idempotency_key": "report 1"},
         {"idempotency_key": "report_1", "stream": True},
         {"idempotency_key": "report_1", "attachments": [{"file_path": "file.txt"}]},
