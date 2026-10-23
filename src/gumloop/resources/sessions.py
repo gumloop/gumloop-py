@@ -13,8 +13,11 @@ from uuid import uuid4
 from gumloop._http import AsyncHttpClient
 from gumloop._http import HttpClient
 from gumloop.resources._item_access import item_access_body
+from gumloop.resources._validation import request_validation
 from gumloop.types import ItemAccessChangeResponse
 from gumloop.types import ItemAccessResponse
+from gumloop.types import SessionApprovalsRequest
+from gumloop.types import SessionApprovalsResponse
 from gumloop.types import SessionContinueRequest
 from gumloop.types import SessionCreateRequest
 from gumloop.types import SessionFileResponse
@@ -156,7 +159,11 @@ class Sessions:
         **kwargs: Any,
     ) -> SessionResponse | SessionMessageReceipt | Iterator[StreamEvent]:
         body = SessionContinueRequest.build(request, **kwargs)
-        if body.get("input") is None and body.get("message") is None:
+        if (
+            body.get("input") is None
+            and body.get("message") is None
+            and not (body.get("stream") is True and body.get("approval_responses"))
+        ):
             raise ValueError("input or message is required")
         if body.get("stream") is True:
             return self._client.stream("POST", f"sessions/{session_id}/messages", json=body)
@@ -175,7 +182,7 @@ class Sessions:
         **kwargs: Any,
     ) -> Iterator[StreamEvent]:
         body = SessionContinueRequest.build(request, **kwargs, stream=True)
-        if body.get("input") is None and body.get("message") is None:
+        if body.get("input") is None and body.get("message") is None and not body.get("approval_responses"):
             raise ValueError("input or message is required")
         return self._client.stream("POST", f"sessions/{session_id}/messages", json=body)
 
@@ -194,6 +201,16 @@ class Sessions:
         if media_type is not None:
             body["media_type"] = media_type
         return SessionFileResponse.model_validate(self._client.post(f"sessions/{session_id}/files", json=body))
+
+    def resolve_approvals(
+        self,
+        session_id: str,
+        request: SessionApprovalsRequest | Mapping[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> SessionApprovalsResponse:
+        with request_validation("SessionApprovalsRequest"):
+            body = SessionApprovalsRequest.build(request, **kwargs)
+        return SessionApprovalsResponse.model_validate(self._client.post(f"sessions/{session_id}/approvals", json=body))
 
     def list_queue(self, session_id: str) -> SessionQueueResponse:
         return SessionQueueResponse.model_validate(self._client.get(f"sessions/{session_id}/queue"))
@@ -378,7 +395,11 @@ class AsyncSessions:
         **kwargs: Any,
     ) -> SessionResponse | SessionMessageReceipt | AsyncIterator[StreamEvent]:
         body = SessionContinueRequest.build(request, **kwargs)
-        if body.get("input") is None and body.get("message") is None:
+        if (
+            body.get("input") is None
+            and body.get("message") is None
+            and not (body.get("stream") is True and body.get("approval_responses"))
+        ):
             raise ValueError("input or message is required")
         if body.get("stream") is True:
             return self._client.stream("POST", f"sessions/{session_id}/messages", json=body)
@@ -397,7 +418,7 @@ class AsyncSessions:
         **kwargs: Any,
     ) -> AsyncIterator[StreamEvent]:
         body = SessionContinueRequest.build(request, **kwargs, stream=True)
-        if body.get("input") is None and body.get("message") is None:
+        if body.get("input") is None and body.get("message") is None and not body.get("approval_responses"):
             raise ValueError("input or message is required")
         return self._client.stream("POST", f"sessions/{session_id}/messages", json=body)
 
@@ -417,6 +438,17 @@ class AsyncSessions:
             body["media_type"] = media_type
         data = await self._client.post(f"sessions/{session_id}/files", json=body)
         return SessionFileResponse.model_validate(data)
+
+    async def resolve_approvals(
+        self,
+        session_id: str,
+        request: SessionApprovalsRequest | Mapping[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> SessionApprovalsResponse:
+        with request_validation("SessionApprovalsRequest"):
+            body = SessionApprovalsRequest.build(request, **kwargs)
+        data = await self._client.post(f"sessions/{session_id}/approvals", json=body)
+        return SessionApprovalsResponse.model_validate(data)
 
     async def list_queue(self, session_id: str) -> SessionQueueResponse:
         return SessionQueueResponse.model_validate(await self._client.get(f"sessions/{session_id}/queue"))

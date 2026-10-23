@@ -6,9 +6,11 @@ from typing import Annotated
 from typing import cast
 
 import typer
+from pydantic import ValidationError
 from rich.markup import escape as escape_markup
 
 from gumloop import GumloopError
+from gumloop.cli.commands._args_input import resolve_json_args
 from gumloop.cli.commands._item_access import apply_item_access
 from gumloop.cli.commands._item_access import json_option
 from gumloop.cli.commands._item_access import link_option
@@ -329,6 +331,35 @@ def send_session(
         for m in session.messages[-5:]:
             content = m.content if isinstance(m.content, str) else str(m.content or "")
             console.print(f"  [{m.role or ''}] {content[:200]}", markup=False, highlight=False)
+
+
+@sessions_app.command(
+    "approvals", epilog="Example:\n  gumloop sessions approvals session_abc --args-file responses.json --json"
+)
+def resolve_session_approvals(
+    ctx: typer.Context,
+    session_id: Annotated[str, typer.Argument(help="Session with pending approvals or human input.")],
+    args_json: Annotated[str | None, typer.Option("--args-json", help="JSON object with approval_responses.")] = None,
+    args_file: Annotated[str | None, typer.Option("--args-file", help="File containing the request JSON.")] = None,
+    args: Annotated[str | None, typer.Option("--args", help="Use '-' to read request JSON from stdin.")] = None,
+    json_output: Annotated[
+        bool, typer.Option("--json", help="Print the session and resolution results as JSON.")
+    ] = False,
+) -> None:
+    """Accept/reject pending requests or submit human-input form values."""
+    cli: CliContext = ctx.obj
+    try:
+        request = resolve_json_args(inline=args_json, file_path=args_file, stdin_marker=args)
+        response = cli.call_with_refresh(lambda client: client.sessions.resolve_approvals(session_id, request))
+    except (GumloopError, ValidationError) as error:
+        exit_with_error(error, json_output=json_output)
+    if json_output:
+        print_json(response)
+    else:
+        for result in response.results:
+            console.print(
+                result.action_request_id, result.action, result.outcome, sep="\t", markup=False, highlight=False
+            )
 
 
 @sessions_app.command("upload", epilog="Example:\n  gumloop sessions upload session_abc report.pdf --json")
