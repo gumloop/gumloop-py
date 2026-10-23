@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import httpx
+import pytest
 import respx
 from typer.testing import CliRunner
 
@@ -10,6 +12,166 @@ from gumloop.cli.credentials import Credentials
 from gumloop.cli.credentials import save_credentials
 from gumloop.cli.main import app
 from tests.sdk.helpers import API_BASE
+
+
+@pytest.mark.parametrize("bad_file", ["directory", "duplicate"])
+@respx.mock
+def test_session_files_preflight_rejects_invalid_batch(cli_runner: CliRunner, tmp_path: Path, bad_file: str) -> None:
+    first = tmp_path / "note.txt"
+    first.write_bytes(b"hello")
+    second = tmp_path / "second"
+    if bad_file == "directory":
+        second.mkdir()
+    else:
+        second.mkdir()
+        second = second / "note.txt"
+        second.write_bytes(b"different")
+    save_credentials(Credentials(api_key="key"))
+    result = cli_runner.invoke(
+        app,
+        ["sessions", "send", "session_xyz", "--input", "Read", "--file", str(first), "--file", str(second), "--json"],
+    )
+    assert result.exit_code == 1
+    assert "error" in json.loads(result.output)
+    assert not respx.calls
+
+
+@respx.mock
+def test_session_files_are_read_one_at_a_time(cli_runner: CliRunner, tmp_path: Path) -> None:
+    first, second = tmp_path / "a.txt", tmp_path / "b.txt"
+    first.write_bytes(b"first")
+    second.write_bytes(b"old")
+
+    def upload(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        if body["file_name"] == "a.txt":
+            second.write_bytes(b"new")
+        else:
+            assert body["file_content"] == "bmV3"
+        return httpx.Response(201, json={"file_name": f"input/{body['file_name']}", "size": 3})
+
+    respx.post(f"{API_BASE}/sessions/session_xyz/files").mock(side_effect=upload)
+    respx.post(f"{API_BASE}/sessions/session_xyz/messages").respond(
+        200, json={"session": {"id": "session_xyz", "agent_id": "agent_abc"}}
+    )
+    save_credentials(Credentials(api_key="key"))
+    result = cli_runner.invoke(
+        app,
+        ["sessions", "send", "session_xyz", "--input", "Read", "--file", str(first), "--file", str(second), "--json"],
+    )
+    assert result.exit_code == 0, result.output
+
+
+@respx.mock
+def test_sessions_send_uploads_each_file_and_uses_server_references(cli_runner: CliRunner, tmp_path: Path) -> None:
+    first, second = tmp_path / "a.txt", tmp_path / "b.txt"
+    first.write_bytes(b"hello")
+    second.write_bytes(b"world")
+    upload = respx.post(f"{API_BASE}/sessions/session_xyz/files").mock(
+        side_effect=[
+            httpx.Response(200, json={"file_name": "input/a.txt", "media_type": "text/plain", "size": 5}),
+            httpx.Response(200, json={"file_name": "input/b.txt", "media_type": "text/plain", "size": 5}),
+        ]
+    )
+    send = respx.post(f"{API_BASE}/sessions/session_xyz/messages").mock(
+        return_value=httpx.Response(200, json={"session": {"id": "session_xyz", "agent_id": "agent_abc"}})
+    )
+    save_credentials(Credentials(api_key="key"))
+    result = cli_runner.invoke(
+        app,
+        [
+            "sessions",
+            "send",
+            "session_xyz",
+            "--input",
+            "Read both",
+            "--file",
+            str(first),
+            "--file",
+            str(second),
+            "--json",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert [json.loads(call.request.content)["file_content"] for call in upload.calls] == ["aGVsbG8=", "d29ybGQ="]
+    assert json.loads(send.calls[0].request.content) == {
+        "input": "Read both",
+        "attachments": [
+            {"file_name": "input/a.txt", "media_type": "text/plain"},
+            {"file_name": "input/b.txt", "media_type": "text/plain"},
+        ],
+    }
+
+
+@respx.mock
+def test_sessions_upload_returns_stored_reference(cli_runner: CliRunner, tmp_path: Path) -> None:
+    path = tmp_path / "note.txt"
+    path.write_bytes(b"hello")
+    route = respx.post(f"{API_BASE}/sessions/session_xyz/files").mock(
+        return_value=httpx.Response(200, json={"file_name": "input/note.txt", "size": 5})
+    )
+    save_credentials(Credentials(api_key="key"))
+    result = cli_runner.invoke(
+        app, ["sessions", "upload", "session_xyz", str(path), "--media-type", "text/custom", "--json"]
+    )
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["file_name"] == "input/note.txt"
+    assert json.loads(route.calls[0].request.content)["media_type"] == "text/custom"
+
+
+@respx.mock
+def test_sessions_send_checks_all_local_files_before_upload(cli_runner: CliRunner, tmp_path: Path) -> None:
+    path = tmp_path / "note.txt"
+    path.write_bytes(b"hello")
+    save_credentials(Credentials(api_key="key"))
+    result = cli_runner.invoke(
+        app,
+        [
+            "sessions",
+            "send",
+            "session_xyz",
+            "--input",
+            "Read",
+            "--file",
+            str(path),
+            "--file",
+            str(tmp_path / "missing.txt"),
+            "--json",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "Could not read" in result.output
+    assert not respx.calls
+
+
+@respx.mock
+def test_sessions_send_uses_server_attachment_limit(cli_runner: CliRunner, tmp_path: Path) -> None:
+    save_credentials(Credentials(api_key="key"))
+    files = [tmp_path / f"note-{i}.txt" for i in range(11)]
+    for path in files:
+        path.write_text("hello")
+    upload = respx.post(f"{API_BASE}/sessions/session_xyz/files").respond(
+        201, json={"file_name": "input/note.txt", "size": 5}
+    )
+    send = respx.post(f"{API_BASE}/sessions/session_xyz/messages").respond(
+        400, json={"error": {"message": "Server attachment limit exceeded"}}
+    )
+    result = cli_runner.invoke(
+        app,
+        [
+            "sessions",
+            "send",
+            "session_xyz",
+            "--input",
+            "Read",
+            *[arg for path in files for arg in ("--file", str(path))],
+            "--json",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "Server attachment limit exceeded" in result.output
+    assert upload.call_count == 11
+    assert send.call_count == 1
 
 
 @respx.mock

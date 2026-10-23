@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import mimetypes
 import sys
+from pathlib import Path
 from typing import Annotated
 from typing import cast
 
@@ -18,10 +20,13 @@ from gumloop.cli.commands._item_access import remove_team_option
 from gumloop.cli.commands._item_access import share_option
 from gumloop.cli.commands._item_access import share_team_option
 from gumloop.cli.commands._item_access import show_item_access
+from gumloop.cli.commands._session_files import read_file
+from gumloop.cli.commands._session_files import validate_file
 from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
 from gumloop.cli.errors import exit_with_error
+from gumloop.types import SessionAttachment
 from gumloop.types import SessionResponse
 
 sessions_app = typer.Typer(
@@ -267,6 +272,9 @@ def send_session(
         str | None,
         typer.Option("--input-stdin", help="Use '-' to read the message from stdin.", metavar="-"),
     ] = None,
+    files: Annotated[
+        list[Path] | None, typer.Option("--file", help="Upload and attach a local file. Repeatable.")
+    ] = None,
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Print the raw SDK response as JSON."),
@@ -284,9 +292,25 @@ def send_session(
         if not message:
             raise GumloopError("Pass --input or --input-stdin with text to send.")
 
+        uploads = [validate_file(path) for path in files or []]
+        if len({path.name for path in uploads}) != len(uploads):
+            raise GumloopError("Attached files must have different names; rename duplicate filenames before sending.")
+        attachments = []
+        for path in uploads:
+            content = read_file(path)
+            uploaded = cli.call_with_refresh(
+                lambda client, path=path, content=content: client.sessions.upload_file(
+                    session_id, path.name, content, media_type=mimetypes.guess_type(path.name)[0]
+                )
+            )
+            del content
+            attachments.append(SessionAttachment(file_name=uploaded.file_name, media_type=uploaded.media_type))
+
         response = cast(
             SessionResponse,
-            cli.call_with_refresh(lambda client: client.sessions.send(session_id, input=message)),
+            cli.call_with_refresh(
+                lambda client: client.sessions.send(session_id, input=message, attachments=attachments or None)
+            ),
         )
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
@@ -312,6 +336,32 @@ def send_session(
         for m in session.messages[-5:]:
             content = m.content if isinstance(m.content, str) else str(m.content or "")
             console.print(f"  [{m.role or ''}] {content[:200]}", markup=False, highlight=False)
+
+
+@sessions_app.command("upload", epilog="Example:\n  gumloop sessions upload session_abc report.pdf --json")
+def upload_session_file(
+    ctx: typer.Context,
+    session_id: Annotated[str, typer.Argument(help="Session to upload into.")],
+    path: Annotated[Path, typer.Argument(help="Local file to upload.")],
+    media_type: Annotated[str | None, typer.Option("--media-type", help="Override the file's media type.")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Print the stored file reference as JSON.")] = False,
+) -> None:
+    """Upload a file without sending a message."""
+    cli: CliContext = ctx.obj
+    try:
+        path = validate_file(path)
+        content = read_file(path)
+        response = cli.call_with_refresh(
+            lambda client: client.sessions.upload_file(
+                session_id, path.name, content, media_type=media_type or mimetypes.guess_type(path.name)[0]
+            )
+        )
+    except GumloopError as error:
+        exit_with_error(error, json_output=json_output)
+    if json_output:
+        print_json(response)
+    else:
+        console.print(response.file_name, markup=False, highlight=False)
 
 
 @sessions_app.command("rename", epilog="Example:\n  gumloop sessions rename session_abc 'Q3 planning'")
