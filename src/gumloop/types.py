@@ -658,6 +658,25 @@ class BrowserProfileImportResponse(_Model):
     imported: BrowserProfileImportSummary
 
 
+class BrowserProfileCreateRequest(_Model):
+    name: str = Field(min_length=1, max_length=255, pattern=r"\S")
+
+
+class BrowserProfileUpdateRequest(_Model):
+    name: str | None = Field(default=None, min_length=1, max_length=255, pattern=r"\S")
+    is_default: Literal[True] | None = None
+
+    @model_validator(mode="after")
+    def _has_changes(self) -> BrowserProfileUpdateRequest:
+        if self.name is None and self.is_default is None:
+            raise ValueError("Pass name or is_default=True to update a browser profile.")
+        return self
+
+
+class BrowserProfileDeleteResponse(_Model):
+    status: Literal["success"]
+
+
 # ---------------------------------------------------------------------------
 # Session types
 # ---------------------------------------------------------------------------
