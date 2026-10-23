@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
+from urllib.parse import quote
 
 from gumloop._http import AsyncHttpClient
 from gumloop._http import HttpClient
@@ -27,7 +28,9 @@ from gumloop.types import AgentSubagentsResponse
 from gumloop.types import AgentTriggerCreateRequest
 from gumloop.types import AgentTriggerDeleteResponse
 from gumloop.types import AgentTriggerResponse
+from gumloop.types import AgentTriggerRunsResponse
 from gumloop.types import AgentTriggersResponse
+from gumloop.types import AgentTriggerStatsResponse
 from gumloop.types import AgentTriggerUpdateRequest
 from gumloop.types import AgentTriggerWebhookUrlResponse
 from gumloop.types import AgentUpdateRequest
@@ -44,6 +47,7 @@ from gumloop.types import ModelListResponse
 from gumloop.types import ModelRouteRequest
 from gumloop.types import ModelRouteResponse
 from gumloop.types import SkillListResponse
+from gumloop.types import TriggerOperatorsResponse
 
 
 def _skill_id_list(skill_ids: str | Sequence[str]) -> list[str]:
@@ -240,7 +244,7 @@ class Agents:
         request: AgentTriggerCreateRequest | Mapping[str, Any] | None = None,
         **kwargs: Any,
     ) -> AgentTriggerResponse:
-        """Create a ``schedule`` (``cron_expression`` or ``run_at``) or ``webhook`` trigger.
+        """Integration triggers default to disabled; pass enabled=True explicitly to activate.
         A webhook's URL is returned here and from ``get_trigger_webhook_url``, never in lists."""
         return AgentTriggerResponse.model_validate(
             self._client.post(f"agents/{agent_id}/triggers", json=AgentTriggerCreateRequest.build(request, **kwargs))
@@ -270,6 +274,37 @@ class Agents:
         """The webhook URL embeds its secret; fetch it on demand rather than storing it."""
         return AgentTriggerWebhookUrlResponse.model_validate(
             self._client.get(f"agents/{agent_id}/triggers/{trigger_id}/webhook-url")
+        )
+
+    def list_trigger_operators(self, agent_id: str) -> TriggerOperatorsResponse:
+        return TriggerOperatorsResponse.model_validate(
+            self._client.get(f"agents/{quote(agent_id, safe='')}/trigger-operators")
+        )
+
+    def get_trigger(self, agent_id: str, trigger_id: str) -> AgentTriggerResponse:
+        return AgentTriggerResponse.model_validate(
+            self._client.get(f"agents/{quote(agent_id, safe='')}/triggers/{quote(trigger_id, safe='')}")
+        )
+
+    def list_trigger_runs(
+        self,
+        agent_id: str,
+        trigger_id: str,
+        *,
+        page_size: int | None = None,
+        cursor: str | None = None,
+        states: Sequence[str] | None = None,
+    ) -> AgentTriggerRunsResponse:
+        return AgentTriggerRunsResponse.model_validate(
+            self._client.get(
+                f"agents/{quote(agent_id, safe='')}/triggers/{quote(trigger_id, safe='')}/runs",
+                params={"page_size": page_size, "cursor": cursor, "state": ",".join(states) if states else None},
+            )
+        )
+
+    def get_trigger_stats(self, agent_id: str, trigger_id: str) -> AgentTriggerStatsResponse:
+        return AgentTriggerStatsResponse.model_validate(
+            self._client.get(f"agents/{quote(agent_id, safe='')}/triggers/{quote(trigger_id, safe='')}/stats")
         )
 
     def list_app_rules(self, agent_id: str) -> AgentAppRulesResponse:
@@ -539,7 +574,7 @@ class AsyncAgents:
         request: AgentTriggerCreateRequest | Mapping[str, Any] | None = None,
         **kwargs: Any,
     ) -> AgentTriggerResponse:
-        """Create a ``schedule`` (``cron_expression`` or ``run_at``) or ``webhook`` trigger.
+        """Integration triggers default to disabled; pass enabled=True explicitly to activate.
         A webhook's URL is returned here and from ``get_trigger_webhook_url``, never in lists."""
         data = await self._client.post(
             f"agents/{agent_id}/triggers", json=AgentTriggerCreateRequest.build(request, **kwargs)
@@ -565,6 +600,37 @@ class AsyncAgents:
     async def get_trigger_webhook_url(self, agent_id: str, trigger_id: str) -> AgentTriggerWebhookUrlResponse:
         data = await self._client.get(f"agents/{agent_id}/triggers/{trigger_id}/webhook-url")
         return AgentTriggerWebhookUrlResponse.model_validate(data)
+
+    async def list_trigger_operators(self, agent_id: str) -> TriggerOperatorsResponse:
+        return TriggerOperatorsResponse.model_validate(
+            await self._client.get(f"agents/{quote(agent_id, safe='')}/trigger-operators")
+        )
+
+    async def get_trigger(self, agent_id: str, trigger_id: str) -> AgentTriggerResponse:
+        return AgentTriggerResponse.model_validate(
+            await self._client.get(f"agents/{quote(agent_id, safe='')}/triggers/{quote(trigger_id, safe='')}")
+        )
+
+    async def list_trigger_runs(
+        self,
+        agent_id: str,
+        trigger_id: str,
+        *,
+        page_size: int | None = None,
+        cursor: str | None = None,
+        states: Sequence[str] | None = None,
+    ) -> AgentTriggerRunsResponse:
+        return AgentTriggerRunsResponse.model_validate(
+            await self._client.get(
+                f"agents/{quote(agent_id, safe='')}/triggers/{quote(trigger_id, safe='')}/runs",
+                params={"page_size": page_size, "cursor": cursor, "state": ",".join(states) if states else None},
+            )
+        )
+
+    async def get_trigger_stats(self, agent_id: str, trigger_id: str) -> AgentTriggerStatsResponse:
+        return AgentTriggerStatsResponse.model_validate(
+            await self._client.get(f"agents/{quote(agent_id, safe='')}/triggers/{quote(trigger_id, safe='')}/stats")
+        )
 
     async def list_app_rules(self, agent_id: str) -> AgentAppRulesResponse:
         data = await self._client.get(f"agents/{agent_id}/app-rules")

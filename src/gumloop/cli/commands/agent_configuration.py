@@ -18,7 +18,7 @@ from gumloop.cli.context import CliContext
 from gumloop.cli.errors import exit_with_error
 
 configuration_app = typer.Typer()
-triggers_app = typer.Typer(help="Manage agent schedule and webhook triggers.", no_args_is_help=True)
+triggers_app = typer.Typer(help="Manage agent schedules, webhooks and integration triggers.", no_args_is_help=True)
 knowledge_app = typer.Typer(help="Attach and scope agent Brain sources.", no_args_is_help=True)
 subagents_app = typer.Typer(help="Manage which subagents an agent can call.", no_args_is_help=True)
 configuration_app.add_typer(triggers_app, name="triggers")
@@ -156,7 +156,7 @@ def create_trigger(
     args: Args = None,
     json_output: JsonOutput = False,
 ) -> None:
-    """Create a schedule or webhook from the SDK request shape."""
+    """Create a schedule, webhook or integration from the SDK request shape."""
     request = _request(args_json, args_file, args, json_output)
     _run(ctx, lambda client: client.agents.create_trigger(agent_id, request), json_output)
 
@@ -188,6 +188,48 @@ def delete_trigger(
 def webhook_url(ctx: typer.Context, agent_id: AgentId, trigger_id: TriggerId, json_output: JsonOutput = False) -> None:
     """Retrieve the webhook URL including its secret, on demand."""
     _run(ctx, lambda client: client.agents.get_trigger_webhook_url(agent_id, trigger_id), json_output)
+
+
+@triggers_app.command("catalog")
+def trigger_catalog(ctx: typer.Context, agent_id: AgentId, json_output: JsonOutput = False) -> None:
+    """Discover supported operators, parameter schemas and required account types."""
+    _run(ctx, lambda client: client.agents.list_trigger_operators(agent_id), json_output)
+
+
+@triggers_app.command("get")
+def get_trigger(ctx: typer.Context, agent_id: AgentId, trigger_id: TriggerId, json_output: JsonOutput = False) -> None:
+    """Read current trigger status and public configuration."""
+    _run(ctx, lambda client: client.agents.get_trigger(agent_id, trigger_id), json_output)
+
+
+@triggers_app.command("runs")
+def trigger_runs(
+    ctx: typer.Context,
+    agent_id: AgentId,
+    trigger_id: TriggerId,
+    limit: Annotated[int | None, typer.Option("--limit", min=1, max=100)] = None,
+    cursor: Annotated[str | None, typer.Option("--cursor")] = None,
+    state: Annotated[
+        list[str] | None, typer.Option("--state", help="Filter by state; repeat to include more than one.")
+    ] = None,
+    json_output: JsonOutput = False,
+) -> None:
+    """List trigger runs and credit metadata with cursor pagination."""
+    _run(
+        ctx,
+        lambda client: client.agents.list_trigger_runs(
+            agent_id, trigger_id, page_size=limit, cursor=cursor, states=state
+        ),
+        json_output,
+    )
+
+
+@triggers_app.command("stats")
+def trigger_stats(
+    ctx: typer.Context, agent_id: AgentId, trigger_id: TriggerId, json_output: JsonOutput = False
+) -> None:
+    """Read run counts and existing run/poll credit totals."""
+    _run(ctx, lambda client: client.agents.get_trigger_stats(agent_id, trigger_id), json_output)
 
 
 @configuration_app.command("eval-config")
