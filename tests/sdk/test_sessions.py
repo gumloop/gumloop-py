@@ -317,7 +317,7 @@ def test_async_sessions_stream_methods() -> None:
     )
 
     async def run() -> None:
-        async with AsyncGumloop(access_token="token") as client:
+        async with AsyncGumloop(access_token="token", team_id="team_1") as client:
             stream = await client.sessions.create(
                 "agent_123", input="Hello", stream=True, extra_headers={"X-Gumloop-MCP-Token": "jwt"}
             )
@@ -328,6 +328,7 @@ def test_async_sessions_stream_methods() -> None:
             {"type": "finish", "final": True},
         ]
         request = create_route.calls[0].request
+        assert "team_id" not in request.url.params
         assert request_json(request) == {"input": "Hello", "stream": True}
         assert request.headers["X-Gumloop-MCP-Token"] == "jwt"
 
@@ -450,3 +451,14 @@ def test_queued_request_object_returns_receipt(asynchronous: bool, request_model
         "delivery": "queued",
     }
     assert len(respx.calls) == 1
+
+
+def test_structured_stream_errors_preserve_string_attribute_and_wire_shape() -> None:
+    from gumloop.types import StreamEvent
+
+    payload = {"type": "error", "error": {"message": "Run failed", "code": "failed"}}
+    event = StreamEvent.model_validate(payload)
+    assert event.error == "Run failed"
+    assert event.error_details == payload["error"]
+    assert event.model_dump(exclude_unset=True) == payload
+    assert StreamEvent(error="Legacy failure").error == "Legacy failure"
