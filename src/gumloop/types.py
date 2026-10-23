@@ -674,13 +674,11 @@ class SessionContinueRequest(_Model):
     message: str | list[Any] | None = None
     stream: bool = False
     delivery: Literal["immediate", "queued"] = "immediate"
-    idempotency_key: str | None = Field(default=None, min_length=1, max_length=256)
+    idempotency_key: str | None = Field(default=None, min_length=1, max_length=256, pattern=r"^[!-~]+$")
 
     @model_validator(mode="after")
     def validate_delivery(self) -> SessionContinueRequest:
         if self.delivery == "queued":
-            if self.idempotency_key is not None and not self.idempotency_key.strip():
-                raise ValueError("idempotency_key cannot be blank")
             content = self.input if self.input is not None else self.message
             if isinstance(content, list):
                 texts = []
