@@ -18,6 +18,50 @@ from gumloop.cli.main import app
 STREAM_BASE = "https://ws.gumloop.com/api/v1"
 
 
+@pytest.mark.parametrize("contents", ["", "  \n\t"])
+@respx.mock
+def test_empty_schema_file_fails_before_request(cli_runner: CliRunner, tmp_path, contents: str) -> None:
+    schema = tmp_path / "schema.json"
+    schema.write_text(contents)
+    save_credentials(Credentials(api_key="key"))
+    result = cli_runner.invoke(
+        app, ["chat", "completions", "create", "hi", "-m", "m", "--schema-file", str(schema), "--json"]
+    )
+    assert result.exit_code == 1
+    assert "Could not parse JSON" in json.loads(result.stderr)["error"]["message"]
+    assert not respx.calls
+
+
+@pytest.mark.parametrize("json_output", [False, True])
+@respx.mock
+def test_partial_images_emit_one_human_notice_and_keep_all_json_frames(
+    cli_runner: CliRunner, json_output: bool
+) -> None:
+    chunks = [
+        {
+            "id": "c1",
+            "object": "chat.completion.chunk",
+            "created": 1,
+            "model": "m",
+            "choices": [{"index": 0, "delta": {"images": [{"image_url": {"url": frame}}]}, "finish_reason": None}],
+        }
+        for frame in ["data:image/png;base64,partial", "data:image/png;base64,final"]
+    ]
+    respx.post(f"{STREAM_BASE}/chat/completions").respond(
+        200, text=_sse(chunks + ["[DONE]"]), headers={"content-type": "text/event-stream"}
+    )
+    save_credentials(Credentials(api_key="key"))
+    result = cli_runner.invoke(
+        app, ["chat", "completions", "create", "image", "-m", "m", "--stream", *(["--json"] if json_output else [])]
+    )
+    assert result.exit_code == 0, result.output
+    if json_output:
+        assert len(result.stdout.splitlines()) == 2
+        assert "partial" in result.stdout and "final" in result.stdout
+    else:
+        assert result.stdout.count("Generated image available.") == 1
+
+
 def _sse(payloads: list[dict | str]) -> str:
     return "".join(f"data: {p if isinstance(p, str) else json.dumps(p)}\n\n" for p in payloads)
 
