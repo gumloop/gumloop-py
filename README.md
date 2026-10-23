@@ -195,7 +195,20 @@ print([f.status for f in upload.files], upload.rejected)
 print(client.brain.search("onboarding checklist").results[0].title)
 ```
 
-Every file carries its `sha256`, so `client.brain.list_files(source.id)` is enough to diff a local folder against the source. Only file-upload sources can be created through the API; Notion, Drive and other connected sources are set up in the Gumloop app.
+Every file carries its `sha256`, so `client.brain.list_files(source.id)` is enough to diff a local folder against the source.
+
+### Existing Company Brain source inspection and sync
+
+Both clients expose `sync_source`, `list_sync_runs`, `list_source_issues`, and `list_source_children` for existing sources. Sync requires a ready, active connected source and acknowledges queued work; it does not create, configure, approve, or activate a connector. History, issues, and indexed children retain source and document permissions.
+
+```sh
+gumloop brain sources sync SOURCE_ID --json
+gumloop brain sources history SOURCE_ID --page-size 20 --json
+gumloop brain sources issues SOURCE_ID --json
+gumloop brain sources children SOURCE_ID --json
+```
+
+Connected-source setup and activation remain in the app. Existing file-upload source creation is unchanged.
 
 ### Queue a report for a busy session
 
