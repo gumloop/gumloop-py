@@ -786,6 +786,23 @@ class SessionListResponse(_Model):
     next_cursor: str | None = None
 
 
+class QueuedMessage(_Model):
+    id: str
+    input: str | None = None
+    state: str
+    position: int
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class SessionQueueResponse(_Model):
+    queue: list[QueuedMessage]
+
+
+class SessionQueuedMessageResponse(SessionQueueResponse):
+    queued_message: QueuedMessage
+
+
 class StreamEvent(_Model):
     type: str | None = None
     data: Any = None

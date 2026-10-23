@@ -20,6 +20,8 @@ from gumloop.types import SessionCreateRequest
 from gumloop.types import SessionFileResponse
 from gumloop.types import SessionListResponse
 from gumloop.types import SessionMessageReceipt
+from gumloop.types import SessionQueuedMessageResponse
+from gumloop.types import SessionQueueResponse
 from gumloop.types import SessionResponse
 from gumloop.types import SessionUpdateRequest
 from gumloop.types import StreamEvent
@@ -192,6 +194,30 @@ class Sessions:
         if media_type is not None:
             body["media_type"] = media_type
         return SessionFileResponse.model_validate(self._client.post(f"sessions/{session_id}/files", json=body))
+
+    def list_queue(self, session_id: str) -> SessionQueueResponse:
+        return SessionQueueResponse.model_validate(self._client.get(f"sessions/{session_id}/queue"))
+
+    def queue_message(self, session_id: str, input: str) -> SessionQueuedMessageResponse:
+        return SessionQueuedMessageResponse.model_validate(
+            self._client.post(f"sessions/{session_id}/queue", json={"input": input})
+        )
+
+    def edit_queued_message(self, session_id: str, queued_message_id: str, input: str) -> SessionQueuedMessageResponse:
+        return SessionQueuedMessageResponse.model_validate(
+            self._client.patch(f"sessions/{session_id}/queue/{queued_message_id}", json={"input": input})
+        )
+
+    def delete_queued_message(self, session_id: str, queued_message_id: str) -> SessionQueueResponse:
+        return SessionQueueResponse.model_validate(
+            self._client.delete(f"sessions/{session_id}/queue/{queued_message_id}")
+        )
+
+    def send_queued_message(self, session_id: str, queued_message_id: str) -> SessionResponse:
+        """Send a queued message now, interrupting any active run."""
+        return SessionResponse.model_validate(
+            self._client.post(f"sessions/{session_id}/queue/{queued_message_id}/send", json={})
+        )
 
     def cancel(self, session_id: str) -> SessionResponse:
         return SessionResponse.model_validate(self._client.post(f"sessions/{session_id}/cancel", json={}))
@@ -391,6 +417,28 @@ class AsyncSessions:
             body["media_type"] = media_type
         data = await self._client.post(f"sessions/{session_id}/files", json=body)
         return SessionFileResponse.model_validate(data)
+
+    async def list_queue(self, session_id: str) -> SessionQueueResponse:
+        return SessionQueueResponse.model_validate(await self._client.get(f"sessions/{session_id}/queue"))
+
+    async def queue_message(self, session_id: str, input: str) -> SessionQueuedMessageResponse:
+        data = await self._client.post(f"sessions/{session_id}/queue", json={"input": input})
+        return SessionQueuedMessageResponse.model_validate(data)
+
+    async def edit_queued_message(
+        self, session_id: str, queued_message_id: str, input: str
+    ) -> SessionQueuedMessageResponse:
+        data = await self._client.patch(f"sessions/{session_id}/queue/{queued_message_id}", json={"input": input})
+        return SessionQueuedMessageResponse.model_validate(data)
+
+    async def delete_queued_message(self, session_id: str, queued_message_id: str) -> SessionQueueResponse:
+        data = await self._client.delete(f"sessions/{session_id}/queue/{queued_message_id}")
+        return SessionQueueResponse.model_validate(data)
+
+    async def send_queued_message(self, session_id: str, queued_message_id: str) -> SessionResponse:
+        """Send a queued message now, interrupting any active run."""
+        data = await self._client.post(f"sessions/{session_id}/queue/{queued_message_id}/send", json={})
+        return SessionResponse.model_validate(data)
 
     async def cancel(self, session_id: str) -> SessionResponse:
         data = await self._client.post(f"sessions/{session_id}/cancel", json={})

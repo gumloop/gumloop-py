@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import mimetypes
-import sys
 from pathlib import Path
 from typing import Annotated
 from typing import cast
@@ -22,6 +21,8 @@ from gumloop.cli.commands._item_access import share_team_option
 from gumloop.cli.commands._item_access import show_item_access
 from gumloop.cli.commands._session_files import read_file
 from gumloop.cli.commands._session_files import validate_file
+from gumloop.cli.commands._text_input import resolve_text_input
+from gumloop.cli.commands.session_queue import queue_app
 from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
@@ -34,6 +35,7 @@ sessions_app = typer.Typer(
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
+sessions_app.add_typer(queue_app, name="queue")
 
 
 @sessions_app.command(
@@ -77,14 +79,9 @@ def create_session(
     cli: CliContext = ctx.obj
 
     try:
-        # Resolve --input vs --input-stdin (at most one; '-' reads from stdin).
-        if input_text is not None and input_stdin is not None:
-            raise GumloopError("Pass at most one of --input or --input-stdin.")
-        if input_stdin is not None and input_stdin != "-":
-            raise GumloopError("--input-stdin only accepts '-' (reads from stdin).")
         if name is not None and not name.strip():
             raise GumloopError("Pass a non-empty --name.")
-        message = sys.stdin.read() if input_stdin == "-" else input_text
+        message = resolve_text_input(input_text, input_stdin)
 
         # cast narrows SessionResponse | Iterator to the non-streaming branch
         # (we never pass stream=True).
@@ -284,11 +281,7 @@ def send_session(
     cli: CliContext = ctx.obj
 
     try:
-        if input_text is not None and input_stdin is not None:
-            raise GumloopError("Pass at most one of --input or --input-stdin.")
-        if input_stdin is not None and input_stdin != "-":
-            raise GumloopError("--input-stdin only accepts '-' (reads from stdin).")
-        message = sys.stdin.read() if input_stdin == "-" else input_text
+        message = resolve_text_input(input_text, input_stdin)
         if not message:
             raise GumloopError("Pass --input or --input-stdin with text to send.")
 
