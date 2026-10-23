@@ -40,6 +40,8 @@ def resolve_json_args(
             raw = Path(file_path).expanduser().read_text(encoding="utf-8")
         except OSError as error:
             raise GumloopError(f"Could not read {file_path}: {error.strerror or error}") from error
+        except UnicodeError as error:
+            raise GumloopError(f"Could not read {file_path}: expected UTF-8 text.") from error
     elif stdin_marker is not None:
         if stdin_marker != "-":
             raise GumloopError(
