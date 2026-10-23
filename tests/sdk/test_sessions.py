@@ -368,7 +368,7 @@ def test_queued_send_returns_receipt_without_polling(asynchronous: bool, key: st
 @pytest.mark.parametrize("asynchronous", [False, True])
 @pytest.mark.parametrize(
     "extra",
-    [{"stream": True}, {"attachments": [{"file_path": "file.txt"}]}, {"idempotency_key": "report\n"}],
+    [{"stream": True}, {"attachments": [{"file_name": "file.txt"}]}, {"idempotency_key": "report\n"}],
 )
 @respx.mock
 def test_queued_send_validates_delivery_before_http(asynchronous: bool, extra: dict[str, Any]) -> None:
