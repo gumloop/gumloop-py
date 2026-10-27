@@ -11,7 +11,7 @@ from gumloop.cli.context import CliContext
 from gumloop.cli.errors import exit_with_error
 from gumloop.types import WikiCardType
 
-wiki_app = typer.Typer(help="Read your personal wiki.", no_args_is_help=True)
+wiki_app = typer.Typer(help="Read your personal wiki (legacy name for `gumloop memory query`).", no_args_is_help=True)
 
 
 @wiki_app.command("query", epilog="Example:\n  gumloop wiki query --type project --entity-key launch --json")

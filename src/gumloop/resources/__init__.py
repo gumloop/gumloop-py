@@ -18,6 +18,8 @@ from gumloop.resources.evaluations import AsyncEvaluations
 from gumloop.resources.evaluations import Evaluations
 from gumloop.resources.mcp import MCP
 from gumloop.resources.mcp import AsyncMCP
+from gumloop.resources.memory import AsyncMemory
+from gumloop.resources.memory import Memory
 from gumloop.resources.organizations import AsyncOrganizations
 from gumloop.resources.organizations import Organizations
 from gumloop.resources.sessions import AsyncSessions
@@ -44,6 +46,7 @@ __all__ = [
     "AsyncDecisions",
     "AsyncEvaluations",
     "AsyncMCP",
+    "AsyncMemory",
     "AsyncModels",
     "AsyncOrganizations",
     "AsyncSessions",
@@ -54,6 +57,7 @@ __all__ = [
     "Chat",
     "Decisions",
     "Evaluations",
+    "Memory",
     "Models",
     "Organizations",
     "Sessions",

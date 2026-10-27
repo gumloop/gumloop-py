@@ -22,6 +22,7 @@ from gumloop.cli.commands.discovery import organizations_app
 from gumloop.cli.commands.discovery import teams_app
 from gumloop.cli.commands.evaluations import evaluations_app
 from gumloop.cli.commands.mcp import mcp_app
+from gumloop.cli.commands.memory import memory_app
 from gumloop.cli.commands.models import models_app
 from gumloop.cli.commands.plugin import plugin_app
 from gumloop.cli.commands.sessions import sessions_app
@@ -120,6 +121,7 @@ app.add_typer(brain_app, name="brain")
 app.add_typer(browser_app, name="browser")
 app.add_typer(sync_app, name="sync")
 app.add_typer(plugin_app, name="plugin")
+app.add_typer(memory_app, name="memory")
 app.add_typer(wiki_app, name="wiki")
 app.add_typer(teams_app, name="teams")
 app.add_typer(organizations_app, name="organizations")

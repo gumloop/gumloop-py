@@ -18,7 +18,8 @@ The feature parity audit adds client adapters over existing APIs and selected ba
 | Structured decisions | `client.decisions.create` | `gumloop decisions create` |
 | Model discovery and task routing | `client.models` | `gumloop models` |
 | Connector tools, resources, prompts, and account discovery | `client.mcp` | `gumloop mcp` |
-| Personal wiki cards | `client.wiki.query` | `gumloop wiki query` |
+| Personal memory: cards, facts, rules, revisions, sync | `client.memory` | `gumloop memory` |
+| Personal wiki cards (earlier name for `memory.query`) | `client.wiki.query` | `gumloop wiki query` |
 | Company Brain search and uploaded-file sources | `client.brain` | `gumloop brain` |
 | Generated file metadata, downloads, rename, delete, versions, and sharing | `client.artifacts` | `gumloop artifacts` |
 | Personal browser profile CRUD and existing listing/cookie import | `client.browser_profiles` | `gumloop browser` |
@@ -33,9 +34,9 @@ The feature parity audit adds client adapters over existing APIs and selected ba
 
 An available client method does not mean every credential type can call it. Endpoint permissions, sharing grants, account policy, plan, and model availability are enforced by the backend.
 
-Session execution, session-file uploads, queues, approvals, decisions, personal wiki, and browser endpoints use OAuth or a personal API key. Team keys are supported only by endpoints that explicitly accept them. Passing a member's user ID with a team key does not authorize that member's personal connector accounts.
+Session execution, session-file uploads, queues, approvals, decisions, personal memory, and browser endpoints use OAuth or a personal API key. Team keys are supported only by endpoints that explicitly accept them. Passing a member's user ID with a team key does not authorize that member's personal connector accounts.
 
-Native voice signaling requires OAuth; personal and team API keys are unsupported. Personal browser CRUD explicitly uses personal scope independently of the client-wide team selection. Existing browser listing and cookie import retain their own team-selection options.
+Native voice signaling requires OAuth; personal and team API keys are unsupported. Personal browser CRUD and memory explicitly use personal scope independently of the client-wide team selection; `memory.start_sync` spends the owner's credits in the background. Memory reads accept an OAuth token with `gumloop_api.memory` or the earlier `gumloop_api.wiki` scope; memory writes (`create_fact`, `update_card`, `delete_fact`, `undo_revision`, `start_sync` and the rest) need `gumloop_api.memory` or a personal API key. `gumloop login` requests `gumloop_api`, which covers both. Existing browser listing and cookie import retain their own team-selection options.
 
 Personal API keys use `api_key` plus `user_id`. OAuth uses `access_token`. SDK environment fallback reads `GUMLOOP_ACCESS_TOKEN`, `GUMLOOP_USER_ID`, and `GUMLOOP_TEAM_ID`; `GUMLOOP_API_KEY` is a CLI variable. For an alternate backend, set both `base_url` and `stream_base_url` explicitly rather than assuming they share a host.
 

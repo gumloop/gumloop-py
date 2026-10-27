@@ -23,6 +23,7 @@ from gumloop.resources import AsyncChat
 from gumloop.resources import AsyncDecisions
 from gumloop.resources import AsyncEvaluations
 from gumloop.resources import AsyncMCP
+from gumloop.resources import AsyncMemory
 from gumloop.resources import AsyncModels
 from gumloop.resources import AsyncOrganizations
 from gumloop.resources import AsyncSessions
@@ -35,6 +36,7 @@ from gumloop.resources import BrowserProfiles
 from gumloop.resources import Chat
 from gumloop.resources import Decisions
 from gumloop.resources import Evaluations
+from gumloop.resources import Memory
 from gumloop.resources import Models
 from gumloop.resources import Organizations
 from gumloop.resources import Sessions
@@ -109,6 +111,7 @@ class Gumloop:
         self.models = Models(self._http)
         self.mcp = MCP(self._http)
         self.teams = Teams(self._http)
+        self.memory = Memory(self._http)
         self.wiki = Wiki(self._http)
         self.organizations = Organizations(self._http)
         self.evaluations = Evaluations(self._http)
@@ -176,6 +179,7 @@ class AsyncGumloop:
         self.models = AsyncModels(self._http)
         self.mcp = AsyncMCP(self._http)
         self.teams = AsyncTeams(self._http)
+        self.memory = AsyncMemory(self._http)
         self.wiki = AsyncWiki(self._http)
         self.organizations = AsyncOrganizations(self._http)
         self.evaluations = AsyncEvaluations(self._http)

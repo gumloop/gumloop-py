@@ -1839,43 +1839,63 @@ class EvaluationOptionsResponse(_Model):
     limits: dict[str, int] = Field(default_factory=dict)
 
 
-class WikiCardType(str, Enum):
+class MemoryCardType(str, Enum):
     PERSON = "person"
     ORGANIZATION = "organization"
     PROJECT = "project"
     AGENT = "agent"
+    CONNECTOR = "connector"
     PROFILE = "profile"
     NOTE = "note"
     TONE = "tone"
     DESIGN = "design"
 
 
-class WikiQueryRequest(_Model):
-    type: WikiCardType | None = None
+def _known_memory_card_type(value: Any) -> Any:
+    try:
+        return MemoryCardType(value)
+    except ValueError:
+        return value
+
+
+class MemoryQueryRequest(_Model):
+    type: MemoryCardType | None = None
     entity_key: str | None = None
 
 
-class WikiSource(_Model):
+class MemorySource(_Model):
     type: str
-    subject_id: str
+    subject_id: str | None = None
     locator: str | None = None
     label: str | None = None
     agent_id: str | None = None
     observed_at: str | None = None
 
 
-class WikiFact(_Model):
+class MemoryCardRef(_Model):
+    type: MemoryCardType | str
+    entity_key: str | None = None
+    name: str | None = None
+
+    _card_type = field_validator("type", mode="before")(_known_memory_card_type)
+
+
+class MemoryFact(_Model):
     id: str
     kind: str
     text: str
     origin: str
-    pinned: bool
-    sources: list[WikiSource] = Field(default_factory=list)
+    pinned: bool = False
+    always_in_prompt: bool = False
+    status: str = "active"
+    card: MemoryCardRef | None = None
+    sources: list[MemorySource] = Field(default_factory=list)
     first_seen_at: str | None = None
     last_seen_at: str | None = None
+    updated_at: str | None = None
 
 
-class WikiLinkedUser(_Model):
+class MemoryLinkedUser(_Model):
     id: str
     first_name: str | None = None
     last_name: str | None = None
@@ -1883,31 +1903,165 @@ class WikiLinkedUser(_Model):
     profile_picture: str | None = None
 
 
-class WikiCard(_Model):
-    type: WikiCardType | str
-
-    @field_validator("type", mode="before")
-    @classmethod
-    def _known_card_type(cls, value: Any) -> Any:
-        try:
-            return WikiCardType(value)
-        except ValueError:
-            return value
-
+class MemoryCard(_Model):
+    type: MemoryCardType | str
     entity_key: str | None = None
+    key: str | None = None
     name: str | None = None
     summary: str | None = None
+    summary_pinned: bool = False
     status: str = "active"
     icon_url: str | None = None
-    linked_user: WikiLinkedUser | None = None
+    linked_user: MemoryLinkedUser | None = None
     agent_ids: list[str] = Field(default_factory=list)
-    updated_at: str | None = None
     row_facts: dict[str, str] = Field(default_factory=dict)
-    facts: list[WikiFact] = Field(default_factory=list)
+    weight: float = 0.0
+    sighting_count: int = 0
+    last_sighted_at: str | None = None
+    updated_at: str | None = None
+    facts: list[MemoryFact] = Field(default_factory=list)
+
+    _card_type = field_validator("type", mode="before")(_known_memory_card_type)
 
 
-class WikiQueryResponse(_Model):
-    cards: list[WikiCard] = Field(default_factory=list)
+class MemoryQueryResponse(_Model):
+    cards: list[MemoryCard] = Field(default_factory=list)
+
+
+class MemoryCardListResponse(_Model):
+    data: list[MemoryCard] = Field(default_factory=list)
+    page_size: int | None = None
+    next_cursor: str | None = None
+    has_more: bool = False
+
+
+class MemoryRankSource(_Model):
+    type: str
+    sightings: int = 0
+    weight: float = 0.0
+    newest_at: str | None = None
+
+
+class MemoryCardRank(_Model):
+    weight: float = 0.0
+    sighting_count: int = 0
+    last_sighted_at: str | None = None
+    by_source: list[MemoryRankSource] = Field(default_factory=list)
+
+
+class MemoryCardResponse(_Model):
+    card: MemoryCard | None = None
+    facts: list[MemoryFact] = Field(default_factory=list)
+    rank: MemoryCardRank | None = None
+
+
+class MemoryCardUpdateRequest(_Model):
+    name: str | None = None
+    summary: str | None = None
+    status: str | None = None
+
+
+class MemoryCardDeleteResponse(_Model):
+    forgotten_facts: int = 0
+
+
+class MemoryFactListResponse(_Model):
+    data: list[MemoryFact] = Field(default_factory=list)
+    page_size: int | None = None
+    next_cursor: str | None = None
+    has_more: bool = False
+
+
+class MemoryFactCreateRequest(_Model):
+    type: MemoryCardType | str
+    kind: str
+    text: str
+    entity_key: str | None = None
+    name: str | None = None
+    always_in_prompt: bool | None = None
+
+
+class MemoryFactUpdateRequest(_Model):
+    text: str | None = None
+    pinned: bool | None = None
+    always_in_prompt: bool | None = None
+
+
+class MemoryRuleSet(_Model):
+    type: MemoryCardType | str | None = None
+    guide: str | None = None
+    guide_pinned: bool = False
+    rules: list[MemoryFact] = Field(default_factory=list)
+
+
+class MemoryRulesResponse(_Model):
+    tone: MemoryRuleSet = Field(default_factory=MemoryRuleSet)
+    design: MemoryRuleSet = Field(default_factory=MemoryRuleSet)
+
+
+class MemoryRuleCreateRequest(_Model):
+    type: str
+    text: str
+
+
+class MemorySnapshot(_Model):
+    """A card snapshot has no kind, text, origin or pin."""
+
+    kind: str | None = None
+    text: str | None = None
+    name: str | None = None
+    summary: str | None = None
+    origin: str | None = None
+    status: str | None = None
+    pinned: bool | None = None
+    always_in_prompt: bool | None = None
+
+
+class MemoryRevision(_Model):
+    id: str
+    action: str
+    actor: str
+    card: MemoryCardRef | None = None
+    fact_id: str | None = None
+    undoable: bool = False
+    before: MemorySnapshot | None = None
+    after: MemorySnapshot | None = None
+    source: MemorySource | None = None
+    created_at: str | None = None
+
+
+class MemoryRevisionListResponse(_Model):
+    data: list[MemoryRevision] = Field(default_factory=list)
+    page_size: int | None = None
+    next_cursor: str | None = None
+    has_more: bool = False
+
+
+class MemorySync(_Model):
+    status: str = "never"
+    stage: str | None = None
+    session_id: str | None = None
+    started_at: str | None = None
+    finished_at: str | None = None
+    facts_written: int | None = None
+    sources: list[str] = Field(default_factory=list)
+    failed_stages: list[str] = Field(default_factory=list)
+
+
+class MemoryOverviewResponse(_Model):
+    summary: str | None = None
+    summary_rendered_at: str | None = None
+    card_counts: dict[str, int] = Field(default_factory=dict)
+    sync: MemorySync = Field(default_factory=MemorySync)
+
+
+WikiCardType = MemoryCardType
+WikiQueryRequest = MemoryQueryRequest
+WikiSource = MemorySource
+WikiFact = MemoryFact
+WikiLinkedUser = MemoryLinkedUser
+WikiCard = MemoryCard
+WikiQueryResponse = MemoryQueryResponse
 
 
 class ArtifactVersion(_Model):
