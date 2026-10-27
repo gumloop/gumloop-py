@@ -67,7 +67,8 @@ def list_agents(
         exit_with_error(error, json_output=json_output)
 
     if json_output:
-        print_json(response)
+        # exclude_unset: the Agent model's tools/metadata defaults are not on a summary row's wire body.
+        print_json(response.model_dump(mode="json", exclude_unset=True) if summary else response)
         return
 
     if not response.agents:
