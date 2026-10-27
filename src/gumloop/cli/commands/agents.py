@@ -23,7 +23,10 @@ agents_app.add_typer(configuration_app)
 
 @agents_app.command(
     "list",
-    epilog=("Examples:\n  gumloop agents list\n  gumloop agents list --search support --json"),
+    epilog=(
+        "Examples:\n  gumloop agents list\n  gumloop agents list --search support --json\n"
+        "  gumloop agents list --summary --limit 100 --json"
+    ),
 )
 def list_agents(
     ctx: typer.Context,
@@ -39,6 +42,10 @@ def list_agents(
         str | None,
         typer.Option("--cursor", help="Pagination cursor from a previous list call."),
     ] = None,
+    summary: Annotated[
+        bool,
+        typer.Option("--summary", help="Return only identity, model, creator and activity fields per agent."),
+    ] = False,
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Print the raw SDK response as JSON."),
@@ -53,13 +60,15 @@ def list_agents(
                 team_id=cli.effective_team_id,
                 page_size=limit,
                 cursor=cursor,
+                summary=summary or None,
             )
         )
     except GumloopError as error:
         exit_with_error(error, json_output=json_output)
 
     if json_output:
-        print_json(response)
+        # exclude_unset: the Agent model's tools/metadata defaults are not on a summary row's wire body.
+        print_json(response.model_dump(mode="json", exclude_unset=True) if summary else response)
         return
 
     if not response.agents:
