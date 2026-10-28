@@ -485,8 +485,6 @@ def test_threaded_fanout_shares_one_session_safely(gumcp_env: None) -> None:
 
 
 class _HangingClient:
-    """Answers every tool except ``gmail__hang``, which never gets a response."""
-
     hung_call_cancelled = False
 
     def __init__(self, **_kwargs: Any) -> None:
@@ -529,8 +527,6 @@ def test_a_call_that_never_answers_times_out_and_the_next_call_succeeds(
 
 
 class _LazyConnectClient:
-    """Opens a long-lived anyio task group on its first call, as gumcp_client's lazy connect does."""
-
     def __init__(self, **_kwargs: Any) -> None:
         self._connection: AsyncExitStack | None = None
 

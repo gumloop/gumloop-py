@@ -32,8 +32,7 @@ logger = logging.getLogger(__name__)
 _MAX_BATCH = 5
 _HTTP_STATUS_RE = re.compile(r"HTTP\s+(\d{3})")
 _LIVENESS_POLL_SECONDS = 1.0
-# Above the backend's 300 s per-tool-call limit, so it only ends a call whose answer
-# was lost; without it a lost response blocks the calling thread forever.
+# Above the backend's 300 s per-tool-call limit, so it only ends a call whose answer was lost.
 _CALL_TIMEOUT_SECONDS = 330.0
 
 
@@ -260,10 +259,7 @@ class _CancelScopeError(Exception):
 
 
 async def _call_tool(client: Any, name: str, arguments: dict[str, Any]) -> Any:
-    # Runs as the asyncio.wait_for task on 3.10/3.11, whose result() drops a
-    # CancelledError's message, so the "cancel scope" case is converted in here.
-    # The deadline cannot be an anyio scope instead: the first call connects
-    # lazily and leaves the session's anyio scopes open in its own task.
+    # On 3.10/3.11 wait_for drops a CancelledError's message, so "cancel scope" is converted in here.
     try:
         return await client.call_tool(name, arguments)
     except asyncio.CancelledError as exc:
