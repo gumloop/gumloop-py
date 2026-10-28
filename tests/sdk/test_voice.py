@@ -116,6 +116,24 @@ def test_voice_default_incognito_and_configured_origin(asynchronous):
 
 @pytest.mark.parametrize("asynchronous", [False, True])
 @respx.mock
+def test_voice_keeps_a_path_prefix_mounted_above_api_v1(asynchronous):
+    mounted = "http://192.0.2.1/bound/gumloop-ws"
+    route = respx.post(f"{mounted}/gummies/agent/voice/sessions").respond(201, json=STARTED)
+
+    async def run():
+        async with AsyncGumloop(access_token="oauth", stream_base_url=f"{mounted}/api/v1") as client:
+            await client.voice.start("agent", session_id="chat", offer_sdp="v=0\r\n")
+
+    if asynchronous:
+        asyncio.run(run())
+    else:
+        with Gumloop(access_token="oauth", stream_base_url=f"{mounted}/api/v1") as client:
+            client.voice.start("agent", session_id="chat", offer_sdp="v=0\r\n")
+    assert route.called
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@respx.mock
 def test_voice_origin_helper_preserves_chat_base_path(asynchronous):
     chat = respx.post(f"{STREAM_BASE}/chat/completions").respond(
         200,

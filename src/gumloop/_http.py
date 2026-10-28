@@ -30,6 +30,15 @@ def user_agent() -> str:
     return f"{CLIENT_PRODUCT}/{__version__} Python/{platform.python_version()} {platform.system()}"
 
 
+def _stream_url(stream_base_url: str, path: str, *, origin: bool) -> str:
+    if not origin:
+        return f"{stream_base_url}/{path.lstrip('/')}"
+    # A proxy can mount the stream host under a path prefix, so keep whatever sits above /api/v1.
+    parts = urlsplit(stream_base_url)
+    mount = parts.path.removesuffix("/api/v1") if parts.path.endswith("/api/v1") else ""
+    return parts._replace(path=f"{mount}/{path.lstrip('/')}", query="", fragment="").geturl()
+
+
 def _inject_trace_context(request: httpx.Request) -> None:
     """Request event hook: attach W3C trace context when the host sets TRACEPARENT.
 
@@ -218,11 +227,7 @@ class HttpClient:
         headers = auth_headers(self.access_token, self.user_id)
         headers["Content-Type"] = "application/json"
         response = self._client.post(
-            (
-                urlsplit(self._stream_base_url)._replace(path="/" + path.lstrip("/"), query="", fragment="").geturl()
-                if origin
-                else f"{self._stream_base_url}/{path.lstrip('/')}"
-            ),
+            _stream_url(self._stream_base_url, path, origin=origin),
             headers=headers,
             timeout=self._stream_timeout,
             json=json,
@@ -405,11 +410,7 @@ class AsyncHttpClient:
         headers = auth_headers(self.access_token, self.user_id)
         headers["Content-Type"] = "application/json"
         response = await self._client.post(
-            (
-                urlsplit(self._stream_base_url)._replace(path="/" + path.lstrip("/"), query="", fragment="").geturl()
-                if origin
-                else f"{self._stream_base_url}/{path.lstrip('/')}"
-            ),
+            _stream_url(self._stream_base_url, path, origin=origin),
             headers=headers,
             timeout=self._stream_timeout,
             json=json,
