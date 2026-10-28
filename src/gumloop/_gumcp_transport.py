@@ -32,6 +32,8 @@ logger = logging.getLogger(__name__)
 _MAX_BATCH = 5
 _HTTP_STATUS_RE = re.compile(r"HTTP\s+(\d{3})")
 _LIVENESS_POLL_SECONDS = 1.0
+# Above the backend's 300 s per-tool-call limit, so it only ends a call whose answer was lost.
+_CALL_TIMEOUT_SECONDS = 330.0
 
 
 def gumcp_env_ready() -> bool:
@@ -252,6 +254,20 @@ def _map_exception(exc: BaseException, *, ref: str, server_id: str, tool_name: s
     )
 
 
+class _CancelScopeError(Exception):
+    """anyio's "cancel scope" CancelledError from a broken session, as an ordinary error."""
+
+
+async def _call_tool(client: Any, name: str, arguments: dict[str, Any]) -> Any:
+    # On 3.10/3.11 wait_for drops a CancelledError's message, so "cancel scope" is converted in here.
+    try:
+        return await client.call_tool(name, arguments)
+    except asyncio.CancelledError as exc:
+        if "cancel scope" in str(exc):
+            raise _CancelScopeError(str(exc)) from exc
+        raise
+
+
 class GumcpTransport:
     """Owns one multi-server ``AsyncClient`` keyed by the current GUMCP env fingerprint."""
 
@@ -325,9 +341,9 @@ class GumcpTransport:
         result_ref = ref or fallback_ref
         try:
             client = await self._ensure_client()
-            content = await client.call_tool(
-                f"{server_id}__{tool_name}",
-                arguments or {},
+            content = await asyncio.wait_for(
+                _call_tool(client, f"{server_id}__{tool_name}", arguments or {}),
+                timeout=_CALL_TIMEOUT_SECONDS,
             )
             return McpToolCallResult(
                 ref=result_ref,
@@ -338,6 +354,18 @@ class GumcpTransport:
             )
         except GumloopError:
             raise
+        except asyncio.TimeoutError:
+            logger.warning("MCP tool call %s__%s got no answer within %gs", server_id, tool_name, _CALL_TIMEOUT_SECONDS)
+            return _error_result(
+                ref=result_ref,
+                server_id=server_id,
+                tool_name=tool_name,
+                status="error",
+                code="tool_execution_failed",
+                message=f"Tool call timed out after {_CALL_TIMEOUT_SECONDS:g}s.",
+                error_type="api_error",
+                details={"server_id": server_id, "tool_name": tool_name},
+            )
         except asyncio.CancelledError as exc:
             # Real cancellation propagates; only the anyio cancel-scope failure maps.
             if "cancel scope" not in str(exc):

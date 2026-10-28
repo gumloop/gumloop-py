@@ -5,12 +5,14 @@ import json
 import logging
 import os
 import sys
+from contextlib import AsyncExitStack
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
+import anyio
 import httpx
 import pytest
 import respx
@@ -480,6 +482,90 @@ def test_threaded_fanout_shares_one_session_safely(gumcp_env: None) -> None:
     assert all(r.status == "success" for r in results)
     assert construct_count["n"] == 1  # one shared session
     assert len(set(seen_loops)) == 1  # everything ran on the transport loop
+
+
+class _HangingClient:
+    hung_call_cancelled = False
+
+    def __init__(self, **_kwargs: Any) -> None:
+        pass
+
+    async def call_tool(self, tool: str, _args: dict[str, Any]) -> list[str]:
+        if tool == "gmail__hang":
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                _HangingClient.hung_call_cancelled = True
+                raise
+        await asyncio.sleep(0.01)
+        return [tool]
+
+    async def close(self) -> None:
+        pass
+
+
+def test_a_call_that_never_answers_times_out_and_the_next_call_succeeds(
+    gumcp_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import gumloop._gumcp_transport as transport_mod
+
+    monkeypatch.setattr(transport_mod, "_CALL_TIMEOUT_SECONDS", 0.1)
+    monkeypatch.setattr(_HangingClient, "hung_call_cancelled", False)
+
+    with patch("gumloop._gumcp_transport._import_async_client", return_value=_HangingClient):
+        client = Gumloop(access_token="http-token")
+        hung = client.mcp.execute("gmail", "hang", {}).results[0]
+        after = client.mcp.execute("gmail", "read_emails", {}).results[0]
+        client.close()
+
+    assert hung.status == "error"
+    assert hung.error is not None
+    assert hung.error["code"] == "tool_execution_failed"
+    assert "timed out after 0.1s" in hung.error["message"]
+    assert _HangingClient.hung_call_cancelled
+    assert after.status == "success"
+
+
+class _LazyConnectClient:
+    def __init__(self, **_kwargs: Any) -> None:
+        self._connection: AsyncExitStack | None = None
+
+    async def call_tool(self, tool: str, _args: dict[str, Any]) -> list[str]:
+        if self._connection is None:
+            self._connection = AsyncExitStack()
+            await self._connection.enter_async_context(anyio.create_task_group())
+        return [tool]
+
+    async def close(self) -> None:
+        pass
+
+
+def test_the_call_that_opens_the_connection_succeeds(gumcp_env: None) -> None:
+    with patch("gumloop._gumcp_transport._import_async_client", return_value=_LazyConnectClient):
+        client = Gumloop(access_token="http-token")
+        results = [client.mcp.execute("gmail", f"tool_{i}", {}).results[0] for i in range(2)]
+        client.close()
+
+    assert [r.status for r in results] == ["success", "success"]
+
+
+def test_threaded_fanout_survives_one_call_that_never_answers(gumcp_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+
+    import gumloop._gumcp_transport as transport_mod
+
+    monkeypatch.setattr(transport_mod, "_CALL_TIMEOUT_SECONDS", 0.2)
+    tools = [f"tool_{i}" for i in range(23)] + ["hang"]
+
+    with patch("gumloop._gumcp_transport._import_async_client", return_value=_HangingClient):
+        client = Gumloop(access_token="http-token")
+        with ThreadPoolExecutor(max_workers=6) as ex:
+            futures = {tool: ex.submit(client.mcp.execute, "gmail", tool, {}) for tool in tools}
+            results = {tool: future.result(timeout=10).results[0] for tool, future in futures.items()}
+        client.close()
+
+    assert results.pop("hang").status == "error"
+    assert all(r.status == "success" for r in results.values())
 
 
 def test_close_on_unused_transport_is_a_noop(gumcp_env: None) -> None:
