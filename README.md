@@ -111,23 +111,33 @@ gumloop organizations list --json
 
 Use a returned team ID with the global `--team-id` option. These commands list memberships; organization administration remains outside this command group. Team-key `teams list` requires `--team-id` and returns only that team. `organizations list` requires a personal API key or OAuth; team keys are unsupported.
 
-Team (workspace) API keys are scoped to a single team. Pass the team's ID and
-the acting member's user ID — every request is validated against that team and
-only reaches resources the team owns.
+Team (workspace) API keys are scoped to a single team, and a request made with
+one acts as the team, not as a member: every member can copy the key, so it
+cannot prove which member is calling. Pass the team's ID; a `user_id` sent with
+a team key is a label only and grants none of that member's own access.
 
 ```python
 from gumloop import Gumloop
 
 client = Gumloop(
     api_key="your_team_api_key",
-    user_id="your_user_id",  # must be a member of the team
     team_id="your_team_id",
 )
 
-agents = client.agents.list()  # scoped to the team
+agents = client.agents.list()  # the team's agents
 ```
 
+Team keys work on endpoints that act as the team: running and polling the team's
+workflows, its files, and reading its agents, skills, artifacts and models. A
+legacy workflow run still names the member it is charged to with `user_id`.
+Anything that acts as a person (sessions, creating or changing agents and skills,
+sharing) needs a personal API key or OAuth.
+
 `team_id` can also be provided via the `GUMLOOP_TEAM_ID` environment variable.
+
+`default_headers` adds headers to every API request the client sends, for example
+`Gumloop(..., default_headers={"X-Request-Source": "nightly-sync"})`. The
+`client.oauth` helpers run before there is a token and send none of them.
 
 ## Chat with an agent (streaming)
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import time
 import warnings
+from collections.abc import Mapping
 from typing import Any
 
 import httpx
@@ -74,6 +75,7 @@ class Gumloop:
         stream_base_url: str | None = None,
         timeout: float = DEFAULT_TIMEOUT,
         stream_timeout: float | None = DEFAULT_STREAM_TIMEOUT,
+        default_headers: Mapping[str, str] | None = None,
     ) -> None:
         self.api_key = api_key
         self.access_token = access_token or api_key or EnvToken.from_env()
@@ -81,7 +83,7 @@ class Gumloop:
         # x-auth-key header to look up the owner's stored secret. OAuth
         # callers omit it because the bearer token already identifies them.
         self.user_id = user_id or os.environ.get("GUMLOOP_USER_ID")
-        # Team API keys are validated against ``team_id``; ``user_id`` stays the acting member.
+        # A team API key acts as the team named by ``team_id``; with it ``user_id`` is a label only.
         self.team_id = team_id or os.environ.get("GUMLOOP_TEAM_ID")
         # Defaults to production; GUMLOOP_BASE_URL is an optional override.
         self.base_url = (base_url or os.environ.get("GUMLOOP_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
@@ -99,6 +101,7 @@ class Gumloop:
             team_id=self.team_id,
             timeout=self.timeout,
             stream_timeout=self.stream_timeout,
+            default_headers=default_headers,
         )
 
         self.agents = Agents(self._http)
@@ -144,11 +147,12 @@ class AsyncGumloop:
         stream_base_url: str | None = None,
         timeout: float = DEFAULT_TIMEOUT,
         stream_timeout: float | None = DEFAULT_STREAM_TIMEOUT,
+        default_headers: Mapping[str, str] | None = None,
     ) -> None:
         self.api_key = api_key
         self.access_token = access_token or api_key or EnvToken.from_env()
         self.user_id = user_id or os.environ.get("GUMLOOP_USER_ID")
-        # Team API keys are validated against ``team_id``; ``user_id`` stays the acting member.
+        # A team API key acts as the team named by ``team_id``; with it ``user_id`` is a label only.
         self.team_id = team_id or os.environ.get("GUMLOOP_TEAM_ID")
         # Defaults to production; GUMLOOP_BASE_URL is an optional override.
         self.base_url = (base_url or os.environ.get("GUMLOOP_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
@@ -166,6 +170,7 @@ class AsyncGumloop:
             team_id=self.team_id,
             timeout=self.timeout,
             stream_timeout=self.stream_timeout,
+            default_headers=default_headers,
         )
 
         self.agents = AsyncAgents(self._http)
