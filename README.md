@@ -135,8 +135,9 @@ sharing) needs a personal API key or OAuth.
 
 `team_id` can also be provided via the `GUMLOOP_TEAM_ID` environment variable.
 
-`default_headers` adds headers to every request the client sends, for example
-`Gumloop(..., default_headers={"X-Request-Source": "nightly-sync"})`.
+`default_headers` adds headers to every API request the client sends, for example
+`Gumloop(..., default_headers={"X-Request-Source": "nightly-sync"})`. The
+`client.oauth` helpers run before there is a token and send none of them.
 
 ## Chat with an agent (streaming)
 
