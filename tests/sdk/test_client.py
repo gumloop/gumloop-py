@@ -324,3 +324,31 @@ def test_traceparent_env_is_forwarded_on_async_client(monkeypatch: pytest.Monkey
 
     request = route.calls[0].request
     assert request.headers["traceparent"] == "00-11111111111111111111111111111111-2222222222222222-01"
+
+
+@respx.mock
+def test_default_headers_ride_on_every_request() -> None:
+    models = respx.get(f"{API_BASE}/models").mock(return_value=httpx.Response(200, json={"model_groups": []}))
+    agent = respx.get(f"{API_BASE}/agents/agent_1").mock(return_value=httpx.Response(200, json=_AGENT_JSON))
+    client = Gumloop(api_key="team_key", team_id="team_1", default_headers={"X-Gumloop-MCP-Token": "member-token"})
+
+    client.models.list()
+    client.agents.retrieve("agent_1")
+
+    assert [route.calls[0].request.headers["X-Gumloop-MCP-Token"] for route in (models, agent)] == ["member-token"] * 2
+    assert auth_header(models.calls[0].request) == "Bearer team_key"
+
+
+@respx.mock
+def test_default_headers_ride_on_async_requests() -> None:
+    route = respx.get(f"{API_BASE}/agents/agent_1").mock(return_value=httpx.Response(200, json=_AGENT_JSON))
+
+    async def run() -> None:
+        async with AsyncGumloop(
+            api_key="team_key", team_id="team_1", default_headers={"X-Request-Source": "sync"}
+        ) as client:
+            await client.agents.retrieve("agent_1")
+
+    asyncio.run(run())
+
+    assert route.calls[0].request.headers["X-Request-Source"] == "sync"

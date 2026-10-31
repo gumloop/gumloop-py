@@ -33,7 +33,7 @@ The feature parity audit adds client adapters over existing APIs and selected ba
 
 An available client method does not mean every credential type can call it. Endpoint permissions, sharing grants, account policy, plan, and model availability are enforced by the backend.
 
-Session execution, session-file uploads, queues, approvals, decisions, personal wiki, and browser endpoints use OAuth or a personal API key. Team keys are supported only by endpoints that explicitly accept them. Passing a member's user ID with a team key does not authorize that member's personal connector accounts.
+Session execution, session-file uploads, queues, approvals, decisions, personal wiki, and browser endpoints use OAuth or a personal API key. Team keys are supported only by endpoints that explicitly accept them, and a team key acts as the team: a member's user ID sent with it is a label only and authorizes none of that member's access or personal connector accounts.
 
 Native voice signaling requires OAuth; personal and team API keys are unsupported. Personal browser CRUD explicitly uses personal scope independently of the client-wide team selection. Existing browser listing and cookie import retain their own team-selection options.
 
