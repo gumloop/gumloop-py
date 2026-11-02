@@ -7,17 +7,17 @@ from gumloop._gumcp_transport import GumcpTransport
 from gumloop._gumcp_transport import gumcp_env_ready
 from gumloop._http import AsyncHttpClient
 from gumloop._http import HttpClient
-from gumloop._types_mcp import McpExecuteResponse
-from gumloop._types_mcp import McpPromptResponse
-from gumloop._types_mcp import McpPromptsResponse
-from gumloop._types_mcp import McpResourceReadResponse
-from gumloop._types_mcp import McpResourcesResponse
-from gumloop._types_mcp import McpServerAccountsResponse
-from gumloop._types_mcp import McpServerResponse
-from gumloop._types_mcp import McpServersResponse
-from gumloop._types_mcp import McpToolCallRequest
-from gumloop._types_mcp import McpToolsResponse
 from gumloop.errors import GumloopError
+from gumloop.types import McpExecuteResponse
+from gumloop.types import McpPromptResponse
+from gumloop.types import McpPromptsResponse
+from gumloop.types import McpResourceReadResponse
+from gumloop.types import McpResourcesResponse
+from gumloop.types import McpServerAccountsResponse
+from gumloop.types import McpServerResponse
+from gumloop.types import McpServersResponse
+from gumloop.types import McpToolCallRequest
+from gumloop.types import McpToolsResponse
 
 
 def _call_body(calls: Sequence[McpToolCallRequest | dict[str, Any]], team_id: str | None) -> dict[str, Any]:

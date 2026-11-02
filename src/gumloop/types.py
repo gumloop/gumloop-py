@@ -1,36 +1,37 @@
 from __future__ import annotations
 
+import json
 from enum import Enum
 from typing import Any
 from typing import Literal
 
 from pydantic import AliasChoices
+from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
+from pydantic import SerializerFunctionWrapHandler
 from pydantic import field_validator
+from pydantic import model_serializer
 from pydantic import model_validator
 
-from gumloop._types_base import _Model as _Model
-from gumloop._types_mcp import McpExecuteResponse as McpExecuteResponse
-from gumloop._types_mcp import McpPrompt as McpPrompt
-from gumloop._types_mcp import McpPromptArgument as McpPromptArgument
-from gumloop._types_mcp import McpPromptMessage as McpPromptMessage
-from gumloop._types_mcp import McpPromptResponse as McpPromptResponse
-from gumloop._types_mcp import McpPromptsResponse as McpPromptsResponse
-from gumloop._types_mcp import McpResource as McpResource
-from gumloop._types_mcp import McpResourceContent as McpResourceContent
-from gumloop._types_mcp import McpResourceReadResponse as McpResourceReadResponse
-from gumloop._types_mcp import McpResourcesResponse as McpResourcesResponse
-from gumloop._types_mcp import McpServer as McpServer
-from gumloop._types_mcp import McpServerAccount as McpServerAccount
-from gumloop._types_mcp import McpServerAccountsResponse as McpServerAccountsResponse
-from gumloop._types_mcp import McpServerResponse as McpServerResponse
-from gumloop._types_mcp import McpServersResponse as McpServersResponse
-from gumloop._types_mcp import McpTool as McpTool
-from gumloop._types_mcp import McpToolCallRequest as McpToolCallRequest
-from gumloop._types_mcp import McpToolCallResult as McpToolCallResult
-from gumloop._types_mcp import McpToolsResponse as McpToolsResponse
-from gumloop._types_stream import StreamEvent as StreamEvent
+
+class _Model(BaseModel):
+    """Base for all SDK models. ``extra="allow"`` lets the SDK transparently
+    pass through fields the backend adds in future versions without an SDK
+    bump — both on parsed responses and on user-supplied request kwargs."""
+
+    model_config = ConfigDict(extra="allow", populate_by_name=True, defer_build=True)
+
+    @classmethod
+    def build(cls, request: Any = None, /, **kwargs: Any) -> dict[str, Any]:
+        """Merge a (model | dict | None) request with caller kwargs and return
+        a JSON-ready dict. ``exclude_unset`` is used so unspecified fields
+        keep their backend-side defaults instead of being overwritten by the
+        SDK's local default values."""
+        base = request.model_dump(exclude_unset=True) if isinstance(request, cls) else dict(request or {})
+        base.update({k: v for k, v in kwargs.items() if v is not None})
+        return cls.model_validate(base).model_dump(exclude_unset=True)
+
 
 # ---------------------------------------------------------------------------
 # Shared payload types
@@ -992,6 +993,35 @@ class SessionQueuedMessageResponse(SessionQueueResponse):
     queued_message: QueuedMessage
 
 
+class StreamEvent(_Model):
+    type: str | None = None
+    data: Any = None
+    stream_cursor: str | None = None
+    final: bool | None = None
+    # Wire format uses camelCase on these two; surface snake_case attributes
+    # to callers while still accepting the wire names on deserialize.
+    finish_reason: str | None = Field(default=None, validation_alias="finishReason")
+    error: str | None = None
+    error_details: dict[str, Any] | None = Field(default=None, exclude=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _structured_error(cls, value: Any) -> Any:
+        if isinstance(value, dict) and isinstance(value.get("error"), dict):
+            details = value["error"]
+            return {**value, "error": details.get("message") or json.dumps(details), "error_details": details}
+        return value
+
+    @model_serializer(mode="wrap")
+    def _serialize_event(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        data = handler(self)
+        if self.error_details is not None and "error" in data:
+            data["error"] = self.error_details
+        return data
+
+    error_message: str | None = Field(default=None, validation_alias="errorMessage")
+
+
 # ---------------------------------------------------------------------------
 # Skill types
 # ---------------------------------------------------------------------------
@@ -1373,6 +1403,189 @@ class ItemAccessResponse(_Model):
 
 class ItemAccessChangeResponse(ItemAccessResponse):
     notified: list[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# MCP types
+# ---------------------------------------------------------------------------
+
+
+class McpServer(_Model):
+    server_id: str
+    name: str | None = None
+    type: str
+    status: str
+    icon_url: str | None = None
+    description: str | None = None
+    gumloop_auth_url: str
+    mcp_url: str | None = None
+    tool_count: int | None = None
+    allowed_tool_call_ids: list[str] | None = None
+
+
+class McpTool(_Model):
+    tool_call_id: str
+    server_id: str | None = None
+    server_type: str | None = None
+    name: str
+    description: str | None = None
+    input_schema: dict[str, Any] = Field(default_factory=dict)
+    server: dict[str, Any] = Field(default_factory=dict)
+
+
+class McpToolCallRequest(_Model):
+    account: str | None = None
+    ref: str | None = None
+    server_id: str
+    tool_name: str
+    arguments: dict[str, Any] = Field(default_factory=dict)
+
+
+class McpToolCallResult(_Model):
+    ref: str
+    server_id: str | None = None
+    tool_name: str | None = None
+    status: str
+    content: list[Any] | None = None
+    error: dict[str, Any] | None = None
+
+    @property
+    def decoded_content(self) -> list[Any] | None:
+        """Each content string JSON-decoded; plain text passes through. guMCP returns
+        one string per TextContent, usually a JSON dump but sometimes plain text."""
+        if self.content is None:
+            return None
+        decoded: list[Any] = []
+        for item in self.content:
+            try:
+                decoded.append(json.loads(item) if isinstance(item, str) else item)
+            except json.JSONDecodeError:
+                decoded.append(item)
+        return decoded
+
+
+class McpServerAccount(_Model):
+    id: str
+    label: str | None = None
+    is_default: bool = False
+    in_use: bool = False
+
+
+class McpServerAccountsResponse(_Model):
+    server_id: str
+    accounts: list[McpServerAccount] = Field(default_factory=list)
+
+
+class McpServersResponse(_Model):
+    servers: list[McpServer] = Field(default_factory=list)
+
+
+class McpServerResponse(_Model):
+    server: McpServer
+
+
+class McpToolsResponse(_Model):
+    tools: list[McpTool] = Field(default_factory=list)
+    server_id: str | None = None
+    status: str | None = None
+    gumloop_auth_url: str | None = None
+
+
+class McpExecuteResponse(_Model):
+    results: list[McpToolCallResult] = Field(default_factory=list)
+
+    def model_dump_decoded_content(self) -> dict[str, Any]:
+        payload = self.model_dump(mode="json")
+        results = payload.get("results")
+        if not isinstance(results, list):
+            return payload
+        for index, result in enumerate(self.results):
+            if index < len(results) and isinstance(results[index], dict):
+                results[index]["content"] = result.decoded_content
+        return payload
+
+
+# ---------------------------------------------------------------------------
+# MCP resource types
+# ---------------------------------------------------------------------------
+
+
+class McpResource(_Model):
+    uri: str
+    name: str | None = None
+    title: str | None = None
+    description: str | None = None
+    mime_type: str | None = None
+    size: int | None = None
+    server_id: str | None = None
+
+
+class McpResourcesResponse(_Model):
+    resources: list[McpResource] = Field(default_factory=list)
+    server_id: str | None = None
+    status: str | None = None
+    gumloop_auth_url: str | None = None
+    next_cursor: str | None = None
+
+
+class McpResourceContent(_Model):
+    uri: str | None = None
+    mime_type: str | None = None
+    # A content item is either text or a base64 blob.
+    text: str | None = None
+    blob: str | None = None
+
+
+class McpResourceReadResponse(_Model):
+    server_id: str | None = None
+    uri: str | None = None
+    contents: list[McpResourceContent] = Field(default_factory=list)
+
+    @property
+    def text(self) -> str | None:
+        """All text contents joined with newlines, or None if the resource is
+        binary/empty. Most resources are a single text blob, so this is the value
+        callers usually want — parallels ``McpToolCallResult.decoded_content``."""
+        parts = [content.text for content in self.contents if content.text]
+        return "\n".join(parts) if parts else None
+
+
+# ---------------------------------------------------------------------------
+# MCP prompt types
+# ---------------------------------------------------------------------------
+
+
+class McpPromptArgument(_Model):
+    name: str
+    description: str | None = None
+    required: bool | None = None
+
+
+class McpPrompt(_Model):
+    name: str
+    description: str | None = None
+    arguments: list[McpPromptArgument] = Field(default_factory=list)
+    server_id: str | None = None
+
+
+class McpPromptsResponse(_Model):
+    prompts: list[McpPrompt] = Field(default_factory=list)
+    server_id: str | None = None
+    status: str | None = None
+    gumloop_auth_url: str | None = None
+
+
+class McpPromptMessage(_Model):
+    role: str | None = None
+    # content is {type, text, resource?, ...} — kept open across MCP content variants.
+    content: dict[str, Any] = Field(default_factory=dict)
+
+
+class McpPromptResponse(_Model):
+    server_id: str | None = None
+    name: str | None = None
+    description: str | None = None
+    messages: list[McpPromptMessage] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
