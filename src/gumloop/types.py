@@ -20,7 +20,7 @@ class _Model(BaseModel):
     pass through fields the backend adds in future versions without an SDK
     bump — both on parsed responses and on user-supplied request kwargs."""
 
-    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    model_config = ConfigDict(extra="allow", populate_by_name=True, defer_build=True)
 
     @classmethod
     def build(cls, request: Any = None, /, **kwargs: Any) -> dict[str, Any]:

@@ -124,13 +124,21 @@ class MCP:
             ref=ref,
             account=account,
         )
-        return self.execute_many([call], team_id=team_id)
+        return self._execute_calls([call], team_id=team_id)
 
     def execute_many(
         self,
         calls: Sequence[McpToolCallRequest | dict[str, Any]],
         *,
         team_id: str | None = None,
+    ) -> McpExecuteResponse:
+        return self._execute_calls(calls, team_id=team_id)
+
+    def _execute_calls(
+        self,
+        calls: Sequence[McpToolCallRequest | dict[str, Any]],
+        *,
+        team_id: str | None,
     ) -> McpExecuteResponse:
         normalized = _call_body(calls, team_id)["calls"]
         has_account = any(call.get("account") is not None for call in normalized)
@@ -248,13 +256,21 @@ class AsyncMCP:
             ref=ref,
             account=account,
         )
-        return await self.execute_many([call], team_id=team_id)
+        return await self._execute_calls([call], team_id=team_id)
 
     async def execute_many(
         self,
         calls: Sequence[McpToolCallRequest | dict[str, Any]],
         *,
         team_id: str | None = None,
+    ) -> McpExecuteResponse:
+        return await self._execute_calls(calls, team_id=team_id)
+
+    async def _execute_calls(
+        self,
+        calls: Sequence[McpToolCallRequest | dict[str, Any]],
+        *,
+        team_id: str | None,
     ) -> McpExecuteResponse:
         normalized = _call_body(calls, team_id)["calls"]
         has_account = any(call.get("account") is not None for call in normalized)
