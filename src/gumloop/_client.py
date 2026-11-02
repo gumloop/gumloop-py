@@ -3,46 +3,51 @@ from __future__ import annotations
 import os
 import time
 import warnings
+from functools import cached_property
+from typing import TYPE_CHECKING
 from typing import Any
 
 import httpx
 
+from gumloop import resources
 from gumloop._auth import EnvToken
 from gumloop._http import AsyncHttpClient
 from gumloop._http import HttpClient
 from gumloop._http import user_agent
 from gumloop.oauth import OAuth
-from gumloop.resources import MCP
-from gumloop.resources import Agents
-from gumloop.resources import Artifacts
-from gumloop.resources import AsyncAgents
-from gumloop.resources import AsyncArtifacts
-from gumloop.resources import AsyncBrain
-from gumloop.resources import AsyncBrowserProfiles
-from gumloop.resources import AsyncChat
-from gumloop.resources import AsyncDecisions
-from gumloop.resources import AsyncEvaluations
-from gumloop.resources import AsyncMCP
-from gumloop.resources import AsyncModels
-from gumloop.resources import AsyncOrganizations
-from gumloop.resources import AsyncSessions
-from gumloop.resources import AsyncSkills
-from gumloop.resources import AsyncTeams
-from gumloop.resources import AsyncVoice
-from gumloop.resources import AsyncWiki
-from gumloop.resources import Brain
-from gumloop.resources import BrowserProfiles
-from gumloop.resources import Chat
-from gumloop.resources import Decisions
-from gumloop.resources import Evaluations
-from gumloop.resources import Models
-from gumloop.resources import Organizations
-from gumloop.resources import Sessions
-from gumloop.resources import Skills
-from gumloop.resources import Sync
-from gumloop.resources import Teams
-from gumloop.resources import Voice
-from gumloop.resources import Wiki
+
+if TYPE_CHECKING:
+    from gumloop.resources import MCP
+    from gumloop.resources import Agents
+    from gumloop.resources import Artifacts
+    from gumloop.resources import AsyncAgents
+    from gumloop.resources import AsyncArtifacts
+    from gumloop.resources import AsyncBrain
+    from gumloop.resources import AsyncBrowserProfiles
+    from gumloop.resources import AsyncChat
+    from gumloop.resources import AsyncDecisions
+    from gumloop.resources import AsyncEvaluations
+    from gumloop.resources import AsyncMCP
+    from gumloop.resources import AsyncModels
+    from gumloop.resources import AsyncOrganizations
+    from gumloop.resources import AsyncSessions
+    from gumloop.resources import AsyncSkills
+    from gumloop.resources import AsyncTeams
+    from gumloop.resources import AsyncVoice
+    from gumloop.resources import AsyncWiki
+    from gumloop.resources import Brain
+    from gumloop.resources import BrowserProfiles
+    from gumloop.resources import Chat
+    from gumloop.resources import Decisions
+    from gumloop.resources import Evaluations
+    from gumloop.resources import Models
+    from gumloop.resources import Organizations
+    from gumloop.resources import Sessions
+    from gumloop.resources import Skills
+    from gumloop.resources import Sync
+    from gumloop.resources import Teams
+    from gumloop.resources import Voice
+    from gumloop.resources import Wiki
 
 DEFAULT_BASE_URL = "https://api.gumloop.com/api/v1"
 DEFAULT_TIMEOUT = 90.0
@@ -100,27 +105,75 @@ class Gumloop:
             timeout=self.timeout,
             stream_timeout=self.stream_timeout,
         )
-
-        self.agents = Agents(self._http)
-        self.sessions = Sessions(self._http)
-        self.voice = Voice(self._http)
-        self.chat = Chat(self._http)
-        self.decisions = Decisions(self._http)
-        self.models = Models(self._http)
-        self.mcp = MCP(self._http)
-        self.teams = Teams(self._http)
-        self.wiki = Wiki(self._http)
-        self.organizations = Organizations(self._http)
-        self.evaluations = Evaluations(self._http)
-        self.skills = Skills(self._http)
-        self.sync = Sync(self._http)
-        self.artifacts = Artifacts(self._http)
-        self.brain = Brain(self._http)
-        self.browser_profiles = BrowserProfiles(self._http)
         self.oauth = OAuth(base_url=self.base_url, timeout=self.timeout)
 
+    @cached_property
+    def agents(self) -> Agents:
+        return resources.Agents(self._http)
+
+    @cached_property
+    def sessions(self) -> Sessions:
+        return resources.Sessions(self._http)
+
+    @cached_property
+    def voice(self) -> Voice:
+        return resources.Voice(self._http)
+
+    @cached_property
+    def chat(self) -> Chat:
+        return resources.Chat(self._http)
+
+    @cached_property
+    def decisions(self) -> Decisions:
+        return resources.Decisions(self._http)
+
+    @cached_property
+    def models(self) -> Models:
+        return resources.Models(self._http)
+
+    @cached_property
+    def mcp(self) -> MCP:
+        return resources.MCP(self._http)
+
+    @cached_property
+    def teams(self) -> Teams:
+        return resources.Teams(self._http)
+
+    @cached_property
+    def wiki(self) -> Wiki:
+        return resources.Wiki(self._http)
+
+    @cached_property
+    def organizations(self) -> Organizations:
+        return resources.Organizations(self._http)
+
+    @cached_property
+    def evaluations(self) -> Evaluations:
+        return resources.Evaluations(self._http)
+
+    @cached_property
+    def skills(self) -> Skills:
+        return resources.Skills(self._http)
+
+    @cached_property
+    def sync(self) -> Sync:
+        return resources.Sync(self._http)
+
+    @cached_property
+    def artifacts(self) -> Artifacts:
+        return resources.Artifacts(self._http)
+
+    @cached_property
+    def brain(self) -> Brain:
+        return resources.Brain(self._http)
+
+    @cached_property
+    def browser_profiles(self) -> BrowserProfiles:
+        return resources.BrowserProfiles(self._http)
+
     def close(self) -> None:
-        self.mcp.close()
+        if "mcp" in self.__dict__:
+            self.mcp.close()
         self._http.close()
 
     def __enter__(self) -> Gumloop:
@@ -167,23 +220,67 @@ class AsyncGumloop:
             timeout=self.timeout,
             stream_timeout=self.stream_timeout,
         )
-
-        self.agents = AsyncAgents(self._http)
-        self.sessions = AsyncSessions(self._http)
-        self.voice = AsyncVoice(self._http)
-        self.chat = AsyncChat(self._http)
-        self.decisions = AsyncDecisions(self._http)
-        self.models = AsyncModels(self._http)
-        self.mcp = AsyncMCP(self._http)
-        self.teams = AsyncTeams(self._http)
-        self.wiki = AsyncWiki(self._http)
-        self.organizations = AsyncOrganizations(self._http)
-        self.evaluations = AsyncEvaluations(self._http)
-        self.skills = AsyncSkills(self._http)
-        self.artifacts = AsyncArtifacts(self._http)
-        self.brain = AsyncBrain(self._http)
-        self.browser_profiles = AsyncBrowserProfiles(self._http)
         self.oauth = OAuth(base_url=self.base_url, timeout=self.timeout)
+
+    @cached_property
+    def agents(self) -> AsyncAgents:
+        return resources.AsyncAgents(self._http)
+
+    @cached_property
+    def sessions(self) -> AsyncSessions:
+        return resources.AsyncSessions(self._http)
+
+    @cached_property
+    def voice(self) -> AsyncVoice:
+        return resources.AsyncVoice(self._http)
+
+    @cached_property
+    def chat(self) -> AsyncChat:
+        return resources.AsyncChat(self._http)
+
+    @cached_property
+    def decisions(self) -> AsyncDecisions:
+        return resources.AsyncDecisions(self._http)
+
+    @cached_property
+    def models(self) -> AsyncModels:
+        return resources.AsyncModels(self._http)
+
+    @cached_property
+    def mcp(self) -> AsyncMCP:
+        return resources.AsyncMCP(self._http)
+
+    @cached_property
+    def teams(self) -> AsyncTeams:
+        return resources.AsyncTeams(self._http)
+
+    @cached_property
+    def wiki(self) -> AsyncWiki:
+        return resources.AsyncWiki(self._http)
+
+    @cached_property
+    def organizations(self) -> AsyncOrganizations:
+        return resources.AsyncOrganizations(self._http)
+
+    @cached_property
+    def evaluations(self) -> AsyncEvaluations:
+        return resources.AsyncEvaluations(self._http)
+
+    @cached_property
+    def skills(self) -> AsyncSkills:
+        return resources.AsyncSkills(self._http)
+
+    @cached_property
+    def artifacts(self) -> AsyncArtifacts:
+        return resources.AsyncArtifacts(self._http)
+
+    @cached_property
+    def brain(self) -> AsyncBrain:
+        return resources.AsyncBrain(self._http)
+
+    @cached_property
+    def browser_profiles(self) -> AsyncBrowserProfiles:
+        return resources.AsyncBrowserProfiles(self._http)
 
     async def __aenter__(self) -> AsyncGumloop:
         return self
@@ -192,7 +289,8 @@ class AsyncGumloop:
         await self.aclose()
 
     async def aclose(self) -> None:
-        await self.mcp.aclose()
+        if "mcp" in self.__dict__:
+            await self.mcp.aclose()
         await self._http.aclose()
 
 

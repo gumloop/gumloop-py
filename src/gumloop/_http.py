@@ -17,9 +17,9 @@ from pydantic import BaseModel
 from pydantic import ValidationError
 
 from gumloop._auth import auth_headers
+from gumloop._types_stream import StreamEvent
 from gumloop._version import __version__
 from gumloop.errors import to_api_error
-from gumloop.types import StreamEvent
 
 logger = logging.getLogger(__name__)
 

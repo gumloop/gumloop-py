@@ -22,10 +22,10 @@ from concurrent.futures import TimeoutError as FutureTimeoutError
 from pathlib import Path
 from typing import Any
 
+from gumloop._types_mcp import McpExecuteResponse
+from gumloop._types_mcp import McpToolCallRequest
+from gumloop._types_mcp import McpToolCallResult
 from gumloop.errors import GumloopError
-from gumloop.types import McpExecuteResponse
-from gumloop.types import McpToolCallRequest
-from gumloop.types import McpToolCallResult
 
 logger = logging.getLogger(__name__)
 
