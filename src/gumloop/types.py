@@ -85,6 +85,19 @@ class AgentCreationSetting(_Model):
     creation_enabled: bool | None = None
 
 
+TOOL_DISCOVERY_DEPRECATION = (
+    "tool_discovery is deprecated and ignored: every agent reaches its connectors through "
+    "search and tool_call. The field is removed in the next release."
+)
+
+
+class FieldDeprecation(_Model):
+    """A retired field the request sent; the write succeeded with that field ignored."""
+
+    field: str
+    message: str
+
+
 class AgentToolDiscoverySetting(_Model):
     mode: Literal["auto", "enabled"] | None = None
 
@@ -172,7 +185,7 @@ class AgentMetadata(_Model):
     triggers: AgentCreationSetting | None = None
     app_rules: AgentCreationSetting | None = None
     app_discovery: AgentEnabledSetting | None = None
-    tool_discovery: AgentToolDiscoverySetting | None = None
+    tool_discovery: AgentToolDiscoverySetting | None = Field(default=None, deprecated=TOOL_DISCOVERY_DEPRECATION)
     tool_approval: AgentToolApprovalSetting | None = None
     self_modification: AgentEnabledSetting | None = None
     self_improvement: AgentSelfImprovementSetting | None = None
@@ -212,7 +225,7 @@ class AgentAbilities(_Model):
     image_generation: ImageGenerationAbility | None = None
     search_past_conversations: AbilityToggle | None = None
     ask_question: AbilityToggle | None = None
-    tool_discovery: ToolDiscoveryAbility | None = None
+    tool_discovery: ToolDiscoveryAbility | None = Field(default=None, deprecated=TOOL_DISCOVERY_DEPRECATION)
     manage_evaluations: AbilityToggle | None = None
     browser: BrowserAbility | None = None
 
@@ -225,6 +238,7 @@ class AgentAbilitiesResponse(_Model):
     agent_id: str
     abilities: AgentAbilities
     version: int | None = None
+    deprecations: list[FieldDeprecation] = Field(default_factory=list)
 
 
 class AgentIncognito(_Model):
@@ -556,6 +570,7 @@ class AgentMcpServersResponse(_Model):
 
 class AgentResponse(_Model):
     agent: Agent
+    deprecations: list[FieldDeprecation] = Field(default_factory=list)
 
 
 class AgentListResponse(_Model):
