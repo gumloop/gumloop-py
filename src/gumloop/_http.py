@@ -123,6 +123,7 @@ class HttpClient:
         team_id: str | None = None,
         timeout: float,
         stream_timeout: float | None,
+        default_headers: Mapping[str, str] | None = None,
     ) -> None:
         self.access_token = access_token
         self.user_id = user_id
@@ -133,7 +134,7 @@ class HttpClient:
             base_url=base_url.rstrip("/"),
             timeout=timeout,
             event_hooks=_TRACE_EVENT_HOOKS,
-            headers={"User-Agent": user_agent()},
+            headers={"User-Agent": user_agent(), **(default_headers or {})},
         )
 
     def _scoped_params(self, params: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -334,6 +335,7 @@ class AsyncHttpClient:
         team_id: str | None = None,
         timeout: float,
         stream_timeout: float | None,
+        default_headers: Mapping[str, str] | None = None,
     ) -> None:
         self.access_token = access_token
         self.user_id = user_id
@@ -344,7 +346,7 @@ class AsyncHttpClient:
             base_url=base_url.rstrip("/"),
             timeout=timeout,
             event_hooks=_ASYNC_TRACE_EVENT_HOOKS,
-            headers={"User-Agent": user_agent()},
+            headers={"User-Agent": user_agent(), **(default_headers or {})},
         )
 
     def _scoped_params(self, params: dict[str, Any] | None) -> dict[str, Any] | None:
