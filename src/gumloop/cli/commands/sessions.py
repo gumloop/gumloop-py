@@ -149,8 +149,7 @@ def create_session(
     if session.messages:
         console.print(f"  messages: {len(session.messages)}")
         for m in session.messages[-5:]:
-            content = m.content if isinstance(m.content, str) else str(m.content or "")
-            console.print(f"  [{m.role or ''}] {content[:200]}", markup=False, highlight=False)
+            console.print(f"  [{m.role or ''}] {m.text[:200]}", markup=False, highlight=False)
 
 
 @sessions_app.command(
@@ -283,8 +282,7 @@ def get_session(
     if session.messages:
         console.print(f"  messages: {len(session.messages)}")
         for m in session.messages[-5:]:
-            content = m.content if isinstance(m.content, str) else str(m.content or "")
-            console.print(f"  [{m.role or ''}] {content[:200]}", markup=False, highlight=False)
+            console.print(f"  [{m.role or ''}] {m.text[:200]}", markup=False, highlight=False)
     parts = [part for m in session.messages for part in (m.parts or []) if part.get("child_session_id")]
     launches = [part for part in parts if part.get("type") == "subagent_invocation"]
     delivered = {
@@ -397,8 +395,7 @@ def send_session(
     if session.messages:
         console.print(f"  messages: {len(session.messages)}")
         for m in session.messages[-5:]:
-            content = m.content if isinstance(m.content, str) else str(m.content or "")
-            console.print(f"  [{m.role or ''}] {content[:200]}", markup=False, highlight=False)
+            console.print(f"  [{m.role or ''}] {m.text[:200]}", markup=False, highlight=False)
 
 
 @sessions_app.command(
