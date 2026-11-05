@@ -285,19 +285,25 @@ def get_session(
         for m in session.messages[-5:]:
             content = m.content if isinstance(m.content, str) else str(m.content or "")
             console.print(f"  [{m.role or ''}] {content[:200]}", markup=False, highlight=False)
-    subagents = [
-        part
-        for m in session.messages
-        for part in (m.parts or [])
-        if part.get("type") == "subagent_invocation" and part.get("child_session_id")
-    ]
-    if subagents:
-        console.print(f"  subagents: {len(subagents)} (gumloop sessions get <id> to open one)")
-        for part in subagents:
+    parts = [part for m in session.messages for part in (m.parts or []) if part.get("child_session_id")]
+    launches = [part for part in parts if part.get("type") == "subagent_invocation"]
+    # A background launch completes at dispatch; the child's outcome arrives later as a subagent_result part.
+    delivered = {
+        part["child_session_id"]: ((part.get("result") or {}).get("result") or {}).get("status")
+        for part in parts
+        if part.get("toolName") == "subagent_result"
+    }
+    if launches:
+        console.print(f"  subagents: {len(launches)} (gumloop sessions get <id> for its current state)")
+        for part in launches:
             result = part.get("result") or {}
-            name = (result.get("args") or {}).get("name") or ""
-            status = (result.get("result") or {}).get("status") or part.get("toolCallState") or ""
-            console.print(f"  - {part['child_session_id']}\t{status}\t{name}", markup=False, highlight=False)
+            args = result.get("args") or {}
+            child_id = part["child_session_id"]
+            if args.get("is_background"):
+                status = delivered.get(child_id) or "background"
+            else:
+                status = (result.get("result") or {}).get("status") or part.get("toolCallState") or ""
+            console.print(f"  - {child_id}\t{status}\t{args.get('name') or ''}", markup=False, highlight=False)
 
 
 @sessions_app.command(
