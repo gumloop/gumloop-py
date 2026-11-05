@@ -138,11 +138,8 @@ class AgentTeamsSetting(_Model):
     show_detailed_steps: bool | None = None
 
 
-ReplyMode = Literal["tool", "relay"]
-
-
 class AgentMessagingSetting(_Model):
-    harness: ReplyMode | None = None
+    legacy_harness: bool | None = None
 
 
 class AgentCompactionSetting(_Model):
@@ -553,7 +550,7 @@ class Agent(_Model):
     last_updated_at: str | None = None
     active_trigger_count: int | None = None
     creator: CreatorPayload | None = None
-    reply_mode: ReplyMode | None = None
+    legacy_harness: bool | None = None
 
 
 class AgentSkillsResponse(_Model):
@@ -933,6 +930,14 @@ class MessagePayload(_Model):
             return self.content
         return "\n\n".join(part["text"] for part in self.parts or [] if part.get("type") == "text" and part.get("text"))
 
+    @property
+    def files(self) -> list[dict[str, Any]]:
+        return [
+            part["file"]
+            for part in self.parts or []
+            if part.get("type") == "file" and isinstance(part.get("file"), dict)
+        ]
+
 
 class SessionUsage(_Model):
     credit_cost: float | None = None
@@ -983,6 +988,8 @@ class Session(_Model):
     creator: CreatorPayload | None = None
     usage: SessionUsage | None = None
     provenance: SessionProvenance | None = None
+    response: str | None = None
+    response_files: list[dict[str, Any]] = Field(default_factory=list)
     incognito: bool = False
     pending_approvals: list[PendingApproval] | None = None
 

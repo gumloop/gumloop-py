@@ -4,9 +4,7 @@ import json
 from pathlib import Path
 from typing import Annotated
 from typing import Any
-from typing import get_args
 
-import click
 import typer
 from pydantic import ValidationError
 from rich.markup import escape as escape_markup
@@ -18,22 +16,21 @@ from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
 from gumloop.cli.errors import exit_with_error
-from gumloop.types import ReplyMode
 
 agents_app = typer.Typer(help="Manage Gumloop agents.", no_args_is_help=True, rich_markup_mode="rich")
 agents_app.add_typer(configuration_app)
 
-MESSAGING_MODE_HELP = (
-    "Messaging mode: 'relay' is Classic (one reply with the final response when the turn finishes), "
-    "'tool' is Conversational (messages while it works, more than one per turn)."
+LEGACY_HARNESS_HELP = (
+    "Keep the agent on the older harness. "
+    "The new harness uses fewer credits, handles longer tasks better, and messages you as it works."
 )
 
 
-def _with_messaging_mode(request: dict[str, Any], messaging_mode: str | None) -> dict[str, Any]:
-    if messaging_mode is None:
+def _with_legacy_harness(request: dict[str, Any], legacy_harness: bool | None) -> dict[str, Any]:
+    if legacy_harness is None:
         return request
     metadata = dict(request.get("metadata") or {})
-    metadata["messaging"] = {**(metadata.get("messaging") or {}), "harness": messaging_mode}
+    metadata["messaging"] = {**(metadata.get("messaging") or {}), "legacy_harness": legacy_harness}
     return {**request, "metadata": metadata}
 
 
@@ -131,7 +128,16 @@ def get_agent(
     agent = response.agent
     title = agent.name or agent.id
     console.print(f"[bold]{escape_markup(title)}[/bold]")
-    for field in ("id", "model_name", "reply_mode", "team_id", "is_active", "folder_id", "description", "created_at"):
+    for field in (
+        "id",
+        "model_name",
+        "legacy_harness",
+        "team_id",
+        "is_active",
+        "folder_id",
+        "description",
+        "created_at",
+    ):
         value = getattr(agent, field, None)
         if value not in (None, ""):
             console.print(f"  {field}: {value}", markup=False, highlight=False)
@@ -298,9 +304,9 @@ def create_agent(
             help="Every session on the agent runs incognito (nothing is saved). Needs a role that allows it.",
         ),
     ] = False,
-    messaging_mode: Annotated[
-        str | None,
-        typer.Option("--messaging-mode", help=MESSAGING_MODE_HELP, click_type=click.Choice(list(get_args(ReplyMode)))),
+    legacy_harness: Annotated[
+        bool | None,
+        typer.Option("--legacy-harness/--no-legacy-harness", help=LEGACY_HARNESS_HELP),
     ] = None,
     json_output: Annotated[
         bool,
@@ -311,8 +317,8 @@ def create_agent(
     cli: CliContext = ctx.obj
 
     try:
-        request = _with_messaging_mode(
-            resolve_json_args(inline=args_json, file_path=args_file, stdin_marker=args), messaging_mode
+        request = _with_legacy_harness(
+            resolve_json_args(inline=args_json, file_path=args_file, stdin_marker=args), legacy_harness
         )
         # Resolve --system-prompt vs --system-prompt-file (at most one).
         if system_prompt is not None and system_prompt_file is not None:
@@ -439,9 +445,9 @@ def update_agent(
             help="Run every session on the agent incognito (nothing is saved), or stop. Needs a role that allows it.",
         ),
     ] = None,
-    messaging_mode: Annotated[
-        str | None,
-        typer.Option("--messaging-mode", help=MESSAGING_MODE_HELP, click_type=click.Choice(list(get_args(ReplyMode)))),
+    legacy_harness: Annotated[
+        bool | None,
+        typer.Option("--legacy-harness/--no-legacy-harness", help=LEGACY_HARNESS_HELP),
     ] = None,
     json_output: Annotated[
         bool,
@@ -452,8 +458,8 @@ def update_agent(
     cli: CliContext = ctx.obj
 
     try:
-        request = _with_messaging_mode(
-            resolve_json_args(inline=args_json, file_path=args_file, stdin_marker=args), messaging_mode
+        request = _with_legacy_harness(
+            resolve_json_args(inline=args_json, file_path=args_file, stdin_marker=args), legacy_harness
         )
         if incognito is not None and "version" in request:
             raise GumloopError(
