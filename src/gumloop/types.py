@@ -948,6 +948,7 @@ class Session(_Model):
     agent_id: str
     name: str | None = None
     type: str | None = None
+    parent_session_id: str | None = None
     state: str | None = None
     messages: list[MessagePayload] = Field(default_factory=list)
     created_at: str | None = None
