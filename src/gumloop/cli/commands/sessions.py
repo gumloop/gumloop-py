@@ -287,7 +287,6 @@ def get_session(
             console.print(f"  [{m.role or ''}] {content[:200]}", markup=False, highlight=False)
     parts = [part for m in session.messages for part in (m.parts or []) if part.get("child_session_id")]
     launches = [part for part in parts if part.get("type") == "subagent_invocation"]
-    # A background launch completes at dispatch; the child's outcome arrives later as a subagent_result part.
     delivered = {
         part["child_session_id"]: ((part.get("result") or {}).get("result") or {}).get("status")
         for part in parts
