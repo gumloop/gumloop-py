@@ -192,7 +192,9 @@ def test_agents_update_only_sends_specified_fields(cli_runner: CliRunner) -> Non
 
 
 @respx.mock
-def test_agents_update_reply_mode_joins_the_metadata_the_request_json_already_carries(cli_runner: CliRunner) -> None:
+def test_agents_update_messaging_mode_joins_the_metadata_the_request_json_already_carries(
+    cli_runner: CliRunner,
+) -> None:
     route = respx.patch(f"{API_BASE}/agents/agent_abc").mock(
         return_value=httpx.Response(200, json={"agent": {"id": "agent_abc", "name": "Bot"}})
     )
@@ -206,7 +208,7 @@ def test_agents_update_reply_mode_joins_the_metadata_the_request_json_already_ca
             "agent_abc",
             "--args-json",
             '{"metadata": {"slack": {"show_detailed_steps": false}, "messaging": {"harness": "relay"}}}',
-            "--reply-mode",
+            "--messaging-mode",
             "tool",
             "--json",
         ],
