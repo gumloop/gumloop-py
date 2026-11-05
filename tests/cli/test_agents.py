@@ -192,6 +192,33 @@ def test_agents_update_only_sends_specified_fields(cli_runner: CliRunner) -> Non
 
 
 @respx.mock
+def test_agents_update_reply_mode_joins_the_metadata_the_request_json_already_carries(cli_runner: CliRunner) -> None:
+    route = respx.patch(f"{API_BASE}/agents/agent_abc").mock(
+        return_value=httpx.Response(200, json={"agent": {"id": "agent_abc", "name": "Bot"}})
+    )
+    save_credentials(Credentials(api_key="key"))
+
+    result = cli_runner.invoke(
+        app,
+        [
+            "agents",
+            "update",
+            "agent_abc",
+            "--args-json",
+            '{"metadata": {"slack": {"show_detailed_steps": false}, "messaging": {"harness": "relay"}}}',
+            "--reply-mode",
+            "tool",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(route.calls[0].request.content) == {
+        "metadata": {"slack": {"show_detailed_steps": False}, "messaging": {"harness": "tool"}}
+    }
+
+
+@respx.mock
 def test_agents_create_sends_incognito_only_when_asked(cli_runner: CliRunner) -> None:
     route = respx.post(f"{API_BASE}/agents").mock(
         return_value=httpx.Response(

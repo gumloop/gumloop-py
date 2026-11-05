@@ -31,11 +31,11 @@ gumloop agents versions <agent_id> [--limit n] [--cursor c] [--json]
 gumloop agents export <agent_id> <version_id> [-o file.json]
 gumloop agents create --name NAME --model MODEL [--description d]
     [--system-prompt s | --system-prompt-file f]
-    [--tools-json '[...]' | --tools-file f] [--incognito] [--json]
+    [--tools-json '[...]' | --tools-file f] [--incognito] [--reply-mode tool|relay] [--json]
 gumloop agents update <agent_id> [same flags as create] [--is-active | --inactive] [--incognito | --no-incognito]
 ```
 
-`--model` accepts `auto` or a slug like `anthropic/claude-sonnet-4`. To learn the tool-config shape, run `gumloop agents get <id> --json` on an existing agent and copy its `tools` array. `--inactive` retires the agent irreversibly. `--incognito` makes every session on the agent incognito (nothing is saved); it needs the Incognito agents role permission (separate from Incognito tasks), and on `create` a refusal leaves no agent behind.
+`--model` accepts `auto` or a slug like `anthropic/claude-sonnet-4`. To learn the tool-config shape, run `gumloop agents get <id> --json` on an existing agent and copy its `tools` array. `--inactive` retires the agent irreversibly. `--incognito` makes every session on the agent incognito (nothing is saved); it needs the Incognito agents role permission (separate from Incognito tasks), and on `create` a refusal leaves no agent behind. `--reply-mode` sets `metadata.messaging.harness`: `tool` answers through `send_message` (several messages per turn), `relay` delivers the final text; unset runs the organization's default, and `agents get` shows the effective `reply_mode`. Sessions run the agent's mode either way: the reply is always the assistant message's text parts.
 
 ## Models
 

@@ -132,6 +132,19 @@ class AgentEmailSetting(_Model):
     attribution_stamp_enabled: bool | None = None
 
 
+class AgentTeamsSetting(_Model):
+    thread_response_trigger: str | None = None
+    attribution_stamp_enabled: bool | None = None
+    show_detailed_steps: bool | None = None
+
+
+ReplyMode = Literal["tool", "relay"]
+
+
+class AgentMessagingSetting(_Model):
+    harness: ReplyMode | None = None
+
+
 class AgentCompactionSetting(_Model):
     override_auto_compaction: bool | None = None
     summary_model: str | None = None
@@ -194,6 +207,8 @@ class AgentMetadata(_Model):
     voice: AgentVoiceSetting | None = None
     slack: AgentSlackSetting | None = None
     email: AgentEmailSetting | None = None
+    teams: AgentTeamsSetting | None = None
+    messaging: AgentMessagingSetting | None = None
 
 
 class AbilityToggle(_Model):
@@ -538,6 +553,7 @@ class Agent(_Model):
     last_updated_at: str | None = None
     active_trigger_count: int | None = None
     creator: CreatorPayload | None = None
+    reply_mode: ReplyMode | None = None
 
 
 class AgentSkillsResponse(_Model):
@@ -910,6 +926,12 @@ class MessagePayload(_Model):
     created_at: str | None = None
     creator_id: str | None = None
     parts: list[dict[str, Any]] | None = None
+
+    @property
+    def text(self) -> str:
+        if isinstance(self.content, str) and self.content:
+            return self.content
+        return "\n\n".join(part["text"] for part in self.parts or [] if part.get("type") == "text" and part.get("text"))
 
 
 class SessionUsage(_Model):

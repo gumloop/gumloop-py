@@ -4,7 +4,9 @@ import json
 from pathlib import Path
 from typing import Annotated
 from typing import Any
+from typing import get_args
 
+import click
 import typer
 from pydantic import ValidationError
 from rich.markup import escape as escape_markup
@@ -16,9 +18,23 @@ from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
 from gumloop.cli.errors import exit_with_error
+from gumloop.types import ReplyMode
 
 agents_app = typer.Typer(help="Manage Gumloop agents.", no_args_is_help=True, rich_markup_mode="rich")
 agents_app.add_typer(configuration_app)
+
+REPLY_MODE_HELP = (
+    "How the agent answers: 'tool' sends through send_message (several messages per turn), "
+    "'relay' delivers its final text."
+)
+
+
+def _with_reply_mode(request: dict[str, Any], reply_mode: str | None) -> dict[str, Any]:
+    if reply_mode is None:
+        return request
+    metadata = dict(request.get("metadata") or {})
+    metadata["messaging"] = {**(metadata.get("messaging") or {}), "harness": reply_mode}
+    return {**request, "metadata": metadata}
 
 
 @agents_app.command(
@@ -115,7 +131,7 @@ def get_agent(
     agent = response.agent
     title = agent.name or agent.id
     console.print(f"[bold]{escape_markup(title)}[/bold]")
-    for field in ("id", "model_name", "team_id", "is_active", "folder_id", "description", "created_at"):
+    for field in ("id", "model_name", "reply_mode", "team_id", "is_active", "folder_id", "description", "created_at"):
         value = getattr(agent, field, None)
         if value not in (None, ""):
             console.print(f"  {field}: {value}", markup=False, highlight=False)
@@ -282,6 +298,10 @@ def create_agent(
             help="Every session on the agent runs incognito (nothing is saved). Needs a role that allows it.",
         ),
     ] = False,
+    reply_mode: Annotated[
+        str | None,
+        typer.Option("--reply-mode", help=REPLY_MODE_HELP, click_type=click.Choice(list(get_args(ReplyMode)))),
+    ] = None,
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Print the raw SDK response as JSON."),
@@ -291,7 +311,9 @@ def create_agent(
     cli: CliContext = ctx.obj
 
     try:
-        request = resolve_json_args(inline=args_json, file_path=args_file, stdin_marker=args)
+        request = _with_reply_mode(
+            resolve_json_args(inline=args_json, file_path=args_file, stdin_marker=args), reply_mode
+        )
         # Resolve --system-prompt vs --system-prompt-file (at most one).
         if system_prompt is not None and system_prompt_file is not None:
             raise GumloopError("Pass at most one of --system-prompt or --system-prompt-file.")
@@ -417,6 +439,10 @@ def update_agent(
             help="Run every session on the agent incognito (nothing is saved), or stop. Needs a role that allows it.",
         ),
     ] = None,
+    reply_mode: Annotated[
+        str | None,
+        typer.Option("--reply-mode", help=REPLY_MODE_HELP, click_type=click.Choice(list(get_args(ReplyMode)))),
+    ] = None,
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Print the raw SDK response as JSON."),
@@ -426,7 +452,9 @@ def update_agent(
     cli: CliContext = ctx.obj
 
     try:
-        request = resolve_json_args(inline=args_json, file_path=args_file, stdin_marker=args)
+        request = _with_reply_mode(
+            resolve_json_args(inline=args_json, file_path=args_file, stdin_marker=args), reply_mode
+        )
         if incognito is not None and "version" in request:
             raise GumloopError(
                 "Change incognito in a separate command, then read the current agent version before a versioned update."
