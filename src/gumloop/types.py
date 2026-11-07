@@ -138,8 +138,13 @@ class AgentTeamsSetting(_Model):
     show_detailed_steps: bool | None = None
 
 
+class ReplyStyle(str, Enum):
+    FINAL = "final"
+    CONVERSATIONAL = "conversational"
+
+
 class AgentMessagingSetting(_Model):
-    legacy_harness: bool | None = None
+    reply_style: ReplyStyle | None = None
 
 
 class AgentCompactionSetting(_Model):
@@ -550,7 +555,7 @@ class Agent(_Model):
     last_updated_at: str | None = None
     active_trigger_count: int | None = None
     creator: CreatorPayload | None = None
-    legacy_harness: bool | None = None
+    reply_style: ReplyStyle | None = None
 
 
 class AgentSkillsResponse(_Model):

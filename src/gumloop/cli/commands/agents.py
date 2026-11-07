@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from enum import Enum
 from pathlib import Path
 from typing import Annotated
 from typing import Any
@@ -16,21 +17,22 @@ from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
 from gumloop.cli.errors import exit_with_error
+from gumloop.types import ReplyStyle
 
 agents_app = typer.Typer(help="Manage Gumloop agents.", no_args_is_help=True, rich_markup_mode="rich")
 agents_app.add_typer(configuration_app)
 
-LEGACY_HARNESS_HELP = (
-    "Keep the agent on the older harness. "
-    "The new harness uses fewer credits, handles longer tasks better, and messages you as it works."
+REPLY_STYLE_HELP = (
+    "How the agent replies in chat, email and API sessions: 'final' sends one reply when the work is done; "
+    "'conversational' messages as it works. Slack, Teams and iMessage always use conversational."
 )
 
 
-def _with_legacy_harness(request: dict[str, Any], legacy_harness: bool | None) -> dict[str, Any]:
-    if legacy_harness is None:
+def _with_reply_style(request: dict[str, Any], reply_style: ReplyStyle | None) -> dict[str, Any]:
+    if reply_style is None:
         return request
     metadata = dict(request.get("metadata") or {})
-    metadata["messaging"] = {**(metadata.get("messaging") or {}), "legacy_harness": legacy_harness}
+    metadata["messaging"] = {**(metadata.get("messaging") or {}), "reply_style": reply_style.value}
     return {**request, "metadata": metadata}
 
 
@@ -131,7 +133,7 @@ def get_agent(
     for field in (
         "id",
         "model_name",
-        "legacy_harness",
+        "reply_style",
         "team_id",
         "is_active",
         "folder_id",
@@ -139,6 +141,8 @@ def get_agent(
         "created_at",
     ):
         value = getattr(agent, field, None)
+        if isinstance(value, Enum):
+            value = value.value
         if value not in (None, ""):
             console.print(f"  {field}: {value}", markup=False, highlight=False)
     if agent.incognito.enforced:
@@ -304,9 +308,9 @@ def create_agent(
             help="Every session on the agent runs incognito (nothing is saved). Needs a role that allows it.",
         ),
     ] = False,
-    legacy_harness: Annotated[
-        bool | None,
-        typer.Option("--legacy-harness/--no-legacy-harness", help=LEGACY_HARNESS_HELP),
+    reply_style: Annotated[
+        ReplyStyle | None,
+        typer.Option("--reply-style", help=REPLY_STYLE_HELP),
     ] = None,
     json_output: Annotated[
         bool,
@@ -317,8 +321,8 @@ def create_agent(
     cli: CliContext = ctx.obj
 
     try:
-        request = _with_legacy_harness(
-            resolve_json_args(inline=args_json, file_path=args_file, stdin_marker=args), legacy_harness
+        request = _with_reply_style(
+            resolve_json_args(inline=args_json, file_path=args_file, stdin_marker=args), reply_style
         )
         # Resolve --system-prompt vs --system-prompt-file (at most one).
         if system_prompt is not None and system_prompt_file is not None:
@@ -445,9 +449,9 @@ def update_agent(
             help="Run every session on the agent incognito (nothing is saved), or stop. Needs a role that allows it.",
         ),
     ] = None,
-    legacy_harness: Annotated[
-        bool | None,
-        typer.Option("--legacy-harness/--no-legacy-harness", help=LEGACY_HARNESS_HELP),
+    reply_style: Annotated[
+        ReplyStyle | None,
+        typer.Option("--reply-style", help=REPLY_STYLE_HELP),
     ] = None,
     json_output: Annotated[
         bool,
@@ -458,8 +462,8 @@ def update_agent(
     cli: CliContext = ctx.obj
 
     try:
-        request = _with_legacy_harness(
-            resolve_json_args(inline=args_json, file_path=args_file, stdin_marker=args), legacy_harness
+        request = _with_reply_style(
+            resolve_json_args(inline=args_json, file_path=args_file, stdin_marker=args), reply_style
         )
         if incognito is not None and "version" in request:
             raise GumloopError(

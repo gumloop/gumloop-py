@@ -31,11 +31,11 @@ gumloop agents versions <agent_id> [--limit n] [--cursor c] [--json]
 gumloop agents export <agent_id> <version_id> [-o file.json]
 gumloop agents create --name NAME --model MODEL [--description d]
     [--system-prompt s | --system-prompt-file f]
-    [--tools-json '[...]' | --tools-file f] [--incognito] [--legacy-harness | --no-legacy-harness] [--json]
+    [--tools-json '[...]' | --tools-file f] [--incognito] [--reply-style final|conversational] [--json]
 gumloop agents update <agent_id> [same flags as create] [--is-active | --inactive] [--incognito | --no-incognito]
 ```
 
-`--model` accepts `auto` or a slug like `anthropic/claude-sonnet-4`. To learn the tool-config shape, run `gumloop agents get <id> --json` on an existing agent and copy its `tools` array. `--inactive` retires the agent irreversibly. `--incognito` makes every session on the agent incognito (nothing is saved); it needs the Incognito agents role permission (separate from Incognito tasks), and on `create` a refusal leaves no agent behind. `--legacy-harness` sets `metadata.messaging.legacy_harness` and keeps the agent on the older harness; the new harness uses fewer credits, handles longer tasks better, and messages you as it works. Off by default; unset uses the organization's default, and `agents get` shows the effective `legacy_harness`. A session runs the agent's harness; read the reply from `session.response` and `session.response_files`.
+`--model` accepts `auto` or a slug like `anthropic/claude-sonnet-4`. To learn the tool-config shape, run `gumloop agents get <id> --json` on an existing agent and copy its `tools` array. `--inactive` retires the agent irreversibly. `--incognito` makes every session on the agent incognito (nothing is saved); it needs the Incognito agents role permission (separate from Incognito tasks), and on `create` a refusal leaves no agent behind. `--reply-style final|conversational` sets `metadata.messaging.reply_style`, how the agent replies in chat, email and API sessions: `final` sends one reply when the work is done; `conversational` messages as it works. Slack, Teams and iMessage always use conversational. Unset uses the organization's default, and `agents get` shows the effective `reply_style`. Read the reply from `session.response` and `session.response_files`.
 
 ## Models
 
