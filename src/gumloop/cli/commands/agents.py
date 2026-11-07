@@ -17,22 +17,22 @@ from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
 from gumloop.cli.errors import exit_with_error
-from gumloop.types import ReplyStyle
+from gumloop.types import ReplyDisplay
 
 agents_app = typer.Typer(help="Manage Gumloop agents.", no_args_is_help=True, rich_markup_mode="rich")
 agents_app.add_typer(configuration_app)
 
-REPLY_STYLE_HELP = (
-    "How the agent replies in chat, email and API sessions: 'final' sends one reply when the work is done; "
+REPLY_DISPLAY_HELP = (
+    "How the agent replies in chat, email and API sessions: 'relay' sends one reply when the work is done; "
     "'conversational' messages as it works. Slack, Teams and iMessage always use conversational."
 )
 
 
-def _with_reply_style(request: dict[str, Any], reply_style: ReplyStyle | None) -> dict[str, Any]:
-    if reply_style is None:
+def _with_reply_display(request: dict[str, Any], reply_display: ReplyDisplay | None) -> dict[str, Any]:
+    if reply_display is None:
         return request
     metadata = dict(request.get("metadata") or {})
-    metadata["messaging"] = {**(metadata.get("messaging") or {}), "reply_style": reply_style.value}
+    metadata["messaging"] = {**(metadata.get("messaging") or {}), "reply_display": reply_display.value}
     return {**request, "metadata": metadata}
 
 
@@ -133,7 +133,7 @@ def get_agent(
     for field in (
         "id",
         "model_name",
-        "reply_style",
+        "reply_display",
         "team_id",
         "is_active",
         "folder_id",
@@ -308,9 +308,9 @@ def create_agent(
             help="Every session on the agent runs incognito (nothing is saved). Needs a role that allows it.",
         ),
     ] = False,
-    reply_style: Annotated[
-        ReplyStyle | None,
-        typer.Option("--reply-style", help=REPLY_STYLE_HELP),
+    reply_display: Annotated[
+        ReplyDisplay | None,
+        typer.Option("--reply-display", help=REPLY_DISPLAY_HELP),
     ] = None,
     json_output: Annotated[
         bool,
@@ -321,8 +321,8 @@ def create_agent(
     cli: CliContext = ctx.obj
 
     try:
-        request = _with_reply_style(
-            resolve_json_args(inline=args_json, file_path=args_file, stdin_marker=args), reply_style
+        request = _with_reply_display(
+            resolve_json_args(inline=args_json, file_path=args_file, stdin_marker=args), reply_display
         )
         # Resolve --system-prompt vs --system-prompt-file (at most one).
         if system_prompt is not None and system_prompt_file is not None:
@@ -449,9 +449,9 @@ def update_agent(
             help="Run every session on the agent incognito (nothing is saved), or stop. Needs a role that allows it.",
         ),
     ] = None,
-    reply_style: Annotated[
-        ReplyStyle | None,
-        typer.Option("--reply-style", help=REPLY_STYLE_HELP),
+    reply_display: Annotated[
+        ReplyDisplay | None,
+        typer.Option("--reply-display", help=REPLY_DISPLAY_HELP),
     ] = None,
     json_output: Annotated[
         bool,
@@ -462,8 +462,8 @@ def update_agent(
     cli: CliContext = ctx.obj
 
     try:
-        request = _with_reply_style(
-            resolve_json_args(inline=args_json, file_path=args_file, stdin_marker=args), reply_style
+        request = _with_reply_display(
+            resolve_json_args(inline=args_json, file_path=args_file, stdin_marker=args), reply_display
         )
         if incognito is not None and "version" in request:
             raise GumloopError(

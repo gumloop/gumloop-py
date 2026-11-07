@@ -192,7 +192,7 @@ def test_agents_update_only_sends_specified_fields(cli_runner: CliRunner) -> Non
 
 
 @respx.mock
-def test_agents_update_reply_style_joins_the_metadata_the_request_json_already_carries(
+def test_agents_update_reply_display_joins_the_metadata_the_request_json_already_carries(
     cli_runner: CliRunner,
 ) -> None:
     route = respx.patch(f"{API_BASE}/agents/agent_abc").mock(
@@ -207,16 +207,16 @@ def test_agents_update_reply_style_joins_the_metadata_the_request_json_already_c
             "update",
             "agent_abc",
             "--args-json",
-            '{"metadata": {"slack": {"show_detailed_steps": false}, "messaging": {"reply_style": "conversational"}}}',
-            "--reply-style",
-            "final",
+            '{"metadata": {"slack": {"show_detailed_steps": false}, "messaging": {"reply_display": "conversational"}}}',
+            "--reply-display",
+            "relay",
             "--json",
         ],
     )
 
     assert result.exit_code == 0, result.output
     assert json.loads(route.calls[0].request.content) == {
-        "metadata": {"slack": {"show_detailed_steps": False}, "messaging": {"reply_style": "final"}}
+        "metadata": {"slack": {"show_detailed_steps": False}, "messaging": {"reply_display": "relay"}}
     }
 
 
