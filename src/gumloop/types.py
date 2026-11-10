@@ -132,6 +132,21 @@ class AgentEmailSetting(_Model):
     attribution_stamp_enabled: bool | None = None
 
 
+class AgentTeamsSetting(_Model):
+    thread_response_trigger: str | None = None
+    attribution_stamp_enabled: bool | None = None
+    show_detailed_steps: bool | None = None
+
+
+class ReplyDisplay(str, Enum):
+    RELAY = "relay"
+    CONVERSATIONAL = "conversational"
+
+
+class AgentMessagingSetting(_Model):
+    reply_display: ReplyDisplay | None = None
+
+
 class AgentCompactionSetting(_Model):
     override_auto_compaction: bool | None = None
     summary_model: str | None = None
@@ -194,6 +209,8 @@ class AgentMetadata(_Model):
     voice: AgentVoiceSetting | None = None
     slack: AgentSlackSetting | None = None
     email: AgentEmailSetting | None = None
+    teams: AgentTeamsSetting | None = None
+    messaging: AgentMessagingSetting | None = None
 
 
 class AbilityToggle(_Model):
@@ -538,6 +555,7 @@ class Agent(_Model):
     last_updated_at: str | None = None
     active_trigger_count: int | None = None
     creator: CreatorPayload | None = None
+    reply_display: ReplyDisplay | None = None
 
 
 class AgentSkillsResponse(_Model):
@@ -911,6 +929,20 @@ class MessagePayload(_Model):
     creator_id: str | None = None
     parts: list[dict[str, Any]] | None = None
 
+    @property
+    def text(self) -> str:
+        if isinstance(self.content, str) and self.content:
+            return self.content
+        return "\n\n".join(part["text"] for part in self.parts or [] if part.get("type") == "text" and part.get("text"))
+
+    @property
+    def files(self) -> list[dict[str, Any]]:
+        return [
+            part["file"]
+            for part in self.parts or []
+            if part.get("type") == "file" and isinstance(part.get("file"), dict)
+        ]
+
 
 class SessionUsage(_Model):
     credit_cost: float | None = None
@@ -961,6 +993,8 @@ class Session(_Model):
     creator: CreatorPayload | None = None
     usage: SessionUsage | None = None
     provenance: SessionProvenance | None = None
+    response: str | None = None
+    response_files: list[dict[str, Any]] = Field(default_factory=list)
     incognito: bool = False
     pending_approvals: list[PendingApproval] | None = None
 

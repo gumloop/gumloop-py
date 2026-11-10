@@ -30,6 +30,7 @@ from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
 from gumloop.cli.errors import exit_with_error
+from gumloop.types import Session
 from gumloop.types import SessionAttachment
 from gumloop.types import SessionResponse
 
@@ -39,6 +40,17 @@ sessions_app = typer.Typer(
     rich_markup_mode="rich",
 )
 sessions_app.add_typer(queue_app, name="queue")
+
+
+def _print_reply(session: Session) -> None:
+    if session.messages:
+        console.print(f"  messages: {len(session.messages)}")
+    if session.response:
+        console.print("  response:", markup=False, highlight=False)
+        console.print(f"    {session.response}", markup=False, highlight=False)
+    for file in session.response_files:
+        name = file.get("display_filename") or file.get("filename") or ""
+        console.print(f"  file: {name}", markup=False, highlight=False)
 
 
 @sessions_app.command(
@@ -146,11 +158,7 @@ def create_session(
             console.print(f"  {field}: {value}", markup=False, highlight=False)
     if session.incognito:
         console.print("  incognito: on (nothing is saved)", markup=False, highlight=False)
-    if session.messages:
-        console.print(f"  messages: {len(session.messages)}")
-        for m in session.messages[-5:]:
-            content = m.content if isinstance(m.content, str) else str(m.content or "")
-            console.print(f"  [{m.role or ''}] {content[:200]}", markup=False, highlight=False)
+    _print_reply(session)
 
 
 @sessions_app.command(
@@ -280,11 +288,7 @@ def get_session(
             console.print(f"  {field}: {value}", markup=False, highlight=False)
     if session.incognito:
         console.print("  incognito: on (nothing is saved)", markup=False, highlight=False)
-    if session.messages:
-        console.print(f"  messages: {len(session.messages)}")
-        for m in session.messages[-5:]:
-            content = m.content if isinstance(m.content, str) else str(m.content or "")
-            console.print(f"  [{m.role or ''}] {content[:200]}", markup=False, highlight=False)
+    _print_reply(session)
     parts = [part for m in session.messages for part in (m.parts or []) if part.get("child_session_id")]
     launches = [part for part in parts if part.get("type") == "subagent_invocation"]
     delivered = {
@@ -394,11 +398,7 @@ def send_session(
             console.print(f"  {field}: {value}", markup=False, highlight=False)
     if session.incognito:
         console.print("  incognito: on (nothing is saved)", markup=False, highlight=False)
-    if session.messages:
-        console.print(f"  messages: {len(session.messages)}")
-        for m in session.messages[-5:]:
-            content = m.content if isinstance(m.content, str) else str(m.content or "")
-            console.print(f"  [{m.role or ''}] {content[:200]}", markup=False, highlight=False)
+    _print_reply(session)
 
 
 @sessions_app.command(
