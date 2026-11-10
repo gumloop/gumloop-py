@@ -23,8 +23,9 @@ agents_app = typer.Typer(help="Manage Gumloop agents.", no_args_is_help=True, ri
 agents_app.add_typer(configuration_app)
 
 REPLY_DISPLAY_HELP = (
-    "How the agent replies in chat, email and API sessions: 'relay' sends one reply when the work is done; "
-    "'conversational' messages as it works. Slack, Teams and iMessage always use conversational."
+    "How the agent replies in chat, email and API sessions. 'relay': shows every step the agent takes, then one "
+    "final reply. 'conversational': the agent messages you as it works and keeps its steps tucked away. "
+    "Slack, Teams and iMessage always use conversational."
 )
 
 
