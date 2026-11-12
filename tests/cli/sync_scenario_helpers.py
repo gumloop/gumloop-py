@@ -14,7 +14,7 @@ from typing import Any
 
 import httpx
 import respx
-from click.testing import Result
+from typer.testing import Result
 
 from gumloop.cli.credentials import Credentials
 from gumloop.cli.credentials import save_credentials

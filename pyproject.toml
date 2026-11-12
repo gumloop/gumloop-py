@@ -30,7 +30,7 @@ dependencies = [
     "questionary>=2.0",
     "rich",
     "click>=8.0",
-    "typer>=0.25.1",
+    "typer>=0.25.1,<0.30",
 ]
 
 [tool.hatch.version]

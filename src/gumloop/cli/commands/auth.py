@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import sys
 from typing import Annotated
+from typing import Literal
 
-import click
 import questionary
 import typer
 from rich.prompt import Prompt
@@ -73,11 +73,10 @@ def _validate(client: Gumloop) -> None:
 def login(
     ctx: typer.Context,
     method: Annotated[
-        str | None,
+        Literal["oauth", "api-key", "api_key"] | None,
         typer.Option(
             "--method",
             help="Auth method to use without prompting.",
-            click_type=click.Choice(["oauth", "api-key", "api_key"]),
         ),
     ] = None,
     api_key: Annotated[
