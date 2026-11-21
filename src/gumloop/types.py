@@ -138,15 +138,6 @@ class AgentTeamsSetting(_Model):
     show_detailed_steps: bool | None = None
 
 
-class ReplyDisplay(str, Enum):
-    RELAY = "relay"
-    CONVERSATIONAL = "conversational"
-
-
-class AgentMessagingSetting(_Model):
-    reply_display: ReplyDisplay | None = None
-
-
 class AgentCompactionSetting(_Model):
     override_auto_compaction: bool | None = None
     summary_model: str | None = None
@@ -210,7 +201,6 @@ class AgentMetadata(_Model):
     slack: AgentSlackSetting | None = None
     email: AgentEmailSetting | None = None
     teams: AgentTeamsSetting | None = None
-    messaging: AgentMessagingSetting | None = None
 
 
 class AbilityToggle(_Model):
@@ -555,7 +545,6 @@ class Agent(_Model):
     last_updated_at: str | None = None
     active_trigger_count: int | None = None
     creator: CreatorPayload | None = None
-    reply_display: ReplyDisplay | None = None
 
 
 class AgentSkillsResponse(_Model):
