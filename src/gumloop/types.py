@@ -834,6 +834,8 @@ class CustomProxyResponse(_Model):
 class CustomProxyGatewayToken(_Model):
     # Opaque to the CLI, which puts it in its sign-in tokens. It expires after an hour.
     gateway_token: str
+    # ISO 8601. Older backends leave it out.
+    expires_at: str | None = None
 
 
 MAX_SDP_OFFER_BYTES = 1024 * 1024
