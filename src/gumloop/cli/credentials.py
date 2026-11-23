@@ -60,7 +60,7 @@ def is_keyring_available() -> bool:
     return not isinstance(keyring.get_keyring(), keyring.backends.fail.Keyring)
 
 
-def _require_keyring() -> None:
+def require_keyring() -> None:
     if is_keyring_available():
         return
     raise GumloopError(
@@ -90,7 +90,7 @@ def load_credentials(profile: str = DEFAULT_PROFILE) -> Credentials:
 
 def save_credentials(creds: Credentials, profile: str = DEFAULT_PROFILE) -> None:
     """Persist ``creds``. Fields set to ``None`` delete their keychain entry."""
-    _require_keyring()
+    require_keyring()
     for field in _FIELDS:
         value = getattr(creds, field)
         account = _account(profile, field)

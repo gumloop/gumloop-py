@@ -16,6 +16,8 @@ from gumloop.resources.decisions import AsyncDecisions
 from gumloop.resources.decisions import Decisions
 from gumloop.resources.evaluations import AsyncEvaluations
 from gumloop.resources.evaluations import Evaluations
+from gumloop.resources.linked_proxies import AsyncLinkedProxies
+from gumloop.resources.linked_proxies import LinkedProxies
 from gumloop.resources.mcp import MCP
 from gumloop.resources.mcp import AsyncMCP
 from gumloop.resources.organizations import AsyncOrganizations
@@ -39,6 +41,7 @@ __all__ = [
     "AsyncAgents",
     "AsyncArtifacts",
     "AsyncBrain",
+    "AsyncLinkedProxies",
     "AsyncBrowserProfiles",
     "AsyncChat",
     "AsyncDecisions",
@@ -50,6 +53,7 @@ __all__ = [
     "AsyncSkills",
     "AsyncTeams",
     "Brain",
+    "LinkedProxies",
     "BrowserProfiles",
     "Chat",
     "Decisions",

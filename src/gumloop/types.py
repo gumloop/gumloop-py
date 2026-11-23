@@ -795,6 +795,35 @@ class BrowserProfileDeleteResponse(_Model):
     status: Literal["success"]
 
 
+class LinkedProxy(_Model):
+    """A machine the agent browser can exit through. Each ``kind`` ("cli",
+    "tailscale") adds its own fields."""
+
+    id: str
+    name: str
+    kind: str
+    is_default: bool = False
+
+
+class CliLinkedProxyRegisterRequest(_Model):
+    name: str = Field(min_length=1, max_length=100, pattern=r"\S")
+    # The linked proxy key's raw Ed25519 public key, in unpadded base64url.
+    public_key: str = Field(min_length=1, max_length=64)
+    machine_name: str = Field(min_length=1, max_length=255, pattern=r"\S")
+    cli_version: str = Field(min_length=1, max_length=50)
+
+
+class CliLinkedProxyRegistration(_Model):
+    linked_proxy: LinkedProxy
+    # The linked proxy gateway's WebSocket. Sign-in tokens name it as their audience.
+    gateway_url: str
+
+
+class LinkedProxyGatewayToken(_Model):
+    # Opaque to the CLI, which puts it in its sign-in tokens. It expires after an hour.
+    gateway_token: str
+
+
 MAX_SDP_OFFER_BYTES = 1024 * 1024
 
 
