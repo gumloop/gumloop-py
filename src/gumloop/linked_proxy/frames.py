@@ -16,7 +16,7 @@ OPEN_FAIL_DIAL = "dial"
 
 _HEADER = struct.Struct(">BI")
 _WINDOW = struct.Struct(">I")
-_MAX_FRAME_LENGTH = _HEADER.size + MAX_DATA_LENGTH
+MAX_FRAME_LENGTH = _HEADER.size + MAX_DATA_LENGTH
 _MAX_TARGET_LENGTH = 253 + len(":65535")
 _MAX_REASON_LENGTH = 32
 _MAX_GATEWAY_TOKEN_LENGTH = 1024
@@ -59,7 +59,7 @@ class Frame:
     @classmethod
     def decode(cls, data: bytes) -> Frame:
         """Checks the layout only; whether the frame fits its stream is the tunnel's check."""
-        if not _HEADER.size <= len(data) <= _MAX_FRAME_LENGTH:
+        if not _HEADER.size <= len(data) <= MAX_FRAME_LENGTH:
             raise ProtocolError(f"a {len(data)}-byte frame")
         type_byte, stream_id = _HEADER.unpack_from(data)
         payload = data[_HEADER.size :]
