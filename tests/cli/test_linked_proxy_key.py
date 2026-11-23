@@ -13,7 +13,9 @@ from gumloop.linked_proxy.sign_in import public_key_text
 def test_key_and_registration_persist(temporary_home):
     host = "api.gumloop.com"
     registration = LinkedProxyRegistration(
-        linked_proxy_id="dp-1", gateway_url="wss://linked-proxy-gateway.gumloop.com/v1/cli/connect"
+        linked_proxy_id="dp-1",
+        name="Ada's laptop",
+        gateway_url="wss://linked-proxy-gateway.gumloop.com/v1/cli/connect",
     )
 
     first = public_key_text(load_or_create_key(host))
@@ -28,7 +30,7 @@ def test_key_and_registration_persist(temporary_home):
     ["wss://linked-proxy-gateway.gumloop.com/v1/cli/connect", "ws://localhost:8443/v1/cli/connect"],
 )
 def test_registration_accepts_an_encrypted_or_local_gateway(gateway_url):
-    registration = LinkedProxyRegistration(linked_proxy_id="dp-1", gateway_url=gateway_url)
+    registration = LinkedProxyRegistration(linked_proxy_id="dp-1", name="Ada's laptop", gateway_url=gateway_url)
 
     assert registration.gateway_url == gateway_url
 
@@ -36,5 +38,7 @@ def test_registration_accepts_an_encrypted_or_local_gateway(gateway_url):
 def test_registration_refuses_an_unencrypted_remote_gateway():
     with pytest.raises(ValidationError):
         LinkedProxyRegistration(
-            linked_proxy_id="dp-1", gateway_url="ws://linked-proxy-gateway.gumloop.com/v1/cli/connect"
+            linked_proxy_id="dp-1",
+            name="Ada's laptop",
+            gateway_url="ws://linked-proxy-gateway.gumloop.com/v1/cli/connect",
         )

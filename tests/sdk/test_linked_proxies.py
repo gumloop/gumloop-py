@@ -29,7 +29,7 @@ OPERATIONS = [
         "POST",
         "linked-proxies/dp-1/gateway-token",
         200,
-        {"gateway_token": "t"},
+        {"gateway_token": "t", "expires_at": "2026-01-01T00:00:00+00:00"},
     ),
     ("delete", ("dp-1",), {}, "DELETE", "linked-proxies/dp-1", 204, None),
 ]

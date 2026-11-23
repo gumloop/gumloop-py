@@ -38,6 +38,18 @@ curl -fsSL https://gumloop.com/cli/import-logins.sh | sh
 
 Cookies only: local storage and IndexedDB stay on your machine, so sites that keep the session there ask the agent to sign in once, after which the agent's browser keeps it. Imported cookies are encrypted with the profile's own key before storage and are never shown back in the UI or API; sign-ins the agent picks up while running are saved back to the same profile. Rename, remove sites from, or delete profiles on the Secrets page in Gumloop.
 
+### Let your agents' browser go out through this computer
+
+Sites that only accept sign-ins from your network or your IP can be reached by linking this computer: your agents' browser connects to them from here. On macOS or Linux, after `gumloop login`:
+
+```bash
+gumloop browser proxy link      # automatically runs in the background on startup
+gumloop browser proxy status
+gumloop browser proxy unlink
+```
+
+The computer only opens connections to public addresses on ports 80 and 443. Its key stays in the OS keychain. `gumloop logout` unlinks it. A network that inspects TLS traffic can't be used, since sites would show the agent's browser certificate errors.
+
 ### Sync a folder into your Brain
 
 Mirror a local directory into a file-upload Brain source. Files are compared by name and sha256, so a re-run uploads only what changed; indexing starts on its own after each upload.

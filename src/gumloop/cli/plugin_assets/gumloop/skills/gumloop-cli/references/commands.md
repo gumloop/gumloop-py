@@ -9,7 +9,7 @@ gumloop login                          # interactive: pick OAuth (browser) or AP
 gumloop login --method oauth           # OAuth; add --no-browser to print the URL instead
 gumloop login --api-key gum_xxx --user-id user_abc
 echo "$GUMLOOP_API_KEY" | gumloop login --api-key - --user-id user_abc   # keep key out of history
-gumloop logout                         # clears keychain entries, revokes OAuth refresh token
+gumloop logout                         # clears keychain entries, revokes OAuth refresh token, unlinks this computer
 ```
 
 Environment variables (override stored credentials for one invocation; ideal for CI):
@@ -147,6 +147,16 @@ gumloop artifacts set-access <artifact_id>
 gumloop sync                          # enroll persistent sync (macOS) of org-managed skills
 gumloop sync --once --non-interactive # one-shot sync; requires GUMLOOP_API_KEY + GUMLOOP_USER_ID
 ```
+
+## Linked proxy
+
+```bash
+gumloop browser proxy link          # automatically runs in the background on startup
+gumloop browser proxy status
+gumloop browser proxy unlink
+```
+
+macOS and Linux only. Needs a stored `gumloop login`; logging out unlinks this computer.
 
 ## Maintenance
 

@@ -18,6 +18,7 @@ from gumloop.browser_logins import extract_profile_cookies
 from gumloop.browser_logins import extract_site_cookies
 from gumloop.browser_logins import site_of_url
 from gumloop.browser_logins.chromium_cookies import KeychainAccessError
+from gumloop.cli.commands.linked_proxy import proxy_app
 from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
@@ -28,12 +29,13 @@ from gumloop.types import BrowserProfileImportResponse
 from gumloop.types import BrowserProfileImportSummary
 
 browser_app = typer.Typer(
-    help="Bring your browser sign-ins to Gumloop agents.",
+    help="Bring your browser sign-ins, and this computer's network, to Gumloop agents.",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
 profiles_app = typer.Typer(help="Manage browser profiles.", no_args_is_help=True, rich_markup_mode="rich")
 browser_app.add_typer(profiles_app, name="profiles")
+browser_app.add_typer(proxy_app, name="proxy")
 
 
 def _pick_local_profile(browser: str | None, browser_profile: str | None, *, non_interactive: bool) -> LocalProfile:
