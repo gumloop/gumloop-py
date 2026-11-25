@@ -1,5 +1,5 @@
 """Keeps this machine's tunnel to the linked proxy gateway open: signs in, serves the
-gateway's streams, and reconnects until the gateway refuses the sign-in or the
+gateway's streams, and reconnects until Gumloop refuses a gateway token or the
 user signs out."""
 
 from __future__ import annotations
@@ -29,12 +29,13 @@ from gumloop.linked_proxy.tunnel import Connection
 from gumloop.linked_proxy.tunnel import Tunnel
 from gumloop.types import LinkedProxyGatewayToken
 
-# The gateway's close code and refusal header for a sign-in it won't accept.
-CLOSE_SIGN_IN_REFUSED = 4001
+# The gateway's refusal header for a sign-in it won't accept.
 ERROR_HEADER = "X-Gumloop-Linked-Proxy-Error"
 SIGN_IN_REFUSED = "sign_in_refused"
 
 FIRST_RETRY_SECONDS = 1.0
+# Spreads out the linked proxies that all reconnect at once when a gateway replica restarts.
+FIRST_RETRY_CAP_SECONDS = 5.0
 MAX_RETRY_SECONDS = 60.0
 # A connection that stayed up this long starts the backoff over.
 STABLE_SECONDS = 60.0
@@ -49,7 +50,7 @@ Open = Callable[[str, dict[str, str]], AbstractAsyncContextManager[Connection]]
 
 
 class SignInRefused(Exception):
-    """The gateway won't accept this linked proxy: it was unlinked, or its owner can't use it anymore."""
+    """Gumloop won't give this linked proxy a gateway token: it was unlinked, or its owner can't use it anymore."""
 
     def __init__(self, reason: str) -> None:
         super().__init__(reason)
@@ -96,8 +97,10 @@ class GatewayConnection:
         """Runs until it raises ``SignInRefused`` or ``SignedOut``. Every other
         failure reconnects after a random wait whose cap doubles up to ``MAX_RETRY_SECONDS``.
         ``gateway_token`` runs in a thread before each connect and each refresh, and raises
-        ``SignInRefused`` or ``GatewayTokenUnavailable`` when it has no token."""
-        retry_cap = FIRST_RETRY_SECONDS
+        ``SignInRefused`` or ``GatewayTokenUnavailable`` when it has no token. A gateway
+        refusal reconnects too: a wrong clock looks the same to the gateway as an unlinked
+        linked proxy, and the next gateway token request tells them apart."""
+        retry_cap = FIRST_RETRY_CAP_SECONDS
         while True:
             if not self._signed_in():
                 raise SignedOut()
@@ -105,13 +108,10 @@ class GatewayConnection:
             try:
                 await self._serve()
             except (OSError, asyncio.TimeoutError, WebSocketException, ProtocolError, GatewayTokenUnavailable) as error:
-                reason = _sign_in_refusal(error)
-                if reason is not None:
-                    raise SignInRefused(reason) from error
                 if self._on_failed is not None:
                     self._on_failed(describe_failure(error))
             if time.monotonic() - started >= STABLE_SECONDS:
-                retry_cap = FIRST_RETRY_SECONDS
+                retry_cap = FIRST_RETRY_CAP_SECONDS
             await self._sleep(random.uniform(FIRST_RETRY_SECONDS, retry_cap))
             retry_cap = min(retry_cap * 2, MAX_RETRY_SECONDS)
 
@@ -163,6 +163,8 @@ def describe_failure(error: BaseException) -> str:
             return "the connection dropped"
         return f"the gateway closed the connection ({error.rcvd.reason or error.rcvd.code})"
     if isinstance(error, InvalidStatus):
+        if error.response.headers.get(ERROR_HEADER) == SIGN_IN_REFUSED:
+            return "the gateway refused the sign-in (is this computer's clock right?)"
         return f"the gateway answered HTTP {error.response.status_code}"
     if isinstance(error, asyncio.TimeoutError):
         return "the gateway didn't answer in time"
@@ -171,18 +173,6 @@ def describe_failure(error: BaseException) -> str:
     if isinstance(error, OSError):
         return f"can't reach the gateway ({(error.strerror or str(error) or type(error).__name__).lower()})"
     return str(error) or type(error).__name__
-
-
-def _sign_in_refusal(error: BaseException) -> str | None:
-    if isinstance(error, ConnectionClosed) and error.rcvd is not None and error.rcvd.code == CLOSE_SIGN_IN_REFUSED:
-        return error.rcvd.reason or SIGN_IN_REFUSED
-    if (
-        isinstance(error, InvalidStatus)
-        and error.response.status_code == 401
-        and error.response.headers.get(ERROR_HEADER) == SIGN_IN_REFUSED
-    ):
-        return SIGN_IN_REFUSED
-    return None
 
 
 def _open_websocket(url: str, headers: dict[str, str]) -> AbstractAsyncContextManager[Connection]:

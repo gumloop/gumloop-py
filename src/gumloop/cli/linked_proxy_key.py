@@ -35,6 +35,10 @@ class LinkedProxyRegistration(BaseModel):
     linked_proxy_id: str = Field(min_length=1)
     name: str = Field(min_length=1)
     gateway_url: str = Field(min_length=1)
+    # The key it registered, which the keychain no longer has if it was reset.
+    public_key: str = Field(min_length=1)
+    # The Gumloop user who linked it; None when their login didn't say.
+    user_id: str | None = None
 
     @field_validator("gateway_url")
     @classmethod
@@ -133,7 +137,7 @@ def _write_private(destination: Path, text: str) -> None:
     descriptor = os.open(staging, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(descriptor, "w", encoding="utf-8") as file:
         file.write(text)
-    os.replace(staging, destination)
+    staging.replace(destination)
 
 
 def _registration_path(host: str, home: Path | None) -> Path:

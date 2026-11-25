@@ -8,6 +8,7 @@ import base64
 import json
 import secrets
 import time
+from collections.abc import Mapping
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding
@@ -40,7 +41,7 @@ def sign_in_token(
     return f"{signing_input}.{_encode(key.sign(signing_input.encode()))}"
 
 
-def _encode_json(value: dict[str, str | int]) -> str:
+def _encode_json(value: Mapping[str, str | int]) -> str:
     return _encode(json.dumps(value, separators=(",", ":")).encode())
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 from collections.abc import Callable
 from datetime import datetime
@@ -23,12 +24,29 @@ from gumloop.cli.linked_proxy_service import NoBackgroundService
 from gumloop.cli.main import app
 from gumloop.linked_proxy.connection import GatewayTokenUnavailable
 from gumloop.linked_proxy.connection import SignInRefused
+from gumloop.linked_proxy.destinations import Target
 from gumloop.linked_proxy.sign_in import public_key_text
+from gumloop.types import LinkedProxyGatewayToken
 from tests.sdk.helpers import API_BASE
 
 HOST = "api.gumloop.com"
 GATEWAY_URL = "wss://linked-proxy-gateway.gumloop.com/v1/cli/connect"
-REGISTRATION = LinkedProxyRegistration(linked_proxy_id="dp-1", name="Ada's laptop", gateway_url=GATEWAY_URL)
+
+
+def _registration(**changes: str) -> LinkedProxyRegistration:
+    """What `link` saves for the keychain's key and the `service` fixture's login."""
+    return LinkedProxyRegistration(
+        linked_proxy_id="dp-1",
+        name="Ada's laptop",
+        gateway_url=GATEWAY_URL,
+        public_key=public_key_text(load_or_create_key(HOST)),
+        user_id="actor",
+    ).model_copy(update=changes)
+
+
+def _access_token(user_id: str) -> str:
+    claims = base64.urlsafe_b64encode(json.dumps({"sub": user_id}).encode()).decode().rstrip("=")
+    return f"header.{claims}.signature"
 
 
 class FakeService:
@@ -70,7 +88,7 @@ def test_add_registers_and_turns_on_the_service(cli_runner, service, fake_execut
 
     assert result.exit_code == 0, result.output
     assert json.loads(route.calls[0].request.content)["public_key"] == public_key_text(load_or_create_key(HOST))
-    assert load_registration(HOST) == REGISTRATION
+    assert load_registration(HOST) == _registration()
     assert service.executable == fake_executable_path / "gumloop"
 
 
@@ -91,7 +109,7 @@ def test_link_without_a_background_service_registers_and_points_to_connect(cli_r
     result = cli_runner.invoke(app, ["browser", "proxy", "link"])
 
     assert result.exit_code == 0, result.output
-    assert load_registration(HOST) == REGISTRATION
+    assert load_registration(HOST) == _registration()
     assert not service.installed
     assert "Run `gumloop browser proxy connect`" in " ".join(result.output.split())
 
@@ -109,14 +127,14 @@ def test_add_refuses_a_temporary_credential_override(cli_runner, service):
 
 @respx.mock
 def test_a_refused_linked_proxy_stays_down_after_a_restart(cli_runner, service, monkeypatch):
-    save_registration(HOST, REGISTRATION)
+    save_registration(HOST, _registration())
 
     class RefusedConnection:
         def __init__(self, **kwargs: object) -> None:
             assert kwargs["linked_proxy_id"] == "dp-1"
 
         async def run(self) -> None:
-            raise SignInRefused("sign_in_refused")
+            raise SignInRefused("linked_proxy_not_found")
 
     monkeypatch.setattr("gumloop.cli.commands.linked_proxy.GatewayConnection", RefusedConnection)
 
@@ -128,18 +146,61 @@ def test_a_refused_linked_proxy_stays_down_after_a_restart(cli_runner, service, 
     assert not respx.calls
 
 
+def test_connect_says_it_connected_once_across_reconnects(cli_runner, service, monkeypatch):
+    save_registration(HOST, _registration())
+
+    class ReconnectingConnection:
+        def __init__(self, *, on_connected: Callable[[], None], **kwargs: object) -> None:
+            self._on_connected = on_connected
+
+        async def run(self) -> None:
+            self._on_connected()
+            self._on_connected()
+
+    monkeypatch.setattr("gumloop.cli.commands.linked_proxy.GatewayConnection", ReconnectingConnection)
+
+    result = cli_runner.invoke(app, ["browser", "proxy", "connect"])
+
+    assert result.exit_code == 0, result.output
+    assert " ".join(result.stdout.split()).count("Connected. Agents can now send browser traffic") == 1
+
+
+@pytest.mark.parametrize(("flags", "printed"), [([], False), (["-v"], True)])
+def test_connect_prints_the_sites_agents_open_only_when_verbose(cli_runner, service, monkeypatch, flags, printed):
+    save_registration(HOST, _registration())
+
+    class OpeningConnection:
+        def __init__(self, *, on_open: Callable[[Target], None] | None, **kwargs: object) -> None:
+            self._on_open = on_open
+
+        async def run(self) -> None:
+            if self._on_open is not None:
+                self._on_open(Target(host="example.com", port=443))
+
+    monkeypatch.setattr("gumloop.cli.commands.linked_proxy.GatewayConnection", OpeningConnection)
+
+    result = cli_runner.invoke(app, ["browser", "proxy", "connect", *flags])
+
+    assert result.exit_code == 0, result.output
+    assert ("example.com" in result.stdout) is printed
+
+
 @pytest.mark.parametrize(
     ("reason", "kept", "expected"),
     [
-        ("not_found", False, "This computer was unlinked from Gumloop."),
-        ("permission_denied", True, "Your organization's roles don't allow you to use personal proxies."),
-        ("not_released", True, "Personal proxies aren't available for your organization yet."),
+        ("linked_proxy_not_found", False, "This computer was unlinked from Gumloop."),
+        (
+            "organization_permission_required",
+            True,
+            "Your organization's roles don't allow you to use personal proxies.",
+        ),
+        ("route_not_found", True, "Personal proxies aren't available for your organization yet."),
     ],
 )
 def test_connect_keeps_the_registration_unless_the_linked_proxy_was_removed(
     cli_runner, service, monkeypatch, reason, kept, expected
 ):
-    save_registration(HOST, REGISTRATION)
+    save_registration(HOST, _registration())
 
     class RefusedConnection:
         def __init__(self, **kwargs: object) -> None:
@@ -153,7 +214,7 @@ def test_connect_keeps_the_registration_unless_the_linked_proxy_was_removed(
     result = cli_runner.invoke(app, ["browser", "proxy", "connect"])
 
     assert result.exit_code == 0, result.output
-    assert (load_registration(HOST) == REGISTRATION) is kept
+    assert (load_registration(HOST) == _registration()) is kept
     assert expected in " ".join(result.stderr.split())
 
 
@@ -188,24 +249,27 @@ def test_link_says_why_personal_proxies_are_off(cli_runner, service, status, pay
         (503, {"error": "unavailable"}, GatewayTokenUnavailable, True),
         (404, {"error": {"code": "linked_proxy_not_found"}}, None, False),
         (403, {"error": "policy_denied", "denied_keys": ["organization:use_linked_proxies"]}, None, True),
+        (403, {"error": {"code": "organization_permission_required"}}, None, True),
         (404, {"error": "route_not_found"}, None, True),
+        (403, {"error": {"code": "not_a_code_the_cli_knows"}}, GatewayTokenUnavailable, True),
+        (404, {"error": "not_found"}, GatewayTokenUnavailable, True),
     ],
 )
 @respx.mock
 def test_connect_signs_in_with_a_gateway_token_and_stops_when_gumloop_refuses_one(
     cli_runner, service, monkeypatch, status, payload, expected_token, kept
 ):
-    save_registration(HOST, REGISTRATION)
+    save_registration(HOST, _registration())
     respx.post(f"{API_BASE}/linked-proxies/dp-1/gateway-token").respond(status, json=payload)
     fetched: list[object] = []
 
     class TokenFetchingConnection:
-        def __init__(self, **kwargs: object) -> None:
-            self._gateway_token = kwargs["gateway_token"]
+        def __init__(self, *, gateway_token: Callable[[], LinkedProxyGatewayToken], **kwargs: object) -> None:
+            self._gateway_token = gateway_token
 
         async def run(self) -> None:
             try:
-                fetched.append(self._gateway_token())
+                fetched.append(self._gateway_token().gateway_token)
             except GatewayTokenUnavailable as error:
                 fetched.append(type(error))
 
@@ -215,16 +279,16 @@ def test_connect_signs_in_with_a_gateway_token_and_stops_when_gumloop_refuses_on
 
     assert result.exit_code == 0, result.output
     assert fetched == ([expected_token] if expected_token is not None else [])
-    assert (load_registration(HOST) == REGISTRATION) is kept
+    assert (load_registration(HOST) == _registration()) is kept
 
 
 @respx.mock
 def test_connect_signs_in_with_the_login_stored_after_it_started(cli_runner, service, monkeypatch):
-    save_registration(HOST, REGISTRATION)
+    save_registration(HOST, _registration())
     route = respx.post(f"{API_BASE}/linked-proxies/dp-1/gateway-token").respond(200, json={"gateway_token": "t"})
 
     class ReconnectingConnection:
-        def __init__(self, *, gateway_token: Callable[[], str], **kwargs: object) -> None:
+        def __init__(self, *, gateway_token: Callable[[], LinkedProxyGatewayToken], **kwargs: object) -> None:
             self._gateway_token = gateway_token
 
         async def run(self) -> None:
@@ -241,6 +305,80 @@ def test_connect_signs_in_with_the_login_stored_after_it_started(cli_runner, ser
 
 
 @pytest.mark.parametrize(
+    "login",
+    [Credentials(api_key="key", user_id="someone-else"), Credentials(access_token=_access_token("someone-else"))],
+)
+@respx.mock
+def test_connect_as_someone_else_disconnects_and_keeps_the_registration(cli_runner, service, monkeypatch, login):
+    save_registration(HOST, _registration())
+    save_credentials(login)
+    route = respx.post(f"{API_BASE}/linked-proxies/dp-1/gateway-token")
+
+    class TokenFetchingConnection:
+        def __init__(self, *, gateway_token: Callable[[], LinkedProxyGatewayToken], **kwargs: object) -> None:
+            self._gateway_token = gateway_token
+
+        async def run(self) -> None:
+            self._gateway_token()
+
+    monkeypatch.setattr("gumloop.cli.commands.linked_proxy.GatewayConnection", TokenFetchingConnection)
+
+    result = cli_runner.invoke(app, ["browser", "proxy", "connect"])
+
+    assert result.exit_code == 0, result.output
+    assert not route.called
+    assert load_registration(HOST) == _registration()
+    assert "You logged in to Gumloop as someone else" in " ".join(result.stderr.split())
+
+
+def test_connect_forgets_a_registration_whose_key_is_gone(cli_runner, service, monkeypatch):
+    save_registration(HOST, _registration(public_key="a key the keychain no longer has"))
+
+    class UnusedConnection:
+        def __init__(self, **kwargs: object) -> None:
+            pytest.fail("connected with a key Gumloop doesn't know")
+
+    monkeypatch.setattr("gumloop.cli.commands.linked_proxy.GatewayConnection", UnusedConnection)
+
+    result = cli_runner.invoke(app, ["browser", "proxy", "connect"])
+
+    assert result.exit_code == 0, result.output
+    assert load_registration(HOST) is None
+    assert "key is gone from the OS keychain" in " ".join(result.stderr.split())
+
+
+@respx.mock
+def test_link_registers_again_when_the_keychain_key_changed(cli_runner, service):
+    save_registration(HOST, _registration(public_key="a key the keychain no longer has"))
+    route = respx.post(f"{API_BASE}/linked-proxies/cli").respond(
+        201,
+        json={
+            "linked_proxy": {"id": "dp-2", "name": "Ada's laptop", "kind": "cli", "is_default": True},
+            "gateway_url": GATEWAY_URL,
+        },
+    )
+
+    result = cli_runner.invoke(app, ["browser", "proxy", "link"])
+
+    assert result.exit_code == 0, result.output
+    assert route.called
+    assert load_registration(HOST) == _registration(linked_proxy_id="dp-2")
+
+
+@respx.mock
+def test_link_refuses_a_computer_linked_to_someone_else(cli_runner, service):
+    save_registration(HOST, _registration(user_id="someone-else"))
+    route = respx.post(f"{API_BASE}/linked-proxies/cli")
+
+    result = cli_runner.invoke(app, ["browser", "proxy", "link"])
+
+    assert result.exit_code == 1
+    assert not route.called
+    assert not service.installed
+    assert "linked to another Gumloop user" in " ".join(result.stderr.split())
+
+
+@pytest.mark.parametrize(
     ("running", "connected", "last_error", "expected"),
     [
         (False, True, None, "not running. Run `gumloop browser proxy link` to start."),
@@ -251,7 +389,7 @@ def test_connect_signs_in_with_the_login_stored_after_it_started(cli_runner, ser
 def test_status_reads_the_running_linked_proxy_connection(
     cli_runner, service, monkeypatch, running, connected, last_error, expected
 ):
-    save_registration(HOST, REGISTRATION)
+    save_registration(HOST, _registration())
     save_connection_status(
         HOST,
         LinkedProxyConnectionStatus(connected=connected, since=datetime.now(timezone.utc), last_error=last_error),
@@ -269,7 +407,7 @@ def test_status_without_a_background_service_points_to_connect(cli_runner, servi
         raise NoBackgroundService("no systemd user session")
 
     monkeypatch.setattr("gumloop.cli.commands.linked_proxy.service_for_current_platform", no_background_service)
-    save_registration(HOST, REGISTRATION)
+    save_registration(HOST, _registration())
 
     result = cli_runner.invoke(app, ["browser", "proxy", "status"])
 
@@ -281,7 +419,7 @@ def test_status_without_a_background_service_points_to_connect(cli_runner, servi
 @respx.mock
 def test_removing_deletes_the_linked_proxy_then_the_key(cli_runner, service, command):
     service.installed = True
-    save_registration(HOST, REGISTRATION)
+    save_registration(HOST, _registration())
     load_or_create_key(HOST)
     route = respx.delete(f"{API_BASE}/linked-proxies/dp-1").respond(204)
 
@@ -300,7 +438,7 @@ def test_removing_another_backends_linked_proxy_keeps_the_service_only_while_the
 ):
     service.installed = True
     if login_has_linked_proxy:
-        save_registration(HOST, REGISTRATION)
+        save_registration(HOST, _registration())
 
     result = cli_runner.invoke(
         app, ["browser", "proxy", "unlink"], env={"GUMLOOP_BASE_URL": "https://staging.api.gumloop.com"}
@@ -312,7 +450,7 @@ def test_removing_another_backends_linked_proxy_keeps_the_service_only_while_the
 
 @respx.mock
 def test_remove_keeps_the_key_when_gumloop_cannot_delete_the_linked_proxy(cli_runner, service):
-    save_registration(HOST, REGISTRATION)
+    save_registration(HOST, _registration())
     key = public_key_text(load_or_create_key(HOST))
     respx.delete(f"{API_BASE}/linked-proxies/dp-1").respond(503, json={"error": "unavailable"})
 
@@ -320,4 +458,4 @@ def test_remove_keeps_the_key_when_gumloop_cannot_delete_the_linked_proxy(cli_ru
 
     assert result.exit_code == 1
     assert public_key_text(load_or_create_key(HOST)) == key
-    assert load_registration(HOST) == REGISTRATION
+    assert load_registration(HOST) == _registration()

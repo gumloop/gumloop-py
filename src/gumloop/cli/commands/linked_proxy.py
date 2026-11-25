@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import json
 import os
 import socket
 import sys
@@ -43,7 +45,6 @@ from gumloop.cli.linked_proxy_service import LinkedProxyService
 from gumloop.cli.linked_proxy_service import NoBackgroundService
 from gumloop.cli.linked_proxy_service import gumloop_executable
 from gumloop.cli.linked_proxy_service import service_for_current_platform
-from gumloop.linked_proxy.connection import SIGN_IN_REFUSED
 from gumloop.linked_proxy.connection import GatewayConnection
 from gumloop.linked_proxy.connection import GatewayTokenUnavailable
 from gumloop.linked_proxy.connection import SignedOut
@@ -52,6 +53,7 @@ from gumloop.linked_proxy.destinations import Target
 from gumloop.linked_proxy.sign_in import public_key_text
 from gumloop.linked_proxy.tls_check import TlsInspected
 from gumloop.linked_proxy.tls_check import check_tls_not_inspected
+from gumloop.types import LinkedProxyGatewayToken
 
 proxy_app = typer.Typer(
     help="Let your agents' browser go out to the internet through this computer.",
@@ -62,20 +64,16 @@ proxy_app = typer.Typer(
 _NAME_MAX_LENGTH = 100
 _CREDENTIAL_OVERRIDES = ("GUMLOOP_ACCESS_TOKEN", "GUMLOOP_API_KEY", "GUMLOOP_USER_ID")
 _ROLE_DENIED = "Your organization's roles don't allow you to use personal proxies. Ask an admin to turn them on."
-_PLAN_REQUIRED = "Personal proxies need an Enterprise plan."
-_NOT_RELEASED = "Personal proxies aren't available for your organization yet."
-# Why this member can't use personal proxies right now, keyed by Gumloop API error code or gateway close reason.
+# Why this member can't use personal proxies right now, keyed by Gumloop API error code.
 _UNAVAILABLE_REASONS = {
     "policy_denied": _ROLE_DENIED,
-    "permission_denied": _ROLE_DENIED,
-    "tier_required_enterprise": _PLAN_REQUIRED,
-    "not_enterprise": _PLAN_REQUIRED,
-    "route_not_found": _NOT_RELEASED,
-    "not_released": _NOT_RELEASED,
-    "not_a_member": "Personal proxies need you to be in a Gumloop organization.",
+    "organization_permission_required": _ROLE_DENIED,
+    "insufficient_permissions": _ROLE_DENIED,
+    "tier_required_enterprise": "Personal proxies need an Enterprise plan.",
+    "route_not_found": "Personal proxies aren't available for your organization yet.",
 }
-# Refusals that mean the linked proxy no longer exists. Any other refusal keeps the registration.
-_REMOVED_REASONS = frozenset({"not_found", "linked_proxy_not_found", SIGN_IN_REFUSED})
+# The only refusal that forgets the registration.
+_REMOVED = "linked_proxy_not_found"
 
 
 @proxy_app.command(
@@ -111,7 +109,12 @@ def link(
         executable = gumloop_executable() if service is not None else None
         check_tls_not_inspected()
         key = load_or_create_key(host)
-        if load_registration(host) is None:
+        registration = load_registration(host)
+        if registration is not None and _is_someone_else(registration, _stored_credentials()):
+            raise GumloopError(
+                "This computer is linked to another Gumloop user. Run `gumloop browser proxy unlink`, then link again."
+            )
+        if registration is None or registration.public_key != public_key_text(key):
             _register(cli, host, key, name)
         if service is not None and executable is not None:
             service.install(executable)
@@ -126,7 +129,7 @@ def link(
             "Run `gumloop browser proxy connect` and keep it open, for example in tmux."
         )
         return
-    console.print("Connected. Your agents' browser now goes out through this computer.")
+    console.print("[green]Connected.[/green] Your agents' browser now goes out through this computer.")
     if sys.platform.startswith("linux"):
         console.print("[dim]It connects when you log in, once your keyring is unlocked.[/dim]")
 
@@ -216,7 +219,13 @@ def remove_linked_proxy(cli: CliContext, host: str) -> bool:
 
 
 @proxy_app.command("connect")
-def connect(ctx: typer.Context) -> None:
+def connect(
+    ctx: typer.Context,
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", "-v", help="Show more detail while connected."),
+    ] = False,
+) -> None:
     """Keep this computer connected from this terminal until you stop it with Ctrl-C."""
     # The background service runs this too. A clean exit means the service should stay down.
     cli: CliContext = ctx.obj
@@ -227,16 +236,35 @@ def connect(ctx: typer.Context) -> None:
             if registration is None:
                 error_console.print("This computer is not linked. Run `gumloop browser proxy link`.")
                 return
+            key = load_or_create_key(host)
+            if registration.public_key != public_key_text(key):
+                forget_registration(host)
+                error_console.print(
+                    "This computer's linked proxy key is gone from the OS keychain. "
+                    "Run `gumloop browser proxy link` to link it again."
+                )
+                return
             check_tls_not_inspected()
-            linked_proxy_id = registration.linked_proxy_id
+            announced = False
+
+            def on_connected() -> None:
+                nonlocal announced
+                _record_connection(host, connected=True)
+                if not announced:
+                    announced = True
+                    console.print(
+                        "[green]Connected.[/green] Agents can now send browser traffic through this computer. "
+                        "Press Ctrl-C to stop."
+                    )
+
             connection = GatewayConnection(
                 gateway_url=registration.gateway_url,
-                linked_proxy_id=linked_proxy_id,
-                key=load_or_create_key(host),
-                signed_in=lambda: _signed_in(host),
-                gateway_token=lambda: _gateway_token(host, linked_proxy_id),
-                on_open=_print_destination,
-                on_connected=lambda: _record_connection(host, connected=True),
+                linked_proxy_id=registration.linked_proxy_id,
+                key=key,
+                signed_in=lambda: _owner_login(host, registration) is not None,
+                gateway_token=lambda: _gateway_token(host, registration),
+                on_open=_print_destination if verbose else None,
+                on_connected=on_connected,
                 on_failed=lambda error: _record_connection(host, connected=False, last_error=error),
             )
             _record_connection(host, connected=False)
@@ -247,7 +275,7 @@ def connect(ctx: typer.Context) -> None:
     except TlsInspected as error:
         exit_with_error(_tls_inspected_error(error))
     except SignInRefused as refusal:
-        if refusal.reason in _REMOVED_REASONS:
+        if refusal.reason == _REMOVED:
             forget_registration(host)
             error_console.print(
                 "This computer was unlinked from Gumloop. Run `gumloop browser proxy link` to link it again."
@@ -258,7 +286,13 @@ def connect(ctx: typer.Context) -> None:
                 f"{reason} This computer disconnected. Run `gumloop browser proxy link` once that changes."
             )
     except SignedOut:
-        error_console.print("You logged out of Gumloop, so this computer disconnected.")
+        if _signed_in(host):
+            error_console.print(
+                "You logged in to Gumloop as someone else, so this computer disconnected. "
+                "Log back in as the person who linked it, or run `gumloop browser proxy unlink` and link it again."
+            )
+        else:
+            error_console.print("You logged out of Gumloop, so this computer disconnected.")
     except KeyboardInterrupt:
         console.print("Stopped.")
     except GumloopError as error:
@@ -283,23 +317,54 @@ def _login_host(credentials: Credentials) -> str:
     return backend_host(credentials.base_url or DEFAULT_BASE_URL)
 
 
-def _gateway_token(host: str, linked_proxy_id: str) -> str:
-    """A 403 or 404 means the linked proxy was unlinked or its owner can't use it anymore."""
-    # The service outlives logins, so each request uses the login stored now, not the one it started with.
+def _owner_login(host: str, registration: LinkedProxyRegistration) -> Credentials | None:
+    """The stored login, while it is for this backend and not someone other than who linked this computer."""
     credentials = _stored_credentials()
-    if not credentials.has_any or _login_host(credentials) != host:
+    if not credentials.has_any or _login_host(credentials) != host or _is_someone_else(registration, credentials):
+        return None
+    return credentials
+
+
+def _is_someone_else(registration: LinkedProxyRegistration, credentials: Credentials) -> bool:
+    """Only when both users are known: another user's gateway token request answers linked_proxy_not_found."""
+    login_user_id = _login_user_id(credentials)
+    return None not in (registration.user_id, login_user_id) and login_user_id != registration.user_id
+
+
+def _login_user_id(credentials: Credentials) -> str | None:
+    """Read from the access token without verifying it, which only tells logins apart."""
+    if credentials.auth_method == "api_key":
+        return credentials.user_id
+    if not credentials.access_token:
+        return None
+    try:
+        payload = credentials.access_token.split(".")[1]
+        claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+    except (IndexError, ValueError):
+        return None
+    subject = claims.get("sub") if isinstance(claims, dict) else None
+    return subject if isinstance(subject, str) else None
+
+
+def _gateway_token(host: str, registration: LinkedProxyRegistration) -> LinkedProxyGatewayToken:
+    """Only the codes that say the linked proxy is gone or unavailable to its owner stop the
+    linked proxy. Any other refusal is retried."""
+    # The service outlives logins, so each request uses the login stored now, not the one it started with.
+    credentials = _owner_login(host, registration)
+    if credentials is None:
         raise SignedOut()
     try:
         response = CliContext(credentials=credentials).call_with_refresh(
-            lambda client: client.linked_proxies.create_gateway_token(linked_proxy_id)
+            lambda client: client.linked_proxies.create_gateway_token(registration.linked_proxy_id)
         )
     except APIStatusError as error:
-        if error.status_code in (403, 404):
-            raise SignInRefused(error.code if isinstance(error.code, str) else str(error)) from error
+        code = error.code if isinstance(error.code, str) else None
+        if code is not None and (code == _REMOVED or code in _UNAVAILABLE_REASONS):
+            raise SignInRefused(code) from error
         raise GatewayTokenUnavailable(f"Gumloop didn't give a gateway token (HTTP {error.status_code})") from error
     except (GumloopError, httpx.HTTPError) as error:
         raise GatewayTokenUnavailable(f"Gumloop didn't give a gateway token ({error})") from error
-    return response.gateway_token
+    return response
 
 
 def _register(cli: CliContext, host: str, key: Ed25519PrivateKey, name: str | None) -> LinkedProxyRegistration:
@@ -316,6 +381,8 @@ def _register(cli: CliContext, host: str, key: Ed25519PrivateKey, name: str | No
         linked_proxy_id=response.linked_proxy.id,
         name=response.linked_proxy.name,
         gateway_url=response.gateway_url,
+        public_key=public_key_text(key),
+        user_id=_login_user_id(_stored_credentials()),
     )
     save_registration(host, registration)
     added_name = escape_markup(response.linked_proxy.name)
@@ -359,4 +426,5 @@ def _clock_time(moment: datetime) -> str:
 
 
 def _print_destination(target: Target) -> None:
-    console.print(f"[dim]{escape_markup(target.host)}:{target.port}[/dim]")
+    opened = datetime.now().astimezone().strftime("%b %-d, %-I:%M:%S %p")
+    console.print(f"[dim]{opened}  {escape_markup(target.host)}[/dim]", highlight=False)

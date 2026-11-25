@@ -173,9 +173,10 @@ def _write_private(destination: Path, content: bytes) -> None:
     try:
         destination.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(dir=destination.parent, prefix=f".{destination.name}.", delete=False) as file:
-            os.chmod(file.name, 0o600)
+            staging = Path(file.name)
+            staging.chmod(0o600)
             file.write(content)
-        os.replace(file.name, destination)
+        staging.replace(destination)
     except OSError as error:
         raise GumloopError(f"Could not write {destination}: {error}") from error
 

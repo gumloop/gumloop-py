@@ -172,20 +172,28 @@ def _run(
 
 
 @pytest.mark.parametrize(
-    ("outcome", "reason"),
+    ("refusal", "described"),
     [
-        (Outcome(ConnectionClosed(Close(4001, "not_a_member"), None), opened=True), "not_a_member"),
-        (Outcome(_refused_handshake(401, "sign_in_refused")), "sign_in_refused"),
+        (
+            Outcome(ConnectionClosed(Close(4001, "not_a_member"), None), opened=True),
+            "the gateway closed the connection (not_a_member)",
+        ),
+        (
+            Outcome(_refused_handshake(401, "sign_in_refused")),
+            "the gateway refused the sign-in (is this computer's clock right?)",
+        ),
     ],
 )
-def test_refused_sign_in_stops_without_reconnecting(outcome, reason):
-    gateway = ScriptedGateway([outcome])
+def test_a_gateway_refusal_reconnects_and_gumloop_decides_whether_to_stop(refusal, described):
+    gateway = ScriptedGateway([refusal])
+    events: list[str] = []
 
     with pytest.raises(SignInRefused) as refused:
-        _run(gateway, [True])
+        _run(gateway, [True, True], events, gateway_token=_tokens("token-1", SignInRefused("linked_proxy_not_found")))
 
-    assert refused.value.reason == reason
-    assert gateway.waits == []
+    assert refused.value.reason == "linked_proxy_not_found"
+    assert described in events
+    assert len(gateway.waits) == 1
 
 
 def test_other_failures_reconnect_with_a_growing_wait_until_signed_out():
@@ -206,7 +214,7 @@ def test_other_failures_reconnect_with_a_growing_wait_until_signed_out():
         "can't reach the gateway (unreachable)",
     ]
     assert len(gateway.waits) == 2
-    for wait, cap in zip(gateway.waits, [1.0, 2.0]):
+    for wait, cap in zip(gateway.waits, [5.0, 10.0], strict=True):
         assert FIRST_RETRY_SECONDS <= wait <= cap
     assert len(set(gateway.authorizations)) == 2
 
