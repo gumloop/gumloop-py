@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from gumloop import Gumloop
 from gumloop import GumloopError
 from gumloop.cli.commands._args_input import resolve_json_args
+from gumloop.cli.commands._confirmation import confirm_or_exit
 from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
@@ -30,6 +31,7 @@ ArgsJson = Annotated[str | None, typer.Option("--args-json", help="Request as a 
 ArgsFile = Annotated[str | None, typer.Option("--args-file", help="File containing request JSON.")]
 Args = Annotated[str | None, typer.Option("--args", help="Use '-' to read request JSON from stdin.")]
 JsonOutput = Annotated[bool, typer.Option("--json", help="Print compact JSON for scripting.")]
+Yes = Annotated[bool, typer.Option("--yes", "-y", help="Do not ask for confirmation.")]
 
 
 def _request(inline: str | None, path: str | None, stdin: str | None, json_output: bool) -> dict[str, Any]:
@@ -52,8 +54,20 @@ def _run(ctx: typer.Context, operation: Callable[[Gumloop], BaseModel], json_out
 
 
 @configuration_app.command("delete")
-def delete_agent(ctx: typer.Context, agent_id: AgentId, json_output: JsonOutput = False) -> None:
-    """Delete a custom agent. The server refuses platform agents."""
+def delete_agent(ctx: typer.Context, agent_id: AgentId, yes: Yes = False, json_output: JsonOutput = False) -> None:
+    """Delete a custom agent. You cannot undo it; only Gumloop support can restore it.
+
+    Asks for confirmation first. With --json or without a terminal, the command
+    is refused unless you pass --yes. The server refuses platform agents.
+    """
+    confirm_or_exit(
+        warning=(
+            f"This deletes agent {agent_id}. You cannot undo it; only Gumloop support can restore a deleted agent."
+        ),
+        question=f"Delete agent {agent_id}?",
+        yes=yes,
+        json_output=json_output,
+    )
     _run(ctx, lambda client: client.agents.delete(agent_id), json_output)
 
 

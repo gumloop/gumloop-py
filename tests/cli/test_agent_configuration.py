@@ -19,7 +19,7 @@ TRIGGER = {"id": "trigger_1", "agent_id": "agent_1", "type": "webhook", "enabled
 @pytest.mark.parametrize(
     "command,method,path,options,response,body",
     [
-        (["delete"], "DELETE", "", [], {"agent_id": "agent_1", "deleted": True}, None),
+        (["delete"], "DELETE", "", ["--yes"], {"agent_id": "agent_1", "deleted": True}, None),
         (
             ["set-abilities"],
             "PATCH",

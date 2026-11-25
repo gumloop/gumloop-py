@@ -11,11 +11,13 @@ from rich.markup import escape as escape_markup
 
 from gumloop import GumloopError
 from gumloop.cli.commands._args_input import resolve_json_args
+from gumloop.cli.commands._confirmation import confirm_or_exit
 from gumloop.cli.commands.agent_configuration import configuration_app
 from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
 from gumloop.cli.errors import exit_with_error
+from gumloop.types import AgentUpdateRequest
 
 agents_app = typer.Typer(help="Manage Gumloop agents.", no_args_is_help=True, rich_markup_mode="rich")
 agents_app.add_typer(configuration_app)
@@ -416,7 +418,13 @@ def update_agent(
     ] = None,
     is_active: Annotated[
         bool | None,
-        typer.Option("--is-active/--inactive", help="Mark the agent as active or inactive."),
+        typer.Option(
+            "--is-active/--inactive",
+            help=(
+                "--inactive removes the agent, after asking for confirmation. It is not a pause, and"
+                " --is-active cannot bring the agent back. To pause an agent, turn off its triggers."
+            ),
+        ),
     ] = None,
     incognito: Annotated[
         bool | None,
@@ -425,6 +433,14 @@ def update_agent(
             help="Run every session on the agent incognito (nothing is saved), or stop. Needs a role that allows it.",
         ),
     ] = None,
+    yes: Annotated[
+        bool,
+        typer.Option(
+            "--yes",
+            "-y",
+            help="Do not ask for confirmation before --inactive, or is_active false in request JSON, removes an agent.",
+        ),
+    ] = False,
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Print the raw SDK response as JSON."),
@@ -481,6 +497,18 @@ def update_agent(
         has_field_update = bool(request) or any(value is not None for value in fields.values())
         if incognito is None and not has_field_update:
             raise GumloopError("Pass at least one field to update, using flags or request JSON.")
+        # Read is_active off the built wire body, so a JSON value the SDK coerces to false is caught too.
+        if has_field_update and AgentUpdateRequest.build(request, **fields).get("is_active") is False:
+            confirm_or_exit(
+                warning=(
+                    f"Marking agent {agent_id} inactive removes it. This is not a pause, and --is-active cannot"
+                    " bring the agent back; only Gumloop support can restore it. To pause the agent, turn off its"
+                    " triggers instead with `gumloop agents triggers update`."
+                ),
+                question=f"Remove agent {agent_id}?",
+                yes=yes,
+                json_output=json_output,
+            )
         response = None
         if incognito is not None:
             response = cli.call_with_refresh(lambda client: client.agents.set_incognito(agent_id, incognito))
