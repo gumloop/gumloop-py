@@ -40,6 +40,7 @@ from gumloop.cli.linked_proxy_key import save_registration
 from gumloop.cli.linked_proxy_lock import is_running
 from gumloop.cli.linked_proxy_lock import linked_proxy_lock
 from gumloop.cli.linked_proxy_service import LinkedProxyService
+from gumloop.cli.linked_proxy_service import NoBackgroundService
 from gumloop.cli.linked_proxy_service import gumloop_executable
 from gumloop.cli.linked_proxy_service import service_for_current_platform
 from gumloop.linked_proxy.connection import GatewayConnection
@@ -87,18 +88,28 @@ def link(
                 f"Linking this computer can't use {', '.join(overrides)}. "
                 "Save the login with `gumloop login`, then retry."
             )
-        service = service_for_current_platform()
-        executable = gumloop_executable()
+        try:
+            service: LinkedProxyService | None = service_for_current_platform()
+        except NoBackgroundService:
+            service = None
+        executable = gumloop_executable() if service is not None else None
         check_tls_not_inspected()
         key = load_or_create_key(host)
         if load_registration(host) is None:
             _register(cli, host, key, name)
-        service.install(executable)
+        if service is not None and executable is not None:
+            service.install(executable)
     except TlsInspected as error:
         exit_with_error(_tls_inspected_error(error))
     except (GumloopError, ValidationError) as error:
         exit_with_error(error)
 
+    if service is None:
+        console.print(
+            "It can't stay connected in the background: this computer has no systemd user session. "
+            "Run `gumloop browser proxy connect` and keep it open, for example in tmux."
+        )
+        return
     console.print("Connected. Your agents' browser now goes out through this computer.")
     if sys.platform.startswith("linux"):
         console.print("[dim]It connects when you log in, once your keyring is unlocked.[/dim]")
@@ -142,7 +153,8 @@ def status(
         return
     prefix = f'"{escape_markup(registration.name)}"'
     if not running:
-        console.print(f"{prefix}: not running. Run `gumloop browser proxy link` to start.")
+        start = "link" if service is not None else "connect"
+        console.print(f"{prefix}: not running. Run `gumloop browser proxy {start}` to start.")
     elif connection and connection.connected:
         console.print(f"{prefix}: connected since {_clock_time(connection.since)}.")
     elif connection and connection.last_error:
@@ -187,9 +199,10 @@ def remove_linked_proxy(cli: CliContext, host: str) -> bool:
     return service_installed or registration is not None
 
 
-@proxy_app.command("run", hidden=True)
-def run(ctx: typer.Context) -> None:
-    """What the background service runs. A clean exit means the service should stay down."""
+@proxy_app.command("connect")
+def connect(ctx: typer.Context) -> None:
+    """Keep this computer connected from this terminal until you stop it with Ctrl-C."""
+    # The background service runs this too. A clean exit means the service should stay down.
     cli: CliContext = ctx.obj
     host = backend_host(cli.effective_base_url)
     try:

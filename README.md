@@ -48,6 +48,8 @@ gumloop browser proxy status
 gumloop browser proxy unlink
 ```
 
+On Linux without a systemd user session, such as a container, `link` can't run it in the background. Run `gumloop browser proxy connect` and keep it open instead.
+
 The computer only opens connections to public addresses on ports 80 and 443. Its key stays in the OS keychain. `gumloop logout` unlinks it. A network that inspects TLS traffic can't be used, since sites would show the agent's browser certificate errors.
 
 ### Sync a folder into your Brain

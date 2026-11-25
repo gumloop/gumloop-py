@@ -19,6 +19,7 @@ from gumloop.cli.linked_proxy_key import load_or_create_key
 from gumloop.cli.linked_proxy_key import load_registration
 from gumloop.cli.linked_proxy_key import save_connection_status
 from gumloop.cli.linked_proxy_key import save_registration
+from gumloop.cli.linked_proxy_service import NoBackgroundService
 from gumloop.cli.main import app
 from gumloop.linked_proxy.connection import GatewayTokenUnavailable
 from gumloop.linked_proxy.connection import SignInRefused
@@ -74,6 +75,28 @@ def test_add_registers_and_turns_on_the_service(cli_runner, service, fake_execut
 
 
 @respx.mock
+def test_link_without_a_background_service_registers_and_points_to_connect(cli_runner, service, monkeypatch):
+    def no_background_service() -> FakeService:
+        raise NoBackgroundService("no systemd user session")
+
+    monkeypatch.setattr("gumloop.cli.commands.linked_proxy.service_for_current_platform", no_background_service)
+    respx.post(f"{API_BASE}/linked-proxies/cli").respond(
+        201,
+        json={
+            "linked_proxy": {"id": "dp-1", "name": "Ada's laptop", "kind": "cli", "is_default": True},
+            "gateway_url": GATEWAY_URL,
+        },
+    )
+
+    result = cli_runner.invoke(app, ["browser", "proxy", "link"])
+
+    assert result.exit_code == 0, result.output
+    assert load_registration(HOST) == REGISTRATION
+    assert not service.installed
+    assert "Run `gumloop browser proxy connect`" in " ".join(result.output.split())
+
+
+@respx.mock
 def test_add_refuses_a_temporary_credential_override(cli_runner, service):
     route = respx.post(f"{API_BASE}/linked-proxies/cli")
 
@@ -97,8 +120,8 @@ def test_a_refused_linked_proxy_stays_down_after_a_restart(cli_runner, service, 
 
     monkeypatch.setattr("gumloop.cli.commands.linked_proxy.GatewayConnection", RefusedConnection)
 
-    refused = cli_runner.invoke(app, ["browser", "proxy", "run"])
-    restarted = cli_runner.invoke(app, ["browser", "proxy", "run"])
+    refused = cli_runner.invoke(app, ["browser", "proxy", "connect"])
+    restarted = cli_runner.invoke(app, ["browser", "proxy", "connect"])
 
     assert (refused.exit_code, restarted.exit_code) == (0, 0)
     assert load_registration(HOST) is None
@@ -115,7 +138,7 @@ def test_a_refused_linked_proxy_stays_down_after_a_restart(cli_runner, service, 
     ],
 )
 @respx.mock
-def test_run_signs_in_with_a_gateway_token_and_stops_when_gumloop_refuses_one(
+def test_connect_signs_in_with_a_gateway_token_and_stops_when_gumloop_refuses_one(
     cli_runner, service, monkeypatch, status, payload, expected_token, kept
 ):
     save_registration(HOST, REGISTRATION)
@@ -134,7 +157,7 @@ def test_run_signs_in_with_a_gateway_token_and_stops_when_gumloop_refuses_one(
 
     monkeypatch.setattr("gumloop.cli.commands.linked_proxy.GatewayConnection", TokenFetchingConnection)
 
-    result = cli_runner.invoke(app, ["browser", "proxy", "run"])
+    result = cli_runner.invoke(app, ["browser", "proxy", "connect"])
 
     assert result.exit_code == 0, result.output
     assert fetched == ([expected_token] if expected_token is not None else [])
@@ -142,7 +165,7 @@ def test_run_signs_in_with_a_gateway_token_and_stops_when_gumloop_refuses_one(
 
 
 @respx.mock
-def test_run_signs_in_with_the_login_stored_after_it_started(cli_runner, service, monkeypatch):
+def test_connect_signs_in_with_the_login_stored_after_it_started(cli_runner, service, monkeypatch):
     save_registration(HOST, REGISTRATION)
     route = respx.post(f"{API_BASE}/linked-proxies/dp-1/gateway-token").respond(200, json={"gateway_token": "t"})
 
@@ -157,7 +180,7 @@ def test_run_signs_in_with_the_login_stored_after_it_started(cli_runner, service
 
     monkeypatch.setattr("gumloop.cli.commands.linked_proxy.GatewayConnection", ReconnectingConnection)
 
-    result = cli_runner.invoke(app, ["browser", "proxy", "run"])
+    result = cli_runner.invoke(app, ["browser", "proxy", "connect"])
 
     assert result.exit_code == 0, result.output
     assert [call.request.headers["authorization"] for call in route.calls] == ["Bearer key", "Bearer fresh"]
@@ -185,6 +208,19 @@ def test_status_reads_the_running_linked_proxy_connection(
 
     assert result.exit_code == 0, result.output
     assert f'"Ada\'s laptop": {expected}' in " ".join(result.output.split())
+
+
+def test_status_without_a_background_service_points_to_connect(cli_runner, service, monkeypatch):
+    def no_background_service() -> FakeService:
+        raise NoBackgroundService("no systemd user session")
+
+    monkeypatch.setattr("gumloop.cli.commands.linked_proxy.service_for_current_platform", no_background_service)
+    save_registration(HOST, REGISTRATION)
+
+    result = cli_runner.invoke(app, ["browser", "proxy", "status"])
+
+    assert result.exit_code == 0, result.output
+    assert "not running. Run `gumloop browser proxy connect` to start." in " ".join(result.output.split())
 
 
 @pytest.mark.parametrize("command", [["browser", "proxy", "unlink"], ["logout"]])

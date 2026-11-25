@@ -1,4 +1,4 @@
-"""Runs ``gumloop browser proxy run`` in the background: a LaunchAgent on
+"""Runs ``gumloop browser proxy connect`` in the background: a LaunchAgent on
 macOS, a systemd user unit on Linux. Both start it at login and restart it
 after a failure, but not after a clean exit, which is how it stops once the
 user logs out or Gumloop refuses the linked proxy."""
@@ -20,8 +20,10 @@ from gumloop import GumloopError
 
 LAUNCH_AGENT_LABEL = "com.gumloop.linked-proxy"
 SYSTEMD_UNIT = "gumloop-linked-proxy.service"
-_RUN_ARGUMENTS = ("browser", "proxy", "run")
+_CONNECT_ARGUMENTS = ("browser", "proxy", "connect")
 _RESTART_SECONDS = 30
+# Present only when systemd is the running init system.
+_SYSTEMD_BOOTED_DIR = Path("/run/systemd/system")
 _SAFE_PATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 # Credentials come from the keychain, never from the shell that ran `add`.
 _CLEARED_ENVIRONMENT = (
@@ -33,6 +35,11 @@ _CLEARED_ENVIRONMENT = (
 )
 
 CommandRunner = Callable[[Sequence[str]], subprocess.CompletedProcess[str]]
+
+
+class NoBackgroundService(GumloopError):
+    """This computer can't keep the linked proxy running in the background, such
+    as a Linux container or SSH session without a systemd user session."""
 
 
 class LinkedProxyService(Protocol):
@@ -75,7 +82,7 @@ class LaunchAgentService:
             },
             "KeepAlive": {"SuccessfulExit": False},
             "Label": LAUNCH_AGENT_LABEL,
-            "ProgramArguments": [str(executable_path), *_RUN_ARGUMENTS],
+            "ProgramArguments": [str(executable_path), *_CONNECT_ARGUMENTS],
             "RunAtLoad": True,
             "StandardErrorPath": str(log_path),
             "ThrottleInterval": _RESTART_SECONDS,
@@ -105,7 +112,7 @@ class SystemdUserService:
         return self._config_home / "systemd" / "user" / SYSTEMD_UNIT
 
     def install(self, executable_path: Path) -> None:
-        command = " ".join(_systemd_quote(part) for part in [str(executable_path), *_RUN_ARGUMENTS])
+        command = " ".join(_systemd_quote(part) for part in [str(executable_path), *_CONNECT_ARGUMENTS])
         unit = (
             "[Unit]\n"
             "Description=Gumloop linked proxy\n"
@@ -142,6 +149,8 @@ def service_for_current_platform(*, home: Path | None = None) -> LinkedProxyServ
     if sys.platform == "darwin":
         return LaunchAgentService(home=home)
     if sys.platform.startswith("linux"):
+        if not _SYSTEMD_BOOTED_DIR.is_dir() or not os.environ.get("XDG_RUNTIME_DIR"):
+            raise NoBackgroundService("This computer has no systemd user session to run the linked proxy in.")
         return SystemdUserService(config_home=Path(os.environ.get("XDG_CONFIG_HOME") or home / ".config"))
     raise GumloopError("`gumloop browser proxy` runs on macOS and Linux only.")
 
