@@ -129,12 +129,66 @@ def test_a_refused_linked_proxy_stays_down_after_a_restart(cli_runner, service, 
 
 
 @pytest.mark.parametrize(
+    ("reason", "kept", "expected"),
+    [
+        ("not_found", False, "This computer was unlinked from Gumloop."),
+        ("permission_denied", True, "Your organization's roles don't allow you to use personal proxies."),
+        ("not_released", True, "Personal proxies aren't available for your organization yet."),
+    ],
+)
+def test_connect_keeps_the_registration_unless_the_linked_proxy_was_removed(
+    cli_runner, service, monkeypatch, reason, kept, expected
+):
+    save_registration(HOST, REGISTRATION)
+
+    class RefusedConnection:
+        def __init__(self, **kwargs: object) -> None:
+            pass
+
+        async def run(self) -> None:
+            raise SignInRefused(reason)
+
+    monkeypatch.setattr("gumloop.cli.commands.linked_proxy.GatewayConnection", RefusedConnection)
+
+    result = cli_runner.invoke(app, ["browser", "proxy", "connect"])
+
+    assert result.exit_code == 0, result.output
+    assert (load_registration(HOST) == REGISTRATION) is kept
+    assert expected in " ".join(result.stderr.split())
+
+
+@pytest.mark.parametrize(
+    ("status", "payload", "expected"),
+    [
+        (
+            403,
+            {"error": "policy_denied", "denied_keys": ["organization:use_linked_proxies"]},
+            "Your organization's roles don't allow you to use personal proxies. Ask an admin to turn them on.",
+        ),
+        (403, {"error": "tier_required_enterprise"}, "Personal proxies need an Enterprise plan."),
+        (404, {"error": "route_not_found"}, "Personal proxies aren't available for your organization yet."),
+    ],
+)
+@respx.mock
+def test_link_says_why_personal_proxies_are_off(cli_runner, service, status, payload, expected):
+    respx.post(f"{API_BASE}/linked-proxies/cli").respond(status, json=payload)
+
+    result = cli_runner.invoke(app, ["browser", "proxy", "link"])
+
+    assert result.exit_code == 1
+    assert expected in " ".join(result.stderr.split())
+    assert load_registration(HOST) is None
+    assert not service.installed
+
+
+@pytest.mark.parametrize(
     ("status", "payload", "expected_token", "kept"),
     [
         (200, {"gateway_token": "token-1"}, "token-1", True),
         (503, {"error": "unavailable"}, GatewayTokenUnavailable, True),
         (404, {"error": {"code": "linked_proxy_not_found"}}, None, False),
-        (403, {"error": {"code": "permission_denied"}}, None, False),
+        (403, {"error": "policy_denied", "denied_keys": ["organization:use_linked_proxies"]}, None, True),
+        (404, {"error": "route_not_found"}, None, True),
     ],
 )
 @respx.mock

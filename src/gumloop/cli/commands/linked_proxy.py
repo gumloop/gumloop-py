@@ -43,6 +43,7 @@ from gumloop.cli.linked_proxy_service import LinkedProxyService
 from gumloop.cli.linked_proxy_service import NoBackgroundService
 from gumloop.cli.linked_proxy_service import gumloop_executable
 from gumloop.cli.linked_proxy_service import service_for_current_platform
+from gumloop.linked_proxy.connection import SIGN_IN_REFUSED
 from gumloop.linked_proxy.connection import GatewayConnection
 from gumloop.linked_proxy.connection import GatewayTokenUnavailable
 from gumloop.linked_proxy.connection import SignedOut
@@ -60,6 +61,21 @@ proxy_app = typer.Typer(
 
 _NAME_MAX_LENGTH = 100
 _CREDENTIAL_OVERRIDES = ("GUMLOOP_ACCESS_TOKEN", "GUMLOOP_API_KEY", "GUMLOOP_USER_ID")
+_ROLE_DENIED = "Your organization's roles don't allow you to use personal proxies. Ask an admin to turn them on."
+_PLAN_REQUIRED = "Personal proxies need an Enterprise plan."
+_NOT_RELEASED = "Personal proxies aren't available for your organization yet."
+# Why this member can't use personal proxies right now, keyed by Gumloop API error code or gateway close reason.
+_UNAVAILABLE_REASONS = {
+    "policy_denied": _ROLE_DENIED,
+    "permission_denied": _ROLE_DENIED,
+    "tier_required_enterprise": _PLAN_REQUIRED,
+    "not_enterprise": _PLAN_REQUIRED,
+    "route_not_found": _NOT_RELEASED,
+    "not_released": _NOT_RELEASED,
+    "not_a_member": "Personal proxies need you to be in a Gumloop organization.",
+}
+# Refusals that mean the linked proxy no longer exists. Any other refusal keeps the registration.
+_REMOVED_REASONS = frozenset({"not_found", "linked_proxy_not_found", SIGN_IN_REFUSED})
 
 
 @proxy_app.command(
@@ -102,7 +118,7 @@ def link(
     except TlsInspected as error:
         exit_with_error(_tls_inspected_error(error))
     except (GumloopError, ValidationError) as error:
-        exit_with_error(error)
+        exit_with_error(_explained(error))
 
     if service is None:
         console.print(
@@ -171,7 +187,7 @@ def unlink(ctx: typer.Context) -> None:
     try:
         removed = remove_linked_proxy(cli, host)
     except (GumloopError, httpx.HTTPError) as error:
-        exit_with_error(error)
+        exit_with_error(_explained(error))
     if removed:
         console.print("Unlinked this computer and deleted its key.")
     else:
@@ -230,12 +246,17 @@ def connect(ctx: typer.Context) -> None:
                 forget_connection_status(host)
     except TlsInspected as error:
         exit_with_error(_tls_inspected_error(error))
-    except SignInRefused:
-        forget_registration(host)
-        error_console.print(
-            "Gumloop refused this computer: it was removed, or you can no longer use personal proxies. "
-            "Run `gumloop browser proxy link` to link it again."
-        )
+    except SignInRefused as refusal:
+        if refusal.reason in _REMOVED_REASONS:
+            forget_registration(host)
+            error_console.print(
+                "This computer was unlinked from Gumloop. Run `gumloop browser proxy link` to link it again."
+            )
+        else:
+            reason = _UNAVAILABLE_REASONS.get(refusal.reason, "You can't use personal proxies right now.")
+            error_console.print(
+                f"{reason} This computer disconnected. Run `gumloop browser proxy link` once that changes."
+            )
     except SignedOut:
         error_console.print("You logged out of Gumloop, so this computer disconnected.")
     except KeyboardInterrupt:
@@ -274,7 +295,7 @@ def _gateway_token(host: str, linked_proxy_id: str) -> str:
         )
     except APIStatusError as error:
         if error.status_code in (403, 404):
-            raise SignInRefused(str(error)) from error
+            raise SignInRefused(error.code if isinstance(error.code, str) else str(error)) from error
         raise GatewayTokenUnavailable(f"Gumloop didn't give a gateway token (HTTP {error.status_code})") from error
     except (GumloopError, httpx.HTTPError) as error:
         raise GatewayTokenUnavailable(f"Gumloop didn't give a gateway token ({error})") from error
@@ -307,6 +328,13 @@ def _service_or_none() -> LinkedProxyService | None:
         return service_for_current_platform()
     except GumloopError:
         return None
+
+
+def _explained(error: Exception) -> Exception:
+    """Personal proxies being off for this member, in words. Any other error stays as it is."""
+    if isinstance(error, APIStatusError) and error.code in _UNAVAILABLE_REASONS:
+        return GumloopError(_UNAVAILABLE_REASONS[error.code])
+    return error
 
 
 def _tls_inspected_error(error: TlsInspected) -> GumloopError:
