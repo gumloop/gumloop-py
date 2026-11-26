@@ -50,6 +50,8 @@ _OPEN_TIMEOUT_SECONDS = 10.0
 REFRESH_BEFORE_EXPIRY_SECONDS = 15 * 60.0
 # The least time between refreshes, which is also the wait before retrying a failed one.
 MIN_REFRESH_SECONDS = 60.0
+# How often an open tunnel checks that the user who linked this computer is still logged in.
+LOGIN_CHECK_SECONDS = 60.0
 
 Open = Callable[[str, dict[str, str]], AbstractAsyncContextManager[Connection]]
 
@@ -89,6 +91,7 @@ class GatewayConnection:
         open_websocket: Open | None = None,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         refresh_sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        login_sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
     ) -> None:
         self._gateway_url = gateway_url
         self._linked_proxy_id = linked_proxy_id
@@ -101,6 +104,7 @@ class GatewayConnection:
         self._open = open_websocket or _open_websocket
         self._sleep = sleep
         self._refresh_sleep = refresh_sleep
+        self._login_sleep = login_sleep
 
     async def run(self) -> None:
         """Runs until it raises ``SignInRefused``, ``SignedOut`` or ``UpgradeRequired``. Every other
@@ -143,7 +147,7 @@ class GatewayConnection:
 
     async def _serve_tunnel(self, websocket: Connection, gateway_token: CustomProxyGatewayToken) -> None:
         tunnel = Tunnel(websocket, on_open=self._on_open, on_ready=self._on_connected)
-        tasks = {asyncio.ensure_future(tunnel.run())}
+        tasks = {asyncio.ensure_future(tunnel.run()), asyncio.ensure_future(self._watch_login())}
         # A gateway token without ``expires_at`` comes from a backend older than
         # refreshes, whose gateway would reject one.
         if gateway_token.expires_at is not None:
@@ -156,6 +160,14 @@ class GatewayConnection:
             await asyncio.gather(*tasks, return_exceptions=True)
         for task in done:
             task.result()
+
+    async def _watch_login(self) -> None:
+        """Ends the tunnel by raising ``SignedOut`` once the user who linked this
+        computer logs out or in as someone else, without waiting for a refresh."""
+        while True:
+            await self._login_sleep(LOGIN_CHECK_SECONDS)
+            if not await asyncio.to_thread(self._signed_in):
+                raise SignedOut()
 
     async def _refresh(self, tunnel: Tunnel, gateway_token: CustomProxyGatewayToken) -> None:
         """Sends a fresh gateway token before each one expires, and ends the tunnel

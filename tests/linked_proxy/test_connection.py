@@ -22,6 +22,7 @@ from websockets.http11 import Response
 
 from gumloop.linked_proxy.connection import ERROR_HEADER
 from gumloop.linked_proxy.connection import FIRST_RETRY_SECONDS
+from gumloop.linked_proxy.connection import LOGIN_CHECK_SECONDS
 from gumloop.linked_proxy.connection import MIN_REFRESH_SECONDS
 from gumloop.linked_proxy.connection import REFRESH_BEFORE_EXPIRY_SECONDS
 from gumloop.linked_proxy.connection import TUNNEL_VERSION
@@ -154,12 +155,17 @@ def _gateway_token_claim(authorization: str) -> str:
     return json.loads(base64.urlsafe_b64decode(claims + "=" * (-len(claims) % 4)))["gateway_token"]
 
 
+async def _never(seconds: float) -> None:
+    await asyncio.Event().wait()
+
+
 def _run(
     gateway: ScriptedGateway | OpenGateway,
     signed_in_checks: list[bool],
     events: list[str] | None = None,
     gateway_token: Callable[[], str | CustomProxyGatewayToken] = lambda: "token-1",
     refresh_sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+    login_sleep: Callable[[float], Awaitable[None]] = _never,
 ) -> None:
     recorded = events if events is not None else []
 
@@ -178,6 +184,7 @@ def _run(
         open_websocket=gateway.open,
         sleep=gateway.sleep,
         refresh_sleep=refresh_sleep,
+        login_sleep=login_sleep,
     )
     asyncio.run(connection.run())
 
@@ -260,6 +267,21 @@ def test_a_gateway_that_needs_a_newer_cli_stops_without_retrying():
     with pytest.raises(UpgradeRequired):
         _run(gateway, [True])
 
+    assert gateway.waits == []
+
+
+@pytest.mark.timeout(10)
+def test_logging_out_ends_the_open_tunnel_before_the_next_refresh():
+    gateway = OpenGateway(OpenConnection(closes_after=1))
+    login_waits: list[float] = []
+
+    async def login_sleep(seconds: float) -> None:
+        login_waits.append(seconds)
+
+    with pytest.raises(SignedOut):
+        _run(gateway, [True, False], login_sleep=login_sleep)
+
+    assert login_waits == [LOGIN_CHECK_SECONDS]
     assert gateway.waits == []
 
 
