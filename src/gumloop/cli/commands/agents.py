@@ -502,9 +502,8 @@ def update_agent(
         if has_field_update and AgentUpdateRequest.build(request, **update_kwargs).get("is_active") is False:
             confirm_or_exit(
                 warning=(
-                    f"Marking agent {agent_id} inactive removes it. This is not a pause, and --is-active cannot"
-                    " bring the agent back; only Gumloop support can restore it. To pause the agent, turn off each"
-                    f" of its triggers instead: find them with `gumloop agents triggers list {agent_id}`, then run"
+                    f"Marking agent {agent_id} inactive removes it, and only Gumloop support can restore it."
+                    " This is not a pause: to pause the agent, turn off its triggers with"
                     f" `gumloop agents triggers update {agent_id} <trigger_id> --args-json '{{\"enabled\":false}}'`."
                 ),
                 question=f"Remove agent {agent_id}?",

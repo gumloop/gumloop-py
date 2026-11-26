@@ -188,9 +188,8 @@ def test_inactive_question_says_it_is_not_a_pause_and_points_to_triggers(
     result = cli_runner.invoke(app, ["agents", "update", "agent_1", "--inactive"])
 
     warning = _text(result.output)
-    assert "Marking agent agent_1 inactive removes it." in warning
-    assert "This is not a pause, and --is-active cannot bring the agent back" in warning
-    assert "find them with `gumloop agents triggers list agent_1`" in warning
+    assert "Marking agent agent_1 inactive removes it, and only Gumloop support can restore it." in warning
+    assert "This is not a pause: to pause the agent, turn off its triggers with" in warning
     assert "`gumloop agents triggers update agent_1 <trigger_id> --args-json '{\"enabled\":false}'`" in warning
     assert asked == [("Remove agent agent_1?", False)]
 
