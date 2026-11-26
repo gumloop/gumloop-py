@@ -25,7 +25,7 @@ from tests.sdk.test_session_queue import MESSAGE
             ["queued_1", "--input-stdin", "-"],
             {"queued_message": MESSAGE, "queue": [MESSAGE]},
         ),
-        ("delete", "DELETE", "/queued_1", ["queued_1"], {"queue": []}),
+        ("delete", "DELETE", "/queued_1", ["queued_1", "--yes"], {"queue": []}),
         ("send", "POST", "/queued_1/send", ["queued_1"], {"session": {"id": "session_1", "agent_id": "agent_1"}}),
     ],
 )

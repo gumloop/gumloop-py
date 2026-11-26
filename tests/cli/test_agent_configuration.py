@@ -90,7 +90,7 @@ TRIGGER = {"id": "trigger_1", "agent_id": "agent_1", "type": "webhook", "enabled
             ["triggers", "delete"],
             "DELETE",
             "/triggers/trigger_1",
-            ["trigger_1"],
+            ["trigger_1", "--yes"],
             {"agent_id": "agent_1", "trigger_id": "trigger_1", "deleted": True},
             None,
         ),

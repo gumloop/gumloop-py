@@ -13,6 +13,8 @@ from gumloop._http import UploadFile
 from gumloop.brain_sync import BrainSyncPlan
 from gumloop.brain_sync import LocalFile
 from gumloop.brain_sync import scan_directory
+from gumloop.cli.commands._confirmation import Yes
+from gumloop.cli.commands._confirmation import confirm_or_exit
 from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
@@ -201,10 +203,17 @@ def get_source(
 def delete_source(
     ctx: typer.Context,
     source_id: Annotated[str, typer.Argument(help="Source id.")],
+    yes: Yes = False,
     json_output: Annotated[bool, _JSON_OPTION] = False,
 ) -> None:
     """Delete a Brain source and every file in it."""
     cli: CliContext = ctx.obj
+    confirm_or_exit(
+        warning=f"This deletes Brain source {source_id} and every file in it. You cannot undo it.",
+        question=f"Delete Brain source {source_id}?",
+        yes=yes,
+        json_output=json_output,
+    )
     try:
         response = cli.call_with_refresh(lambda client: client.brain.delete_source(source_id))
     except GumloopError as error:
@@ -331,10 +340,17 @@ def delete_file(
     ctx: typer.Context,
     source_id: Annotated[str, typer.Argument(help="Source id.")],
     file_id: Annotated[str, typer.Argument(help="File id.")],
+    yes: Yes = False,
     json_output: Annotated[bool, _JSON_OPTION] = False,
 ) -> None:
     """Remove a file from a source and from search."""
     cli: CliContext = ctx.obj
+    confirm_or_exit(
+        warning=f"This deletes file {file_id} from Brain source {source_id} and from search. You cannot undo it.",
+        question=f"Delete file {file_id}?",
+        yes=yes,
+        json_output=json_output,
+    )
     try:
         response = cli.call_with_refresh(lambda client: client.brain.delete_file(source_id, file_id))
     except GumloopError as error:
@@ -376,19 +392,33 @@ def sync_directory(
     ] = False,
     prune: Annotated[
         bool,
-        typer.Option("--prune", help="Delete remote files that no longer exist locally."),
+        typer.Option(
+            "--prune",
+            help="Delete remote files that no longer exist locally. With --source, asks for confirmation first.",
+        ),
     ] = False,
     approve: Annotated[
         bool,
         typer.Option("--approve", help="Approve a draft source once the estimate is ready."),
     ] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Show the plan without changing anything.")] = False,
+    yes: Yes = False,
     json_output: Annotated[bool, typer.Option("--json", help="Print the sync result as JSON.")] = False,
 ) -> None:
     """Mirror a local directory into a file-upload source. Unchanged files (same name and sha256) are skipped."""
     cli: CliContext = ctx.obj
     if (source_id is None) == (create is None):
         raise typer.BadParameter("Pass exactly one of --source or --create.")
+    if prune and source_id is not None and not dry_run:
+        confirm_or_exit(
+            warning=(
+                f"--prune deletes every file in Brain source {source_id} that is not in {directory}."
+                " You cannot undo it; --dry-run shows which files."
+            ),
+            question=f"Sync and prune Brain source {source_id}?",
+            yes=yes,
+            json_output=json_output,
+        )
     try:
         result = cli.call_with_refresh(
             lambda client: _sync(

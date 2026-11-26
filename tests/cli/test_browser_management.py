@@ -20,7 +20,7 @@ OPERATIONS = [
         "browser-profiles/profile-1",
         {"name": "Work", "is_default": True},
     ),
-    (["delete", "profile-1"], "DELETE", "browser-profiles/profile-1", None),
+    (["delete", "profile-1", "--yes"], "DELETE", "browser-profiles/profile-1", None),
 ]
 
 

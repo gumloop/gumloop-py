@@ -8,7 +8,6 @@ import pytest
 import respx
 from typer.testing import CliRunner
 
-from gumloop.cli.commands import _confirmation
 from gumloop.cli.credentials import Credentials
 from gumloop.cli.credentials import save_credentials
 from gumloop.cli.main import app
@@ -27,32 +26,6 @@ REMOVAL_COMMANDS = [
         ["agents", "update", "agent_1", "--args-json", '{"is_active":true}', "--inactive"], None, id="flag-over-json"
     ),
 ]
-
-
-class _Question:
-    def __init__(self, answer: bool | None) -> None:
-        self._answer = answer
-
-    def ask(self) -> bool | None:
-        return self._answer
-
-
-@pytest.fixture
-def answer_in_terminal(monkeypatch: pytest.MonkeyPatch) -> Callable[[bool | None], list[tuple[str, bool]]]:
-    """Run the command as if in a terminal where the person gives `answer`; returns the questions asked."""
-
-    def _answer(answer: bool | None) -> list[tuple[str, bool]]:
-        asked: list[tuple[str, bool]] = []
-
-        def confirm(message: str, default: bool = True) -> _Question:
-            asked.append((message, default))
-            return _Question(answer)
-
-        monkeypatch.setattr(_confirmation, "can_ask", lambda: True)
-        monkeypatch.setattr(_confirmation.questionary, "confirm", confirm)
-        return asked
-
-    return _answer
 
 
 @pytest.fixture

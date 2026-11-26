@@ -28,7 +28,7 @@ def test_artifact_cli_rename_requires_choice_and_sends_null(cli_runner: CliRunne
     [
         (["get", "file"], "GET", "/download", {"download_url": "https://download.invalid/file"}),
         (["rename", "file", "--name", "Renamed"], "PUT", "/name", {"name": "Renamed"}),
-        (["delete", "file"], "DELETE", "", {"deleted": True}),
+        (["delete", "file", "--yes"], "DELETE", "", {"deleted": True}),
         (["versions", "file"], "GET", "/versions", {"versions": []}),
     ],
 )

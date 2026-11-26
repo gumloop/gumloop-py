@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from gumloop import Gumloop
 from gumloop import GumloopError
 from gumloop.cli.commands._args_input import resolve_json_args
+from gumloop.cli.commands._confirmation import Yes
 from gumloop.cli.commands._confirmation import confirm_or_exit
 from gumloop.cli.console import console
 from gumloop.cli.console import print_json
@@ -31,7 +32,6 @@ ArgsJson = Annotated[str | None, typer.Option("--args-json", help="Request as a 
 ArgsFile = Annotated[str | None, typer.Option("--args-file", help="File containing request JSON.")]
 Args = Annotated[str | None, typer.Option("--args", help="Use '-' to read request JSON from stdin.")]
 JsonOutput = Annotated[bool, typer.Option("--json", help="Print compact JSON for scripting.")]
-Yes = Annotated[bool, typer.Option("--yes", "-y", help="Do not ask for confirmation.")]
 
 
 def _request(inline: str | None, path: str | None, stdin: str | None, json_output: bool) -> dict[str, Any]:
@@ -192,9 +192,15 @@ def update_trigger(
 
 @triggers_app.command("delete")
 def delete_trigger(
-    ctx: typer.Context, agent_id: AgentId, trigger_id: TriggerId, json_output: JsonOutput = False
+    ctx: typer.Context, agent_id: AgentId, trigger_id: TriggerId, yes: Yes = False, json_output: JsonOutput = False
 ) -> None:
-    """Delete an agent trigger."""
+    """Delete an agent trigger. You cannot undo it; to pause a trigger, update it with enabled=false."""
+    confirm_or_exit(
+        warning=f"This deletes trigger {trigger_id} from agent {agent_id}. You cannot undo it.",
+        question=f"Delete trigger {trigger_id}?",
+        yes=yes,
+        json_output=json_output,
+    )
     _run(ctx, lambda client: client.agents.delete_trigger(agent_id, trigger_id), json_output)
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from typing import Annotated
 
 import questionary
 import typer
@@ -10,6 +11,8 @@ import typer
 from gumloop import GumloopError
 from gumloop.cli.console import console
 from gumloop.cli.errors import exit_with_error
+
+Yes = Annotated[bool, typer.Option("--yes", "-y", help="Do not ask for confirmation.")]
 
 
 def can_ask() -> bool:

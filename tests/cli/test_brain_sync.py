@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Callable
 from pathlib import Path
 
 import httpx
@@ -112,7 +113,7 @@ def test_brain_sync_replaces_changed_prunes_missing_and_reports_rejections(
         )
     )
 
-    result = cli_runner.invoke(app, ["brain", "sync", str(docs), "--source", "src_1", "--prune", "--json"])
+    result = cli_runner.invoke(app, ["brain", "sync", str(docs), "--source", "src_1", "--prune", "--yes", "--json"])
 
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
@@ -123,6 +124,99 @@ def test_brain_sync_replaces_changed_prunes_missing_and_reports_rejections(
     assert payload["rejected"] == [{"file_name": "bad.exe", "error": 'unsupported file type ".exe"'}]
     assert sorted(call.request.url.path.rsplit("/", 1)[1] for call in deletes.calls) == ["2", "3"]
     assert upload.calls[0].request.content.count(b'name="files"') == 2
+
+
+SOURCE = {"id": "src_1", "name": "Docs", "source_type": "direct_file_uploads", "status": "active", "scope": "personal"}
+
+
+def _source_with_one_file_gone_locally(tmp_path: Path) -> Path:
+    """An empty local directory, and a signed-in CLI whose source src_1 still holds gone.txt."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    save_credentials(Credentials(api_key="key"))
+    respx.get(f"{API_BASE}/brain/sources/src_1").respond(200, json={"source": SOURCE})
+    respx.get(f"{API_BASE}/brain/sources/src_1/files").respond(
+        200, json={"files": [_remote("gone.txt", b"gone", "3").model_dump()], "next_cursor": None}
+    )
+    respx.delete(f"{API_BASE}/brain/sources/src_1/files/3").respond(200, json={"deleted": True})
+    return docs
+
+
+@respx.mock
+def test_brain_sync_prune_is_refused_without_a_terminal_unless_yes_is_passed(
+    cli_runner: CliRunner, tmp_path: Path
+) -> None:
+    docs = _source_with_one_file_gone_locally(tmp_path)
+
+    result = cli_runner.invoke(app, ["brain", "sync", str(docs), "--source", "src_1", "--prune"])
+
+    assert result.exit_code == 1
+    refusal = " ".join(result.stderr.split())
+    assert "--prune deletes every file in Brain source src_1 that is not in" in refusal
+    assert "You cannot undo it; --dry-run shows which files. Nothing was sent. Pass --yes to confirm." in refusal
+    assert not respx.calls
+
+
+@respx.mock
+def test_brain_sync_prune_declined_in_a_terminal_sends_nothing(
+    cli_runner: CliRunner, tmp_path: Path, answer_in_terminal: Callable[[bool | None], list[tuple[str, bool]]]
+) -> None:
+    docs = _source_with_one_file_gone_locally(tmp_path)
+    asked = answer_in_terminal(False)
+
+    result = cli_runner.invoke(app, ["brain", "sync", str(docs), "--source", "src_1", "--prune"])
+
+    assert result.exit_code == 1
+    assert asked == [("Sync and prune Brain source src_1?", False)]
+    assert not respx.calls
+
+
+@respx.mock
+def test_brain_sync_prune_confirmed_in_a_terminal_deletes_the_missing_file(
+    cli_runner: CliRunner, tmp_path: Path, answer_in_terminal: Callable[[bool | None], list[tuple[str, bool]]]
+) -> None:
+    docs = _source_with_one_file_gone_locally(tmp_path)
+    answer_in_terminal(True)
+
+    result = cli_runner.invoke(app, ["brain", "sync", str(docs), "--source", "src_1", "--prune"])
+
+    assert result.exit_code == 0, result.output
+    assert [call.request.method for call in respx.calls] == ["GET", "GET", "DELETE"]
+
+
+@respx.mock
+def test_brain_sync_prune_dry_run_shows_the_plan_without_asking(cli_runner: CliRunner, tmp_path: Path) -> None:
+    docs = _source_with_one_file_gone_locally(tmp_path)
+
+    result = cli_runner.invoke(app, ["brain", "sync", str(docs), "--source", "src_1", "--prune", "--dry-run", "--json"])
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["pruned"] == ["gone.txt"]
+    assert [call.request.method for call in respx.calls] == ["GET", "GET"]
+
+
+@respx.mock
+def test_brain_sync_without_prune_keeps_remote_files_and_does_not_ask(cli_runner: CliRunner, tmp_path: Path) -> None:
+    docs = _source_with_one_file_gone_locally(tmp_path)
+
+    result = cli_runner.invoke(app, ["brain", "sync", str(docs), "--source", "src_1", "--json"])
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["pruned"] == []
+    assert [call.request.method for call in respx.calls] == ["GET", "GET"]
+
+
+@respx.mock
+def test_brain_sync_prune_into_a_new_source_does_not_ask(cli_runner: CliRunner, tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    save_credentials(Credentials(api_key="key"))
+    create = respx.post(f"{API_BASE}/brain/sources").respond(201, json={"source": SOURCE})
+
+    result = cli_runner.invoke(app, ["brain", "sync", str(docs), "--create", "Docs", "--prune", "--json"])
+
+    assert result.exit_code == 0, result.output
+    assert create.called
 
 
 @respx.mock

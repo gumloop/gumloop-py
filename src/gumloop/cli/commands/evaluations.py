@@ -10,6 +10,8 @@ from rich.markup import escape as escape_markup
 
 from gumloop import Gumloop
 from gumloop import GumloopError
+from gumloop.cli.commands._confirmation import Yes
+from gumloop.cli.commands._confirmation import confirm_or_exit
 from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
@@ -263,6 +265,7 @@ def update_evaluation(
 def delete_evaluation(
     ctx: typer.Context,
     evaluation_id: Annotated[str, typer.Argument(help="Evaluation id to delete.")],
+    yes: Yes = False,
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Print the raw SDK response as JSON."),
@@ -270,6 +273,12 @@ def delete_evaluation(
 ) -> None:
     """Delete an evaluation. Past results stay attached to their sessions."""
     cli: CliContext = ctx.obj
+    confirm_or_exit(
+        warning=f"This deletes evaluation {evaluation_id}. You cannot undo it.",
+        question=f"Delete evaluation {evaluation_id}?",
+        yes=yes,
+        json_output=json_output,
+    )
     try:
         cli.call_with_refresh(lambda client: client.evaluations.delete(evaluation_id))
     except GumloopError as error:
