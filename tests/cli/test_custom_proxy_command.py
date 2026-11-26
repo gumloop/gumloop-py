@@ -146,6 +146,26 @@ def test_a_refused_custom_proxy_stays_down_after_a_restart(cli_runner, service, 
     assert not respx.calls
 
 
+def test_a_refused_custom_proxy_keeps_a_registration_linked_while_it_was_connected(cli_runner, service, monkeypatch):
+    save_registration(HOST, _registration())
+    relinked = _registration(custom_proxy_id="dp-2")
+
+    class RefusedAfterRelinkConnection:
+        def __init__(self, **kwargs: object) -> None:
+            pass
+
+        async def run(self) -> None:
+            save_registration(HOST, relinked)
+            raise SignInRefused("personal_custom_proxy_not_found")
+
+    monkeypatch.setattr("gumloop.cli.commands.custom_proxy.GatewayConnection", RefusedAfterRelinkConnection)
+
+    result = cli_runner.invoke(app, ["browser", "proxy", "connect"])
+
+    assert result.exit_code == 0, result.output
+    assert load_registration(HOST) == relinked
+
+
 def test_connect_says_it_connected_once_across_reconnects(cli_runner, service, monkeypatch):
     save_registration(HOST, _registration())
 

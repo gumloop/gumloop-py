@@ -230,12 +230,14 @@ def connect(
     # The background service runs this too. A clean exit means the service should stay down.
     cli: CliContext = ctx.obj
     host = backend_host(cli.effective_base_url)
+    custom_proxy_id: str | None = None
     try:
         with custom_proxy_lock(host):
             registration = load_registration(host)
             if registration is None:
                 error_console.print("This computer is not linked. Run `gumloop browser proxy link`.")
                 return
+            custom_proxy_id = registration.custom_proxy_id
             key = load_or_create_key(host)
             if registration.public_key != public_key_text(key):
                 forget_registration(host)
@@ -276,7 +278,10 @@ def connect(
         exit_with_error(_tls_inspected_error(error))
     except SignInRefused as refusal:
         if refusal.reason == _REMOVED:
-            forget_registration(host)
+            # `link` doesn't take the lock, so it may have saved a new registration meanwhile.
+            current = load_registration(host)
+            if current is not None and current.custom_proxy_id == custom_proxy_id:
+                forget_registration(host)
             error_console.print(
                 "This computer was unlinked from Gumloop. Run `gumloop browser proxy link` to link it again."
             )
