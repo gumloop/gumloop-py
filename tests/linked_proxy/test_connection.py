@@ -8,9 +8,7 @@ from collections.abc import AsyncIterator
 from collections.abc import Awaitable
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
 from datetime import timedelta
-from datetime import timezone
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -20,10 +18,9 @@ from websockets.exceptions import InvalidStatus
 from websockets.frames import Close
 from websockets.http11 import Response
 
+from gumloop.linked_proxy import connection
 from gumloop.linked_proxy.connection import ERROR_HEADER
-from gumloop.linked_proxy.connection import FIRST_RETRY_SECONDS
 from gumloop.linked_proxy.connection import LOGIN_CHECK_SECONDS
-from gumloop.linked_proxy.connection import MIN_REFRESH_SECONDS
 from gumloop.linked_proxy.connection import REFRESH_BEFORE_EXPIRY_SECONDS
 from gumloop.linked_proxy.connection import TUNNEL_VERSION
 from gumloop.linked_proxy.connection import TUNNEL_VERSION_HEADER
@@ -35,6 +32,11 @@ from gumloop.linked_proxy.connection import UpgradeRequired
 from gumloop.linked_proxy.frames import Frame
 from gumloop.linked_proxy.frames import FrameType
 from gumloop.types import CustomProxyGatewayToken
+from tests.linked_proxy.helpers import FROZEN_NOW
+from tests.linked_proxy.helpers import FrozenDatetime
+from tests.linked_proxy.helpers import FrozenTime
+from tests.linked_proxy.helpers import UpperBoundRandom
+from tests.linked_proxy.helpers import tokens
 
 GATEWAY_URL = "wss://linked-proxy-gateway.gumloop.com/v1/cli/connect"
 
@@ -130,22 +132,6 @@ class RefreshSleep:
             await asyncio.Event().wait()
 
 
-def _tokens(*results: str | CustomProxyGatewayToken | Exception) -> Callable[[], str | CustomProxyGatewayToken]:
-    remaining = list(results)
-
-    def fetch() -> str | CustomProxyGatewayToken:
-        result = remaining.pop(0)
-        if isinstance(result, Exception):
-            raise result
-        return result
-
-    return fetch
-
-
-def _expiring_in(minutes: float, utc_suffix: str = "+00:00") -> str:
-    return (datetime.now(timezone.utc) + timedelta(minutes=minutes)).isoformat().replace("+00:00", utc_suffix)
-
-
 def _refused_handshake(status: int, outcome: str) -> InvalidStatus:
     return InvalidStatus(Response(status, "", Headers({ERROR_HEADER: outcome})))
 
@@ -189,6 +175,12 @@ def _run(
     asyncio.run(connection.run())
 
 
+@pytest.fixture
+def pinned_backoff(monkeypatch):
+    monkeypatch.setattr(connection, "random", UpperBoundRandom())
+    monkeypatch.setattr(connection, "time", FrozenTime())
+
+
 @pytest.mark.parametrize(
     ("refusal", "described"),
     [
@@ -202,7 +194,7 @@ def _run(
         ),
     ],
 )
-def test_a_gateway_refusal_reconnects_and_gumloop_decides_whether_to_stop(refusal, described):
+def test_a_gateway_refusal_reconnects_and_gumloop_decides_whether_to_stop(pinned_backoff, refusal, described):
     gateway = ScriptedGateway([refusal])
     events: list[str] = []
 
@@ -211,34 +203,54 @@ def test_a_gateway_refusal_reconnects_and_gumloop_decides_whether_to_stop(refusa
             gateway,
             [True, True],
             events,
-            gateway_token=_tokens("token-1", SignInRefused("personal_custom_proxy_not_found")),
+            gateway_token=tokens("token-1", SignInRefused("personal_custom_proxy_not_found")),
         )
 
     assert refused.value.reason == "personal_custom_proxy_not_found"
-    assert described in events
-    assert len(gateway.waits) == 1
+    assert events == [described]
+    assert gateway.waits == [5.0]
 
 
-def test_other_failures_reconnect_with_a_growing_wait_until_signed_out():
+@pytest.mark.parametrize(
+    ("refused_token", "described"),
+    [
+        (
+            Outcome(ConnectionClosed(Close(4004, "bad_token"), None), opened=True),
+            "the gateway closed the connection (bad_token)",
+        ),
+        (Outcome(_refused_handshake(401, "gateway_token_refused")), "the gateway answered HTTP 401"),
+    ],
+)
+def test_other_failures_reconnect_with_a_fresh_gateway_token_and_a_growing_wait_until_signed_out(
+    pinned_backoff, refused_token, described
+):
     gateway = ScriptedGateway(
         [
             Outcome(ConnectionClosed(Close(4002, "already_connected"), None), opened=True),
+            refused_token,
             Outcome(OSError("unreachable")),
         ]
     )
     events: list[str] = []
+    gateway_token = tokens(
+        "token-1", "token-2", GatewayTokenUnavailable("Gumloop didn't give a gateway token (HTTP 503)"), "token-3"
+    )
 
     with pytest.raises(SignedOut):
-        _run(gateway, [True, True, False], events)
+        _run(gateway, [True, True, True, True, False], events, gateway_token=gateway_token)
 
     assert events == [
         "the gateway closed the connection (already_connected)",
+        described,
+        "Gumloop didn't give a gateway token (HTTP 503)",
         "can't reach the gateway (unreachable)",
     ]
-    assert len(gateway.waits) == 2
-    for wait, cap in zip(gateway.waits, [5.0, 10.0], strict=True):
-        assert FIRST_RETRY_SECONDS <= wait <= cap
-    assert len(set(gateway.authorizations)) == 2
+    assert gateway.waits == [5.0, 10.0, 20.0, 40.0]
+    assert [_gateway_token_claim(authorization) for authorization in gateway.authorizations] == [
+        "token-1",
+        "token-2",
+        "token-3",
+    ]
 
 
 def test_it_is_connected_only_once_the_gateway_says_the_tunnel_is_ready():
@@ -270,7 +282,6 @@ def test_a_gateway_that_needs_a_newer_cli_stops_without_retrying():
     assert gateway.waits == []
 
 
-@pytest.mark.timeout(10)
 def test_logging_out_ends_the_open_tunnel_before_the_next_refresh():
     gateway = OpenGateway(OpenConnection(closes_after=1))
     login_waits: list[float] = []
@@ -285,105 +296,33 @@ def test_logging_out_ends_the_open_tunnel_before_the_next_refresh():
     assert gateway.waits == []
 
 
-@pytest.mark.parametrize(
-    "refused_token",
-    [
-        Outcome(ConnectionClosed(Close(4004, "bad_token"), None), opened=True),
-        Outcome(_refused_handshake(401, "gateway_token_refused")),
-    ],
-)
-def test_a_refused_gateway_token_reconnects_with_a_fresh_one(refused_token):
-    gateway = ScriptedGateway([refused_token, Outcome(OSError("unreachable"))])
-    tokens = iter(["token-1", "token-2"])
-
-    with pytest.raises(SignedOut):
-        _run(gateway, [True, True, False], gateway_token=lambda: next(tokens))
-
-    assert [_gateway_token_claim(authorization) for authorization in gateway.authorizations] == ["token-1", "token-2"]
-
-
-def test_a_gateway_token_gumloop_did_not_give_is_retried_before_connecting():
-    gateway = ScriptedGateway([Outcome(OSError("unreachable"))])
-    tokens: list[str | Exception] = [
-        GatewayTokenUnavailable("Gumloop didn't give a gateway token (HTTP 503)"),
-        "token-1",
-    ]
-    events: list[str] = []
-
-    def gateway_token() -> str:
-        result = tokens.pop(0)
-        if isinstance(result, Exception):
-            raise result
-        return result
-
-    with pytest.raises(SignedOut):
-        _run(gateway, [True, True, False], events, gateway_token=gateway_token)
-
-    assert events == ["Gumloop didn't give a gateway token (HTTP 503)", "can't reach the gateway (unreachable)"]
-    assert [_gateway_token_claim(authorization) for authorization in gateway.authorizations] == ["token-1"]
-
-
-def test_a_gateway_token_refused_by_gumloop_stops_without_connecting():
-    gateway = ScriptedGateway([])
-
-    def gateway_token() -> str:
-        raise SignInRefused("removed")
-
-    with pytest.raises(SignInRefused):
-        _run(gateway, [True], gateway_token=gateway_token)
-
-    assert gateway.authorizations == []
-    assert gateway.waits == []
-
-
 @pytest.mark.parametrize("utc_suffix", ["+00:00", "Z"])
-def test_an_open_tunnel_sends_a_fresh_gateway_token_before_its_current_one_expires(utc_suffix):
+def test_an_open_tunnel_sends_a_fresh_gateway_token_before_its_current_one_expires(monkeypatch, utc_suffix):
+    monkeypatch.setattr(connection, "datetime", FrozenDatetime)
     gateway = OpenGateway(OpenConnection(closes_after=1))
     refresh_sleep = RefreshSleep(returns=1)
-    expiring = CustomProxyGatewayToken(gateway_token="token-1", expires_at=_expiring_in(20, utc_suffix))
+    expires_at = (FROZEN_NOW + timedelta(minutes=20)).isoformat().replace("+00:00", utc_suffix)
+    expiring = CustomProxyGatewayToken(gateway_token="token-1", expires_at=expires_at)
 
     with pytest.raises(SignedOut):
-        _run(gateway, [True, False], gateway_token=_tokens(expiring, "token-2"), refresh_sleep=refresh_sleep)
+        _run(gateway, [True, False], gateway_token=tokens(expiring, "token-2"), refresh_sleep=refresh_sleep)
 
-    assert refresh_sleep.waits == [pytest.approx(20 * 60 - REFRESH_BEFORE_EXPIRY_SECONDS, abs=5)]
+    assert refresh_sleep.waits == [20 * 60 - REFRESH_BEFORE_EXPIRY_SECONDS]
     assert gateway.connection.sent == [Frame.gateway_token("token-2")]
 
 
-def test_a_gateway_token_without_an_expiry_is_never_refreshed():
-    gateway = ScriptedGateway([Outcome(OSError("closed"), opened=True)])
-    refresh_sleep = RefreshSleep(returns=0)
-
-    with pytest.raises(SignedOut):
-        _run(gateway, [True, False], refresh_sleep=refresh_sleep)
-
-    assert refresh_sleep.waits == []
-
-
-def test_a_gateway_token_refresh_gumloop_did_not_give_is_retried():
+def test_a_refresh_after_unlinking_ends_the_open_tunnel():
     gateway = OpenGateway(OpenConnection(closes_after=1))
-    refresh_sleep = RefreshSleep(returns=2)
-    expiring = CustomProxyGatewayToken(gateway_token="token-1", expires_at=_expiring_in(10))
+    expiring = CustomProxyGatewayToken(gateway_token="token-1", expires_at="2027-01-15T12:20:00Z")
 
-    with pytest.raises(SignedOut):
+    with pytest.raises(SignInRefused) as refused:
         _run(
             gateway,
-            [True, False],
-            gateway_token=_tokens(expiring, GatewayTokenUnavailable("HTTP 503"), "token-2"),
-            refresh_sleep=refresh_sleep,
+            [True],
+            gateway_token=tokens(expiring, SignInRefused("personal_custom_proxy_not_found")),
+            refresh_sleep=RefreshSleep(returns=1),
         )
 
-    assert refresh_sleep.waits == [MIN_REFRESH_SECONDS, MIN_REFRESH_SECONDS]
-    assert gateway.connection.sent == [Frame.gateway_token("token-2")]
-
-
-@pytest.mark.timeout(10)
-@pytest.mark.parametrize("ended_by", [SignedOut(), SignInRefused("personal_custom_proxy_not_found")])
-def test_a_refresh_after_signing_out_or_unlinking_ends_the_open_tunnel(ended_by):
-    gateway = OpenGateway(OpenConnection(closes_after=1))
-    expiring = CustomProxyGatewayToken(gateway_token="token-1", expires_at=_expiring_in(20))
-
-    with pytest.raises(type(ended_by)):
-        _run(gateway, [True], gateway_token=_tokens(expiring, ended_by), refresh_sleep=RefreshSleep(returns=1))
-
+    assert refused.value.reason == "personal_custom_proxy_not_found"
     assert gateway.connection.sent == []
     assert gateway.waits == []

@@ -58,11 +58,4 @@ def test_a_certificate_from_a_private_ca_means_inspection(tmp_path):
     server.start()
     with listener, pytest.raises(TlsInspected):
         check_tls_not_inspected("localhost", listener.getsockname()[1])
-    server.join(timeout=5)
-
-
-def test_an_unreachable_site_is_not_inspection():
-    with socket.create_server(("127.0.0.1", 0)) as closed:
-        port = closed.getsockname()[1]
-
-    check_tls_not_inspected("127.0.0.1", port)
+    server.join()

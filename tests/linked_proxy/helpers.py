@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+from datetime import datetime
+from datetime import timezone
+from datetime import tzinfo
 from types import ModuleType
 
 from gumloop.linked_proxy.destinations import Target
@@ -10,6 +13,7 @@ from gumloop.linked_proxy.frames import MAX_DATA_LENGTH
 from gumloop.linked_proxy.frames import Frame
 from gumloop.linked_proxy.frames import FrameType
 from gumloop.linked_proxy.tunnel import Tunnel
+from gumloop.types import CustomProxyGatewayToken
 
 
 class FakeGateway:
@@ -95,11 +99,11 @@ async def relay_through_stream(gateway: FakeGateway, sent: bytes) -> bytes:
     return bytes(received)
 
 
-def tokens(*results: str | Exception) -> Callable[[], str]:
+def tokens(*results: str | CustomProxyGatewayToken | Exception) -> Callable[[], str | CustomProxyGatewayToken]:
     """A gateway token fetch that returns, or raises, ``results`` in order."""
     remaining = list(results)
 
-    def fetch() -> str:
+    def fetch() -> str | CustomProxyGatewayToken:
         result = remaining.pop(0)
         if isinstance(result, Exception):
             raise result
@@ -130,6 +134,17 @@ class FrozenTime(ModuleType):
 
     def time(self) -> float:
         return self._now
+
+
+FROZEN_NOW = datetime(2027, 1, 15, 12, 0, tzinfo=timezone.utc)
+
+
+class FrozenDatetime(datetime):
+    """Stands in for a module's ``datetime`` name: ``now`` is always ``FROZEN_NOW``."""
+
+    @classmethod
+    def now(cls, tz: tzinfo | None = None) -> datetime:
+        return FROZEN_NOW
 
 
 class RecordingWriter:
