@@ -21,6 +21,8 @@ from gumloop.linked_proxy.frames import ProtocolError
 
 # Bounds the credit the gateway may grant, so a stream's window stays sane.
 _MAX_SEND_WINDOW = 64 * 1024 * 1024
+# How long a destination gets to take the data the gateway sent before its CLOSE.
+_CLOSE_WRITE_SECONDS = 10.0
 
 Dial = Callable[[Target], Awaitable[tuple[asyncio.StreamReader, asyncio.StreamWriter]]]
 
@@ -88,7 +90,7 @@ class Tunnel:
         elif frame.type is FrameType.WINDOW:
             stream.grant(frame.window_increment)
         elif frame.type is FrameType.CLOSE:
-            stream.shut()
+            stream.close_from_gateway()
 
     async def send_gateway_token(self, token: str) -> None:
         """The gateway checks it right away and uses it for its rechecks from then on."""
@@ -123,13 +125,15 @@ class _Stream:
         self.id = stream_id
         self._tasks: list[asyncio.Task[None]] = []
         self._writer: asyncio.StreamWriter | None = None
+        self._download_task: asyncio.Task[None] | None = None
         self._open = False
         self._ended = False
         self._send_window = INITIAL_WINDOW
         self._can_send = asyncio.Event()
         self._can_send.set()
         self._recv_window = INITIAL_WINDOW
-        self._incoming: asyncio.Queue[bytes] = asyncio.Queue()
+        # None marks the gateway's CLOSE.
+        self._incoming: asyncio.Queue[bytes | None] = asyncio.Queue()
 
     def start(self, task: asyncio.Task[None]) -> None:
         self._tasks.append(task)
@@ -154,7 +158,8 @@ class _Stream:
         self._open = True
         await self._tunnel._send(Frame(type=FrameType.OPEN_OK, stream_id=self.id))
         self._tasks.append(self._tunnel._spawn(self._upload(reader)))
-        self._tasks.append(self._tunnel._spawn(self._download(writer)))
+        self._download_task = self._tunnel._spawn(self._download(writer))
+        self._tasks.append(self._download_task)
 
     async def _fail(self, reason: str) -> None:
         self._ended = True
@@ -195,8 +200,7 @@ class _Stream:
         """Gateway to destination. Credit goes back once half the window is written."""
         unacked = 0
         try:
-            while True:
-                data = await self._incoming.get()
+            while (data := await self._incoming.get()) is not None:
                 writer.write(data)
                 await writer.drain()
                 unacked += len(data)
@@ -206,6 +210,25 @@ class _Stream:
                     unacked = 0
         except OSError:
             await self._close()
+        finally:
+            writer.close()
+
+    def close_from_gateway(self) -> None:
+        """Stops reading from the destination but still writes it what the gateway
+        sent first, aborting the connection if that takes too long."""
+        if self._ended:
+            return
+        if self._download_task is None or self._writer is None:
+            self.shut()
+            return
+        self._ended = True
+        self._tunnel._forget(self.id)
+        for task in self._tasks:
+            if task is not self._download_task:
+                task.cancel()
+        self._incoming.put_nowait(None)
+        deadline = asyncio.get_running_loop().call_later(_CLOSE_WRITE_SECONDS, self._writer.transport.abort)
+        self._download_task.add_done_callback(lambda _task: deadline.cancel())
 
     async def _close(self) -> None:
         """Ends the stream from this side and tells the gateway."""

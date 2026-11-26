@@ -102,6 +102,34 @@ def test_tunnel_relays_more_than_a_window_each_way() -> None:
 
 
 @pytest.mark.timeout(10)
+def test_data_the_gateway_sent_before_its_close_still_reaches_the_destination() -> None:
+    async def scenario() -> None:
+        received: asyncio.Future[bytes] = asyncio.get_running_loop().create_future()
+
+        async def record(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+            received.set_result(await reader.read())
+            writer.close()
+
+        server = await asyncio.start_server(record, "127.0.0.1", 0)
+        gateway = FakeGateway()
+        run = await _open(gateway, server.sockets[0].getsockname()[1])
+
+        sent = os.urandom(INITIAL_WINDOW // 2)
+        for offset in range(0, len(sent), MAX_DATA_LENGTH):
+            gateway.push(Frame(type=FrameType.DATA, stream_id=1, payload=sent[offset : offset + MAX_DATA_LENGTH]))
+        gateway.push(Frame(type=FrameType.CLOSE, stream_id=1))
+
+        assert await asyncio.wait_for(received, 5) == sent
+        gateway.close()
+        with pytest.raises(ConnectionError):
+            await run
+        server.close()
+        await server.wait_closed()
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.timeout(10)
 def test_tunnel_refuses_a_private_destination_without_dialing() -> None:
     async def scenario() -> None:
         dialed: list[Target] = []
