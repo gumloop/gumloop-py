@@ -43,6 +43,7 @@ from gumloop.cli.custom_proxy_lock import custom_proxy_lock
 from gumloop.cli.custom_proxy_lock import is_running
 from gumloop.cli.custom_proxy_service import CustomProxyService
 from gumloop.cli.custom_proxy_service import NoBackgroundService
+from gumloop.cli.custom_proxy_service import executable_version
 from gumloop.cli.custom_proxy_service import gumloop_executable
 from gumloop.cli.custom_proxy_service import service_for_current_platform
 from gumloop.cli.errors import exit_with_error
@@ -129,15 +130,21 @@ def link(
     except (GumloopError, ValidationError, httpx.HTTPError) as error:
         exit_with_error(_explained(error))
 
-    if service is None:
+    if service is None or executable is None:
         console.print(
             "It can't stay connected in the background: this computer has no systemd user session. "
             "Run `gumloop browser proxy connect` and keep it open, for example in tmux."
         )
         return
-    console.print("[green]Connected.[/green] Your agents' browser now goes out through this computer.")
     if sys.platform.startswith("linux"):
         console.print("[dim]It connects when you log in, once your keyring is unlocked.[/dim]")
+    service_version = executable_version(executable)
+    if service_version != __version__:
+        console.print(
+            f"[yellow]Note:[/yellow] the background service runs `{escape_markup(str(executable))}`, "
+            f"which is Gumloop CLI {escape_markup(service_version or 'of an unknown version')}, not {__version__}. "
+            "Run `gumloop update`, then `gumloop browser proxy link` again."
+        )
 
 
 @proxy_app.command("status")
@@ -419,7 +426,7 @@ def _register(
     if keep_default and not response.custom_proxy.is_default:
         cli.call_with_refresh(lambda client: client.custom_proxies.set_default(registration.custom_proxy_id))
     added_name = escape_markup(response.custom_proxy.name)
-    console.print(f"Linked this computer to Gumloop as '{added_name}'.")
+    console.print(f"[green]Linked[/green] this computer to Gumloop as '{added_name}'.")
 
 
 def _delete_lost_custom_proxy(cli: CliContext, custom_proxy_id: str) -> bool:

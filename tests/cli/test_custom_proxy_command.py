@@ -11,6 +11,7 @@ import keyring
 import pytest
 import respx
 
+from gumloop._version import __version__
 from gumloop.cli.credentials import KEYRING_SERVICE
 from gumloop.cli.credentials import Credentials
 from gumloop.cli.credentials import save_credentials
@@ -75,6 +76,7 @@ def service(monkeypatch) -> FakeService:
     fake = FakeService()
     monkeypatch.setattr("gumloop.cli.commands.custom_proxy.service_for_current_platform", lambda: fake)
     monkeypatch.setattr("gumloop.cli.commands.custom_proxy.check_tls_not_inspected", lambda: None)
+    monkeypatch.setattr("gumloop.cli.commands.custom_proxy.executable_version", lambda executable: __version__)
     save_credentials(Credentials(api_key="key", user_id="actor"))
     return fake
 
@@ -89,6 +91,22 @@ def test_add_registers_and_turns_on_the_service(cli_runner, service, fake_execut
     assert json.loads(route.calls[0].request.content)["public_key"] == public_key_text(load_or_create_key(HOST))
     assert load_registration(HOST) == _registration()
     assert service.executable == fake_executable_path / "gumloop"
+    assert "Linked this computer to Gumloop as 'Ada's laptop'." in " ".join(result.stdout.split())
+    assert "Connected" not in result.stdout
+
+
+@respx.mock
+def test_link_warns_when_the_background_service_runs_another_cli_version(
+    cli_runner, service, monkeypatch, fake_executable_path
+):
+    monkeypatch.setattr("gumloop.cli.commands.custom_proxy.executable_version", lambda executable: "0.0.1")
+    respx.post(f"{API_BASE}/custom-proxies").respond(201, json=REGISTERED)
+
+    result = cli_runner.invoke(app, ["browser", "proxy", "link"])
+
+    assert result.exit_code == 0, result.output
+    assert service.installed
+    assert f"which is Gumloop CLI 0.0.1, not {__version__}. Run `gumloop update`" in " ".join(result.stdout.split())
 
 
 @respx.mock

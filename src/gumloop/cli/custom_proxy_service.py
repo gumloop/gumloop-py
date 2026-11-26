@@ -164,6 +164,16 @@ def gumloop_executable() -> Path:
     return Path(found).absolute()
 
 
+def executable_version(executable_path: Path, run_command: CommandRunner | None = None) -> str | None:
+    """None when it can't be run or doesn't print a version."""
+    try:
+        result = (run_command or _run_command)([str(executable_path), "--version"])
+    except GumloopError:
+        return None
+    version = result.stdout.strip()
+    return version if result.returncode == 0 and version else None
+
+
 def _systemd_quote(value: str) -> str:
     escaped = value.replace("\\", "\\\\").replace('"', '\\"').replace("%", "%%").replace("$", "$$")
     return f'"{escaped}"'

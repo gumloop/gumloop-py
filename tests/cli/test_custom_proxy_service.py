@@ -8,9 +8,11 @@ from pathlib import Path
 
 import pytest
 
+from gumloop import GumloopError
 from gumloop.cli.custom_proxy_service import LaunchAgentService
 from gumloop.cli.custom_proxy_service import NoBackgroundService
 from gumloop.cli.custom_proxy_service import SystemdUserService
+from gumloop.cli.custom_proxy_service import executable_version
 from gumloop.cli.custom_proxy_service import service_for_current_platform
 
 EXECUTABLE = Path("/opt/gumloop bin/gumloop")
@@ -99,3 +101,21 @@ def test_linux_without_a_systemd_user_session_has_no_background_service(
 
     with pytest.raises(NoBackgroundService):
         service_for_current_platform(home=tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("outcome", "expected"),
+    [
+        (subprocess.CompletedProcess([], 0, stdout="1.4.0\n", stderr=""), "1.4.0"),
+        (subprocess.CompletedProcess([], 2, stdout="", stderr="No such option: --version"), None),
+        (GumloopError("Could not run `gumloop`"), None),
+    ],
+)
+def test_executable_version_reads_what_the_service_executable_prints(outcome, expected):
+    def run_command(args: Sequence[str]) -> subprocess.CompletedProcess[str]:
+        assert list(args) == [str(EXECUTABLE), "--version"]
+        if isinstance(outcome, GumloopError):
+            raise outcome
+        return outcome
+
+    assert executable_version(EXECUTABLE, run_command) == expected
