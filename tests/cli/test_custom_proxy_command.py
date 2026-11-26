@@ -6,7 +6,9 @@ from collections.abc import Callable
 from datetime import datetime
 from datetime import timezone
 from pathlib import Path
+from urllib.parse import parse_qs
 
+import httpx
 import keyring
 import pytest
 import respx
@@ -30,6 +32,7 @@ from gumloop.linked_proxy.destinations import Target
 from gumloop.linked_proxy.sign_in import public_key_text
 from gumloop.types import CustomProxyGatewayToken
 from tests.sdk.helpers import API_BASE
+from tests.sdk.helpers import OAUTH_BASE
 
 HOST = "api.gumloop.com"
 GATEWAY_URL = "wss://linked-proxy-gateway.gumloop.com/v1/cli/connect"
@@ -572,6 +575,24 @@ def test_logout_unlinks_with_the_stored_login_not_a_credential_override(cli_runn
     assert result.exit_code == 0, result.output
     assert route.calls.last.request.headers["Authorization"] == "Bearer key"
     assert load_registration(HOST) is None
+
+
+@respx.mock
+def test_logout_revokes_the_refresh_token_the_unlink_refresh_replaced(cli_runner, service):
+    save_credentials(Credentials(access_token=_access_token("actor"), refresh_token="orig_refresh"))
+    save_registration(HOST, _registration())
+    respx.delete(f"{API_BASE}/custom-proxies/dp-1").mock(
+        side_effect=[httpx.Response(401, json={"error": {"code": "invalid_token"}}), httpx.Response(204)]
+    )
+    respx.post(f"{OAUTH_BASE}/oauth/token").respond(
+        200, json={"access_token": _access_token("actor"), "refresh_token": "fresh_refresh"}
+    )
+    revoke = respx.post(f"{OAUTH_BASE}/oauth/revoke").respond(200)
+
+    result = cli_runner.invoke(app, ["logout"])
+
+    assert result.exit_code == 0, result.output
+    assert parse_qs(revoke.calls.last.request.content.decode())["token"] == ["fresh_refresh"]
 
 
 @pytest.mark.parametrize(("login_has_custom_proxy", "kept"), [(True, True), (False, False)])

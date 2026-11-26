@@ -19,6 +19,7 @@ from gumloop.cli.context import CliContext
 from gumloop.cli.credentials import Credentials
 from gumloop.cli.credentials import clear_credentials
 from gumloop.cli.credentials import keyring_backend_name
+from gumloop.cli.credentials import load_credentials
 from gumloop.cli.credentials import save_credentials
 from gumloop.cli.errors import exit_with_error
 from gumloop.cli.oauth import DEFAULT_REDIRECT_PORT
@@ -221,7 +222,8 @@ def logout(
     oauth_revoked = False
     revoke_failed = False
     if cli.effective_auth_method == METHOD_OAUTH:
-        token = cli.credentials.refresh_token or cli.credentials.access_token
+        # The unlink may have refreshed the stored login, which replaces its refresh token.
+        token = load_credentials().refresh_token or cli.credentials.refresh_token or cli.credentials.access_token
         if token:
             try:
                 revoke_oauth_token(base_url=cli.effective_base_url, token=token)
