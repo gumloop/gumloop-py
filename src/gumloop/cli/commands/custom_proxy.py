@@ -34,6 +34,7 @@ from gumloop.cli.custom_proxy_key import forget
 from gumloop.cli.custom_proxy_key import forget_connection_status
 from gumloop.cli.custom_proxy_key import forget_registration
 from gumloop.cli.custom_proxy_key import load_connection_status
+from gumloop.cli.custom_proxy_key import load_key
 from gumloop.cli.custom_proxy_key import load_or_create_key
 from gumloop.cli.custom_proxy_key import load_registration
 from gumloop.cli.custom_proxy_key import save_connection_status
@@ -75,6 +76,11 @@ _UNAVAILABLE_REASONS = {
 }
 # The only refusal that forgets the registration.
 _REMOVED = "personal_custom_proxy_not_found"
+# Also what the API answers when the rollout flag can't be read, so connect retries it.
+_NOT_RELEASED = "route_not_found"
+_RETRIED_STATUSES = frozenset({408, 409, 429})
+# Gumloop answered 401 to a login that can't be refreshed, such as a revoked API key.
+_LOGIN_REJECTED = "login_rejected"
 
 
 @proxy_app.command(
@@ -115,13 +121,12 @@ def link(
             raise GumloopError(
                 "This computer is linked to another Gumloop user. Run `gumloop browser proxy unlink`, then link again."
             )
-        if registration is None or registration.public_key != public_key_text(key):
-            _register(cli, host, key, name)
+        _register(cli, host, key, name, registration)
         if service is not None and executable is not None:
             service.install(executable)
     except TlsInspected as error:
         exit_with_error(_tls_inspected_error(error))
-    except (GumloopError, ValidationError) as error:
+    except (GumloopError, ValidationError, httpx.HTTPError) as error:
         exit_with_error(_explained(error))
 
     if service is None:
@@ -209,12 +214,7 @@ def remove_custom_proxy(cli: CliContext, host: str) -> bool:
     if service is not None and service_installed:
         service.remove()
     if registration is not None:
-        custom_proxy_id = registration.custom_proxy_id
-        try:
-            cli.call_with_refresh(lambda client: client.custom_proxies.delete(custom_proxy_id))
-        except APIStatusError as error:
-            if error.status_code != 404:
-                raise
+        _delete_custom_proxy(cli, registration.custom_proxy_id)
     forget(host)
     return service_installed or registration is not None
 
@@ -245,9 +245,9 @@ def connect(
                 error_console.print("This computer is not linked. Run `gumloop browser proxy link`.")
                 return
             custom_proxy_id = registration.custom_proxy_id
-            key = load_or_create_key(host)
-            if registration.public_key != public_key_text(key):
-                forget_registration(host)
+            # The registration stays, so `link` can replace its personal proxy in Gumloop.
+            key = load_key(host)
+            if key is None or registration.public_key != public_key_text(key):
                 error_console.print(
                     "This computer's personal proxy key is gone from the OS keychain. "
                     "Run `gumloop browser proxy link` to link it again."
@@ -291,6 +291,11 @@ def connect(
                 forget_registration(host)
             error_console.print(
                 "This computer was unlinked from Gumloop. Run `gumloop browser proxy link` to link it again."
+            )
+        elif refusal.reason == _LOGIN_REJECTED:
+            error_console.print(
+                "Gumloop no longer accepts your login, so this computer disconnected. "
+                "Run `gumloop login`, then `gumloop browser proxy link`."
             )
         else:
             reason = _UNAVAILABLE_REASONS.get(refusal.reason, "You can't use personal proxies right now.")
@@ -364,8 +369,8 @@ def _login_user_id(credentials: Credentials) -> str | None:
 
 
 def _gateway_token(host: str, registration: CustomProxyRegistration) -> CustomProxyGatewayToken:
-    """Only the codes that say the personal proxy is gone or unavailable to its owner stop the
-    personal proxy. Any other refusal is retried."""
+    """A refusal stops the personal proxy, except the ones that can pass on their own: a timeout,
+    a conflict, rate limiting, and ``route_not_found``."""
     # The service outlives logins, so each request uses the login stored now, not the one it started with.
     credentials = _owner_login(host, registration)
     if credentials is None:
@@ -376,15 +381,22 @@ def _gateway_token(host: str, registration: CustomProxyRegistration) -> CustomPr
         )
     except APIStatusError as error:
         code = error.code if isinstance(error.code, str) else None
-        if code is not None and (code == _REMOVED or code in _UNAVAILABLE_REASONS):
-            raise SignInRefused(code) from error
+        if error.status_code == 401:
+            raise SignInRefused(_LOGIN_REJECTED) from error
+        if 400 <= error.status_code < 500 and error.status_code not in _RETRIED_STATUSES and code != _NOT_RELEASED:
+            raise SignInRefused(code or f"http_{error.status_code}") from error
         raise GatewayTokenUnavailable(f"Gumloop didn't give a gateway token (HTTP {error.status_code})") from error
     except (GumloopError, httpx.HTTPError) as error:
         raise GatewayTokenUnavailable(f"Gumloop didn't give a gateway token ({error})") from error
     return response
 
 
-def _register(cli: CliContext, host: str, key: Ed25519PrivateKey, name: str | None) -> CustomProxyRegistration:
+def _register(
+    cli: CliContext, host: str, key: Ed25519PrivateKey, name: str | None, previous: CustomProxyRegistration | None
+) -> None:
+    """Registering this key again gets its personal proxy, or a new one if it was unlinked in Gumloop. A previous
+    registration of a key the keychain lost is unusable, so its personal proxy is replaced and its default kept."""
+    replaced = previous if previous is not None and previous.public_key != public_key_text(key) else None
     machine_name = socket.gethostname()
     response = cli.call_with_refresh(
         lambda client: client.custom_proxies.register_cli(
@@ -402,9 +414,31 @@ def _register(cli: CliContext, host: str, key: Ed25519PrivateKey, name: str | No
         user_id=_login_user_id(_stored_credentials()),
     )
     save_registration(host, registration)
+    # Deleted only now, so a failed registration leaves the lost key's personal proxy and its default in place.
+    keep_default = replaced is not None and _delete_lost_custom_proxy(cli, replaced.custom_proxy_id)
+    if keep_default and not response.custom_proxy.is_default:
+        cli.call_with_refresh(lambda client: client.custom_proxies.set_default(registration.custom_proxy_id))
     added_name = escape_markup(response.custom_proxy.name)
     console.print(f"Linked this computer to Gumloop as '{added_name}'.")
-    return registration
+
+
+def _delete_lost_custom_proxy(cli: CliContext, custom_proxy_id: str) -> bool:
+    """Returns whether it was the default."""
+    listed = cli.call_with_refresh(lambda client: client.custom_proxies.list())
+    lost = next((custom_proxy for custom_proxy in listed.custom_proxies if custom_proxy.id == custom_proxy_id), None)
+    if lost is None:
+        return False
+    _delete_custom_proxy(cli, custom_proxy_id)
+    return lost.is_default
+
+
+def _delete_custom_proxy(cli: CliContext, custom_proxy_id: str) -> None:
+    """One Gumloop no longer has counts as deleted."""
+    try:
+        cli.call_with_refresh(lambda client: client.custom_proxies.delete(custom_proxy_id))
+    except APIStatusError as error:
+        if error.code != _REMOVED:
+            raise
 
 
 def _service_or_none() -> CustomProxyService | None:

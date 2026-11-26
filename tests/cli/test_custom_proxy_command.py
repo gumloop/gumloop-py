@@ -32,6 +32,10 @@ from tests.sdk.helpers import API_BASE
 
 HOST = "api.gumloop.com"
 GATEWAY_URL = "wss://linked-proxy-gateway.gumloop.com/v1/cli/connect"
+REGISTERED = {
+    "custom_proxy": {"id": "dp-1", "name": "Ada's laptop", "kind": "cli", "is_default": True},
+    "gateway_url": GATEWAY_URL,
+}
 
 
 def _registration(**changes: str) -> CustomProxyRegistration:
@@ -77,13 +81,7 @@ def service(monkeypatch) -> FakeService:
 
 @respx.mock
 def test_add_registers_and_turns_on_the_service(cli_runner, service, fake_executable_path):
-    route = respx.post(f"{API_BASE}/custom-proxies").respond(
-        201,
-        json={
-            "custom_proxy": {"id": "dp-1", "name": "Ada's laptop", "kind": "cli", "is_default": True},
-            "gateway_url": GATEWAY_URL,
-        },
-    )
+    route = respx.post(f"{API_BASE}/custom-proxies").respond(201, json=REGISTERED)
 
     result = cli_runner.invoke(app, ["browser", "proxy", "link"])
 
@@ -94,18 +92,24 @@ def test_add_registers_and_turns_on_the_service(cli_runner, service, fake_execut
 
 
 @respx.mock
+def test_link_registers_again_when_already_linked_and_saves_the_current_gateway(cli_runner, service):
+    save_registration(HOST, _registration(gateway_url="wss://old-gateway.gumloop.com/v1/cli/connect"))
+    route = respx.post(f"{API_BASE}/custom-proxies").respond(201, json=REGISTERED)
+
+    result = cli_runner.invoke(app, ["browser", "proxy", "link"])
+
+    assert result.exit_code == 0, result.output
+    assert route.called
+    assert load_registration(HOST) == _registration()
+
+
+@respx.mock
 def test_link_without_a_background_service_registers_and_points_to_connect(cli_runner, service, monkeypatch):
     def no_background_service() -> FakeService:
         raise NoBackgroundService("no systemd user session")
 
     monkeypatch.setattr("gumloop.cli.commands.custom_proxy.service_for_current_platform", no_background_service)
-    respx.post(f"{API_BASE}/custom-proxies").respond(
-        201,
-        json={
-            "custom_proxy": {"id": "dp-1", "name": "Ada's laptop", "kind": "cli", "is_default": True},
-            "gateway_url": GATEWAY_URL,
-        },
-    )
+    respx.post(f"{API_BASE}/custom-proxies").respond(201, json=REGISTERED)
 
     result = cli_runner.invoke(app, ["browser", "proxy", "link"])
 
@@ -215,7 +219,8 @@ def test_connect_prints_the_sites_agents_open_only_when_verbose(cli_runner, serv
             True,
             "Your organization's roles don't allow you to use personal proxies.",
         ),
-        ("route_not_found", True, "Personal proxies aren't available for your organization yet."),
+        ("login_rejected", True, "Gumloop no longer accepts your login"),
+        ("paid_plan_required", True, "You can't use personal proxies right now."),
     ],
 )
 def test_connect_keeps_the_registration_unless_the_custom_proxy_was_removed(
@@ -290,9 +295,11 @@ def test_link_says_why_personal_proxies_are_off(cli_runner, service, status, pay
         (404, {"error": {"code": "personal_custom_proxy_not_found"}}, None, False),
         (403, {"error": "policy_denied", "denied_keys": ["organization:use_personal_proxies"]}, None, True),
         (403, {"error": {"code": "organization_permission_required"}}, None, True),
-        (404, {"error": "route_not_found"}, None, True),
-        (403, {"error": {"code": "not_a_code_the_cli_knows"}}, GatewayTokenUnavailable, True),
-        (404, {"error": "not_found"}, GatewayTokenUnavailable, True),
+        (403, {"error": {"code": "not_a_code_the_cli_knows"}}, None, True),
+        (404, {"error": "not_found"}, None, True),
+        (401, {"error": "unauthorized"}, None, True),
+        (404, {"error": "route_not_found"}, GatewayTokenUnavailable, True),
+        (429, {"error": "rate_limited"}, GatewayTokenUnavailable, True),
     ],
 )
 @respx.mock
@@ -371,8 +378,14 @@ def test_connect_as_someone_else_disconnects_and_keeps_the_registration(cli_runn
     assert "You logged in to Gumloop as someone else" in " ".join(result.stderr.split())
 
 
-def test_connect_forgets_a_registration_whose_key_is_gone(cli_runner, service, monkeypatch):
-    save_registration(HOST, _registration(public_key="a key the keychain no longer has"))
+@pytest.mark.parametrize("keychain", ["changed", "empty"])
+def test_connect_with_a_lost_key_stops_without_making_one_and_keeps_the_registration(
+    cli_runner, service, monkeypatch, keychain
+):
+    lost = _registration(public_key="a key the keychain no longer has")
+    save_registration(HOST, lost)
+    if keychain == "empty":
+        keyring.delete_password(KEYRING_SERVICE, f"custom-proxy:{HOST}")
 
     class UnusedConnection:
         def __init__(self, **kwargs: object) -> None:
@@ -383,14 +396,59 @@ def test_connect_forgets_a_registration_whose_key_is_gone(cli_runner, service, m
     result = cli_runner.invoke(app, ["browser", "proxy", "connect"])
 
     assert result.exit_code == 0, result.output
-    assert load_registration(HOST) is None
+    assert load_registration(HOST) == lost
+    assert (keyring.get_password(KEYRING_SERVICE, f"custom-proxy:{HOST}") is None) is (keychain == "empty")
     assert "key is gone from the OS keychain" in " ".join(result.stderr.split())
 
 
+@pytest.mark.parametrize(("was_default", "default_route_called"), [(True, True), (False, False)])
 @respx.mock
-def test_link_registers_again_when_the_keychain_key_changed(cli_runner, service):
+def test_link_replaces_the_custom_proxy_of_a_lost_key_and_keeps_its_default(
+    cli_runner, service, was_default, default_route_called
+):
     save_registration(HOST, _registration(public_key="a key the keychain no longer has"))
-    route = respx.post(f"{API_BASE}/custom-proxies").respond(
+    lost = {"id": "dp-1", "name": "Ada's laptop", "kind": "cli", "is_default": was_default}
+    replacement = {"id": "dp-2", "name": "Ada's laptop", "kind": "cli", "is_default": False}
+    respx.get(f"{API_BASE}/custom-proxies").respond(200, json={"custom_proxies": [lost], "limit": 5})
+    deleted = respx.delete(f"{API_BASE}/custom-proxies/dp-1").respond(204)
+    registered = respx.post(f"{API_BASE}/custom-proxies").respond(
+        201, json={"custom_proxy": replacement, "gateway_url": GATEWAY_URL}
+    )
+    made_default = respx.post(f"{API_BASE}/custom-proxies/dp-2/default").respond(
+        200, json={"custom_proxy": {**replacement, "is_default": True}}
+    )
+
+    result = cli_runner.invoke(app, ["browser", "proxy", "link"])
+
+    assert result.exit_code == 0, result.output
+    assert deleted.called
+    assert registered.called
+    assert made_default.called is default_route_called
+    assert load_registration(HOST) == _registration(custom_proxy_id="dp-2")
+
+
+@respx.mock
+def test_link_with_a_lost_key_keeps_its_custom_proxy_when_registering_fails(cli_runner, service):
+    lost = _registration(public_key="a key the keychain no longer has")
+    save_registration(HOST, lost)
+    listed = {"id": "dp-1", "name": "Ada's laptop", "kind": "cli", "is_default": True}
+    respx.get(f"{API_BASE}/custom-proxies").respond(200, json={"custom_proxies": [listed], "limit": 5})
+    deleted = respx.delete(f"{API_BASE}/custom-proxies/dp-1").respond(204)
+    respx.post(f"{API_BASE}/custom-proxies").respond(422, json={"error": "invalid_request"})
+
+    result = cli_runner.invoke(app, ["browser", "proxy", "link"])
+
+    assert result.exit_code != 0
+    assert not deleted.called
+    assert load_registration(HOST) == lost
+
+
+@respx.mock
+def test_link_with_a_lost_key_registers_when_gumloop_already_removed_its_custom_proxy(cli_runner, service):
+    save_registration(HOST, _registration(public_key="a key the keychain no longer has"))
+    respx.get(f"{API_BASE}/custom-proxies").respond(200, json={"custom_proxies": [], "limit": 5})
+    deleted = respx.delete(f"{API_BASE}/custom-proxies/dp-1")
+    respx.post(f"{API_BASE}/custom-proxies").respond(
         201,
         json={
             "custom_proxy": {"id": "dp-2", "name": "Ada's laptop", "kind": "cli", "is_default": True},
@@ -401,7 +459,7 @@ def test_link_registers_again_when_the_keychain_key_changed(cli_runner, service)
     result = cli_runner.invoke(app, ["browser", "proxy", "link"])
 
     assert result.exit_code == 0, result.output
-    assert route.called
+    assert not deleted.called
     assert load_registration(HOST) == _registration(custom_proxy_id="dp-2")
 
 
@@ -456,12 +514,15 @@ def test_status_without_a_background_service_points_to_connect(cli_runner, servi
 
 
 @pytest.mark.parametrize("command", [["browser", "proxy", "unlink"], ["logout"]])
+@pytest.mark.parametrize(
+    ("status", "payload"), [(204, None), (404, {"error": {"code": "personal_custom_proxy_not_found"}})]
+)
 @respx.mock
-def test_removing_deletes_the_custom_proxy_then_the_key(cli_runner, service, command):
+def test_removing_deletes_the_custom_proxy_then_the_key(cli_runner, service, command, status, payload):
     service.installed = True
     save_registration(HOST, _registration())
     load_or_create_key(HOST)
-    route = respx.delete(f"{API_BASE}/custom-proxies/dp-1").respond(204)
+    route = respx.delete(f"{API_BASE}/custom-proxies/dp-1").respond(status, json=payload)
 
     result = cli_runner.invoke(app, command)
 
@@ -500,11 +561,12 @@ def test_removing_another_backends_custom_proxy_keeps_the_service_only_while_the
     assert service.installed is kept
 
 
+@pytest.mark.parametrize(("status", "payload"), [(503, {"error": "unavailable"}), (404, {"error": "route_not_found"})])
 @respx.mock
-def test_remove_keeps_the_key_when_gumloop_cannot_delete_the_custom_proxy(cli_runner, service):
+def test_remove_keeps_the_key_when_gumloop_cannot_delete_the_custom_proxy(cli_runner, service, status, payload):
     save_registration(HOST, _registration())
     key = public_key_text(load_or_create_key(HOST))
-    respx.delete(f"{API_BASE}/custom-proxies/dp-1").respond(503, json={"error": "unavailable"})
+    respx.delete(f"{API_BASE}/custom-proxies/dp-1").respond(status, json=payload)
 
     result = cli_runner.invoke(app, ["browser", "proxy", "unlink"])
 

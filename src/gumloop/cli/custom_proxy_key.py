@@ -67,17 +67,27 @@ def backend_host(base_url: str) -> str:
 
 
 def load_or_create_key(host: str) -> Ed25519PrivateKey:
-    require_keyring()
-    account = _key_account(host)
+    key = load_key(host)
+    if key is not None:
+        return key
+    key = Ed25519PrivateKey.generate()
+    raw = key.private_bytes(Encoding.Raw, PrivateFormat.Raw, NoEncryption())
     try:
-        stored = keyring.get_password(KEYRING_SERVICE, account)
-        if stored is None:
-            key = Ed25519PrivateKey.generate()
-            raw = key.private_bytes(Encoding.Raw, PrivateFormat.Raw, NoEncryption())
-            keyring.set_password(KEYRING_SERVICE, account, base64.urlsafe_b64encode(raw).decode())
-            return key
+        keyring.set_password(KEYRING_SERVICE, _key_account(host), base64.urlsafe_b64encode(raw).decode())
     except keyring.errors.KeyringError as error:
         raise GumloopError(f"Could not use the personal proxy key in the OS keychain: {error}") from error
+    return key
+
+
+def load_key(host: str) -> Ed25519PrivateKey | None:
+    """None when the keychain has no key for this backend."""
+    require_keyring()
+    try:
+        stored = keyring.get_password(KEYRING_SERVICE, _key_account(host))
+    except keyring.errors.KeyringError as error:
+        raise GumloopError(f"Could not use the personal proxy key in the OS keychain: {error}") from error
+    if stored is None:
+        return None
     try:
         return Ed25519PrivateKey.from_private_bytes(base64.urlsafe_b64decode(stored))
     except ValueError as error:
