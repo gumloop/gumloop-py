@@ -12,6 +12,7 @@ from rich.prompt import Prompt
 
 from gumloop import Gumloop
 from gumloop import GumloopError
+from gumloop._client import DEFAULT_BASE_URL
 from gumloop.cli.commands.custom_proxy import remove_stored_login_custom_proxy
 from gumloop.cli.console import console
 from gumloop.cli.console import print_json
@@ -222,11 +223,16 @@ def logout(
     oauth_revoked = False
     revoke_failed = False
     if cli.effective_auth_method == METHOD_OAUTH:
-        # The unlink may have refreshed the stored login, which replaces its refresh token.
-        token = load_credentials().refresh_token or cli.credentials.refresh_token or cli.credentials.access_token
+        if cli.credentials.refresh_token:
+            # The unlink may have refreshed the stored login, which replaces its refresh token.
+            token = load_credentials().refresh_token or cli.credentials.refresh_token
+            revoke_url = cli.credentials.base_url or DEFAULT_BASE_URL
+        else:
+            token = cli.credentials.access_token
+            revoke_url = cli.effective_base_url
         if token:
             try:
-                revoke_oauth_token(base_url=cli.effective_base_url, token=token)
+                revoke_oauth_token(base_url=revoke_url, token=token)
                 oauth_revoked = True
             except Exception:
                 revoke_failed = True

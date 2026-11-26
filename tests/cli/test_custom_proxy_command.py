@@ -595,6 +595,17 @@ def test_logout_revokes_the_refresh_token_the_unlink_refresh_replaced(cli_runner
     assert parse_qs(revoke.calls.last.request.content.decode())["token"] == ["fresh_refresh"]
 
 
+@respx.mock
+def test_logout_revokes_the_stored_refresh_token_at_the_backend_it_came_from(cli_runner, service):
+    save_credentials(Credentials(access_token=_access_token("actor"), refresh_token="stored_refresh"))
+    revoke = respx.post(f"{OAUTH_BASE}/oauth/revoke").respond(200)
+
+    result = cli_runner.invoke(app, ["--base-url", "https://staging.api.gumloop.com/api/v1", "logout"])
+
+    assert result.exit_code == 0, result.output
+    assert parse_qs(revoke.calls.last.request.content.decode())["token"] == ["stored_refresh"]
+
+
 @pytest.mark.parametrize(("login_has_custom_proxy", "kept"), [(True, True), (False, False)])
 def test_removing_another_backends_custom_proxy_keeps_the_service_only_while_the_login_needs_it(
     cli_runner, service, login_has_custom_proxy, kept
