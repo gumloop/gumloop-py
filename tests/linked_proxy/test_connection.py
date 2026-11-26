@@ -119,7 +119,7 @@ def test_other_failures_reconnect_with_a_growing_wait_until_signed_out():
         _run(gateway, [True, True, False])
 
     assert len(gateway.waits) == 2
-    for wait, cap in zip(gateway.waits, [1.0, 2.0]):
+    for wait, cap in zip(gateway.waits, [1.0, 2.0], strict=True):
         assert FIRST_RETRY_SECONDS <= wait <= cap
     assert len(set(gateway.authorizations)) == 2
 

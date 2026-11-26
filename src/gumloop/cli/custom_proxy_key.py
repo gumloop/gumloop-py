@@ -81,7 +81,7 @@ def save_registration(host: str, registration: CustomProxyRegistration, home: Pa
     descriptor = os.open(staging, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(descriptor, "w", encoding="utf-8") as file:
         file.write(registration.model_dump_json())
-    os.replace(staging, destination)
+    staging.replace(destination)
 
 
 def _key_account(host: str) -> str:
