@@ -49,6 +49,7 @@ from gumloop.linked_proxy.connection import GatewayConnection
 from gumloop.linked_proxy.connection import GatewayTokenUnavailable
 from gumloop.linked_proxy.connection import SignedOut
 from gumloop.linked_proxy.connection import SignInRefused
+from gumloop.linked_proxy.connection import UpgradeRequired
 from gumloop.linked_proxy.destinations import Target
 from gumloop.linked_proxy.sign_in import public_key_text
 from gumloop.linked_proxy.tls_check import TlsInspected
@@ -304,6 +305,11 @@ def connect(
             )
         else:
             error_console.print("You logged out of Gumloop, so this computer disconnected.")
+    except UpgradeRequired:
+        error_console.print(
+            "This version of the Gumloop CLI is too old to connect this computer. "
+            "Run `gumloop update`, then `gumloop browser proxy link`."
+        )
     except KeyboardInterrupt:
         console.print("Stopped.")
     except GumloopError as error:

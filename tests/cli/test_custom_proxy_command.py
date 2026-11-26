@@ -24,6 +24,7 @@ from gumloop.cli.custom_proxy_service import NoBackgroundService
 from gumloop.cli.main import app
 from gumloop.linked_proxy.connection import GatewayTokenUnavailable
 from gumloop.linked_proxy.connection import SignInRefused
+from gumloop.linked_proxy.connection import UpgradeRequired
 from gumloop.linked_proxy.destinations import Target
 from gumloop.linked_proxy.sign_in import public_key_text
 from gumloop.types import CustomProxyGatewayToken
@@ -236,6 +237,25 @@ def test_connect_keeps_the_registration_unless_the_custom_proxy_was_removed(
     assert result.exit_code == 0, result.output
     assert (load_registration(HOST) == _registration()) is kept
     assert expected in " ".join(result.stderr.split())
+
+
+def test_connect_stops_when_the_gateway_needs_a_newer_cli(cli_runner, service, monkeypatch):
+    save_registration(HOST, _registration())
+
+    class OutdatedConnection:
+        def __init__(self, **kwargs: object) -> None:
+            pass
+
+        async def run(self) -> None:
+            raise UpgradeRequired()
+
+    monkeypatch.setattr("gumloop.cli.commands.custom_proxy.GatewayConnection", OutdatedConnection)
+
+    result = cli_runner.invoke(app, ["browser", "proxy", "connect"])
+
+    assert result.exit_code == 0, result.output
+    assert load_registration(HOST) == _registration()
+    assert "Run `gumloop update`, then `gumloop browser proxy link`." in " ".join(result.stderr.split())
 
 
 @pytest.mark.parametrize(

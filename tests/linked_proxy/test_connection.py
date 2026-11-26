@@ -24,11 +24,15 @@ from gumloop.linked_proxy.connection import ERROR_HEADER
 from gumloop.linked_proxy.connection import FIRST_RETRY_SECONDS
 from gumloop.linked_proxy.connection import MIN_REFRESH_SECONDS
 from gumloop.linked_proxy.connection import REFRESH_BEFORE_EXPIRY_SECONDS
+from gumloop.linked_proxy.connection import TUNNEL_VERSION
+from gumloop.linked_proxy.connection import TUNNEL_VERSION_HEADER
 from gumloop.linked_proxy.connection import GatewayConnection
 from gumloop.linked_proxy.connection import GatewayTokenUnavailable
 from gumloop.linked_proxy.connection import SignedOut
 from gumloop.linked_proxy.connection import SignInRefused
+from gumloop.linked_proxy.connection import UpgradeRequired
 from gumloop.linked_proxy.frames import Frame
+from gumloop.linked_proxy.frames import FrameType
 from gumloop.types import CustomProxyGatewayToken
 
 GATEWAY_URL = "wss://linked-proxy-gateway.gumloop.com/v1/cli/connect"
@@ -37,15 +41,17 @@ GATEWAY_URL = "wss://linked-proxy-gateway.gumloop.com/v1/cli/connect"
 @dataclass(frozen=True)
 class Outcome:
     """How one connect attempt ends: ``error`` is raised while opening the
-    WebSocket, or by its first ``recv`` when ``opened``."""
+    WebSocket, or by ``recv`` when ``opened``, after a READY frame when ``ready``."""
 
     error: BaseException
     opened: bool = False
+    ready: bool = False
 
 
 class FailingConnection:
-    def __init__(self, error: BaseException) -> None:
+    def __init__(self, error: BaseException, ready: bool = False) -> None:
         self._error = error
+        self._ready = ready
 
     async def send(self, message: bytes) -> None:
         pass
@@ -53,6 +59,9 @@ class FailingConnection:
     async def recv(self) -> bytes:
         # Lets the refresh task start before the tunnel ends.
         await asyncio.sleep(0)
+        if self._ready:
+            self._ready = False
+            return Frame(type=FrameType.READY, stream_id=0).encode()
         raise self._error
 
 
@@ -60,15 +69,17 @@ class ScriptedGateway:
     def __init__(self, outcomes: list[Outcome]) -> None:
         self._outcomes = outcomes
         self.authorizations: list[str] = []
+        self.versions: list[str] = []
         self.waits: list[float] = []
 
     @contextlib.asynccontextmanager
     async def open(self, url: str, headers: dict[str, str]) -> AsyncIterator[FailingConnection]:
         self.authorizations.append(headers["Authorization"])
+        self.versions.append(headers[TUNNEL_VERSION_HEADER])
         outcome = self._outcomes.pop(0)
         if not outcome.opened:
             raise outcome.error
-        yield FailingConnection(outcome.error)
+        yield FailingConnection(outcome.error, outcome.ready)
 
     async def sleep(self, seconds: float) -> None:
         self.waits.append(seconds)
@@ -214,7 +225,6 @@ def test_other_failures_reconnect_with_a_growing_wait_until_signed_out():
         _run(gateway, [True, True, False], events)
 
     assert events == [
-        "connected",
         "the gateway closed the connection (already_connected)",
         "can't reach the gateway (unreachable)",
     ]
@@ -222,6 +232,35 @@ def test_other_failures_reconnect_with_a_growing_wait_until_signed_out():
     for wait, cap in zip(gateway.waits, [5.0, 10.0], strict=True):
         assert FIRST_RETRY_SECONDS <= wait <= cap
     assert len(set(gateway.authorizations)) == 2
+
+
+def test_it_is_connected_only_once_the_gateway_says_the_tunnel_is_ready():
+    gateway = ScriptedGateway(
+        [
+            Outcome(ConnectionClosed(Close(4002, "already_connected"), None), opened=True),
+            Outcome(ConnectionClosed(None, None), opened=True, ready=True),
+        ]
+    )
+    events: list[str] = []
+
+    with pytest.raises(SignedOut):
+        _run(gateway, [True, True, False], events)
+
+    assert events == [
+        "the gateway closed the connection (already_connected)",
+        "connected",
+        "the connection dropped",
+    ]
+    assert gateway.versions == [str(TUNNEL_VERSION)] * 2
+
+
+def test_a_gateway_that_needs_a_newer_cli_stops_without_retrying():
+    gateway = ScriptedGateway([Outcome(_refused_handshake(426, "cli_upgrade_required"))])
+
+    with pytest.raises(UpgradeRequired):
+        _run(gateway, [True])
+
+    assert gateway.waits == []
 
 
 @pytest.mark.parametrize(

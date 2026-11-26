@@ -1,6 +1,6 @@
 """Keeps this machine's tunnel to the linked proxy gateway open: signs in, serves the
-gateway's streams, and reconnects until Gumloop refuses a gateway token or the
-user signs out."""
+gateway's streams, and reconnects until Gumloop refuses a gateway token, the
+user signs out, or the gateway needs a newer CLI."""
 
 from __future__ import annotations
 
@@ -32,6 +32,11 @@ from gumloop.types import CustomProxyGatewayToken
 # The gateway's refusal header for a sign-in it won't accept.
 ERROR_HEADER = "X-Gumloop-Linked-Proxy-Error"
 SIGN_IN_REFUSED = "sign_in_refused"
+UPGRADE_REQUIRED = "cli_upgrade_required"
+# The tunnel protocol this CLI speaks. The gateway only sends a frame type to CLIs
+# whose version has it, and refuses versions it no longer supports.
+TUNNEL_VERSION_HEADER = "Gumloop-Tunnel-Version"
+TUNNEL_VERSION = 1
 
 FIRST_RETRY_SECONDS = 1.0
 # Spreads out the linked proxies that all reconnect at once when a gateway replica restarts.
@@ -65,6 +70,10 @@ class GatewayTokenUnavailable(Exception):
     """Gumloop didn't hand out a gateway token this time; the connection retries."""
 
 
+class UpgradeRequired(Exception):
+    """The gateway no longer accepts this CLI's tunnel protocol."""
+
+
 class GatewayConnection:
     def __init__(
         self,
@@ -94,7 +103,7 @@ class GatewayConnection:
         self._refresh_sleep = refresh_sleep
 
     async def run(self) -> None:
-        """Runs until it raises ``SignInRefused`` or ``SignedOut``. Every other
+        """Runs until it raises ``SignInRefused``, ``SignedOut`` or ``UpgradeRequired``. Every other
         failure reconnects after a random wait whose cap doubles up to ``MAX_RETRY_SECONDS``.
         ``gateway_token`` runs in a thread before each connect and each refresh, and raises
         ``SignInRefused`` or ``GatewayTokenUnavailable`` when it has no token. A gateway
@@ -123,23 +132,30 @@ class GatewayConnection:
             audience=self._gateway_url,
             gateway_token=gateway_token.gateway_token,
         )
-        async with self._open(self._gateway_url, {"Authorization": f"Bearer {token}"}) as websocket:
-            if self._on_connected is not None:
-                self._on_connected()
-            tunnel = Tunnel(websocket, on_open=self._on_open)
-            tasks = {asyncio.ensure_future(tunnel.run())}
-            # A gateway token without ``expires_at`` comes from a backend older than
-            # refreshes, whose gateway would reject one.
-            if gateway_token.expires_at is not None:
-                tasks.add(asyncio.ensure_future(self._refresh(tunnel, gateway_token)))
-            try:
-                done, _pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-            finally:
-                for task in tasks:
-                    task.cancel()
-                await asyncio.gather(*tasks, return_exceptions=True)
-            for task in done:
-                task.result()
+        headers = {"Authorization": f"Bearer {token}", TUNNEL_VERSION_HEADER: str(TUNNEL_VERSION)}
+        try:
+            async with self._open(self._gateway_url, headers) as websocket:
+                await self._serve_tunnel(websocket, gateway_token)
+        except InvalidStatus as error:
+            if error.response.headers.get(ERROR_HEADER) == UPGRADE_REQUIRED:
+                raise UpgradeRequired() from error
+            raise
+
+    async def _serve_tunnel(self, websocket: Connection, gateway_token: CustomProxyGatewayToken) -> None:
+        tunnel = Tunnel(websocket, on_open=self._on_open, on_ready=self._on_connected)
+        tasks = {asyncio.ensure_future(tunnel.run())}
+        # A gateway token without ``expires_at`` comes from a backend older than
+        # refreshes, whose gateway would reject one.
+        if gateway_token.expires_at is not None:
+            tasks.add(asyncio.ensure_future(self._refresh(tunnel, gateway_token)))
+        try:
+            done, _pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+        for task in done:
+            task.result()
 
     async def _refresh(self, tunnel: Tunnel, gateway_token: CustomProxyGatewayToken) -> None:
         """Sends a fresh gateway token before each one expires, and ends the tunnel
