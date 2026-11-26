@@ -218,6 +218,12 @@ def remove_custom_proxy(cli: CliContext, host: str) -> bool:
     return service_installed or registration is not None
 
 
+def remove_stored_login_custom_proxy() -> bool:
+    """Unlinks the stored login's personal proxy, whatever overrides the current command has."""
+    credentials = _stored_credentials()
+    return remove_custom_proxy(CliContext(credentials=credentials), _login_host(credentials))
+
+
 @proxy_app.command("connect")
 def connect(
     ctx: typer.Context,

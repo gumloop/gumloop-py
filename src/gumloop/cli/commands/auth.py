@@ -12,7 +12,7 @@ from rich.prompt import Prompt
 
 from gumloop import Gumloop
 from gumloop import GumloopError
-from gumloop.cli.commands.custom_proxy import remove_custom_proxy
+from gumloop.cli.commands.custom_proxy import remove_stored_login_custom_proxy
 from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
@@ -21,7 +21,6 @@ from gumloop.cli.credentials import clear_credentials
 from gumloop.cli.credentials import keyring_backend_name
 from gumloop.cli.credentials import save_credentials
 from gumloop.cli.errors import exit_with_error
-from gumloop.cli.custom_proxy_key import backend_host
 from gumloop.cli.oauth import DEFAULT_REDIRECT_PORT
 from gumloop.cli.oauth import perform_oauth_login
 from gumloop.cli.oauth import revoke_oauth_token
@@ -213,7 +212,7 @@ def logout(
     custom_proxy_removed = False
     custom_proxy_error: str | None = None
     try:
-        custom_proxy_removed = remove_custom_proxy(cli, backend_host(cli.effective_base_url))
+        custom_proxy_removed = remove_stored_login_custom_proxy()
     except (GumloopError, httpx.HTTPError) as error:
         custom_proxy_error = str(error)
 

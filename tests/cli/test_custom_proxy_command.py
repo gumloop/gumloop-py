@@ -452,6 +452,18 @@ def test_removing_deletes_the_custom_proxy_then_the_key(cli_runner, service, com
     assert load_registration(HOST) is None
 
 
+@respx.mock
+def test_logout_unlinks_with_the_stored_login_not_a_credential_override(cli_runner, service):
+    save_registration(HOST, _registration())
+    route = respx.delete(f"{API_BASE}/custom-proxies/dp-1").respond(204)
+
+    result = cli_runner.invoke(app, ["logout"], env={"GUMLOOP_API_KEY": "someone-elses-key"})
+
+    assert result.exit_code == 0, result.output
+    assert route.calls.last.request.headers["Authorization"] == "Bearer key"
+    assert load_registration(HOST) is None
+
+
 @pytest.mark.parametrize(("login_has_custom_proxy", "kept"), [(True, True), (False, False)])
 def test_removing_another_backends_custom_proxy_keeps_the_service_only_while_the_login_needs_it(
     cli_runner, service, login_has_custom_proxy, kept
