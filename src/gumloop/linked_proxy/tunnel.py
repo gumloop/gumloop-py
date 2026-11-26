@@ -42,10 +42,13 @@ class Tunnel:
         *,
         dial: Dial = connect,
         on_open: Callable[[Target], None] | None = None,
+        on_ready: Callable[[], None] | None = None,
     ) -> None:
         self._connection = connection
         self._dial = dial
         self._on_open = on_open
+        self._on_ready = on_ready
+        self._ready = False
         self._send_lock = asyncio.Lock()
         self._streams: dict[int, _Stream] = {}
         self._last_id = 0
@@ -67,6 +70,13 @@ class Tunnel:
                 task.cancel()
 
     def _deliver(self, frame: Frame) -> None:
+        if frame.type is FrameType.READY:
+            if self._ready:
+                raise ProtocolError("a second READY")
+            self._ready = True
+            if self._on_ready is not None:
+                self._on_ready()
+            return
         if frame.type is FrameType.OPEN:
             # Stream ids only grow, so a late frame can't reach a newer stream.
             if frame.stream_id <= self._last_id:

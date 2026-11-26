@@ -186,3 +186,20 @@ def test_tunnel_sends_a_gateway_token_and_ends_when_the_gateway_sends_one() -> N
             await run
 
     asyncio.run(scenario())
+
+
+@pytest.mark.timeout(10)
+def test_tunnel_reports_ready_once_and_ends_on_a_second_ready() -> None:
+    async def scenario() -> None:
+        gateway = FakeGateway()
+        readies: list[None] = []
+        run = asyncio.ensure_future(Tunnel(gateway, on_ready=lambda: readies.append(None)).run())
+
+        gateway.push(Frame(type=FrameType.READY, stream_id=0))
+        gateway.push(Frame(type=FrameType.READY, stream_id=0))
+
+        with pytest.raises(ProtocolError):
+            await run
+        assert len(readies) == 1
+
+    asyncio.run(scenario())

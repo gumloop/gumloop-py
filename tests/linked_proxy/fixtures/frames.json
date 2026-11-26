@@ -7,14 +7,17 @@
     {"name": "data on a big-endian stream id", "frame": "040102030400ff", "type": 4, "stream_id": 16909060, "payload": "00ff"},
     {"name": "close", "frame": "0500000001", "type": 5, "stream_id": 1, "payload": ""},
     {"name": "window", "frame": "060000000100040000", "type": 6, "stream_id": 1, "payload": "00040000"},
-    {"name": "gateway_token", "frame": "0700000000746f6b", "type": 7, "stream_id": 0, "payload": "746f6b"}
+    {"name": "gateway_token", "frame": "0700000000746f6b", "type": 7, "stream_id": 0, "payload": "746f6b"},
+    {"name": "ready", "frame": "0800000000", "type": 8, "stream_id": 0, "payload": ""}
   ],
   "invalid": [
     {"name": "shorter than the header", "frame": "01000000"},
-    {"name": "unknown type", "frame": "0800000001"},
+    {"name": "unknown type", "frame": "0900000001"},
     {"name": "stream 0", "frame": "04000000006869"},
     {"name": "gateway token on stream 1", "frame": "0700000001746f6b"},
     {"name": "gateway token with no payload", "frame": "0700000000"},
+    {"name": "ready on stream 1", "frame": "0800000001"},
+    {"name": "ready with a payload", "frame": "080000000000"},
     {"name": "open with no target", "frame": "0100000001"},
     {"name": "open_ok with a payload", "frame": "020000000100"},
     {"name": "data with no payload", "frame": "0400000001"},

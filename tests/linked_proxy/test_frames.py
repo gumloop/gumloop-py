@@ -12,7 +12,7 @@ from gumloop.linked_proxy.frames import ProtocolError
 
 FIXTURE = Path(__file__).parent / "fixtures" / "frames.json"
 # The linked proxy gateway pins its own copy of this file by the same hash; change both together.
-FIXTURE_SHA256 = "a19bdf1ec020eeab8bbf966c0ee6e4a0eb47748b0d27983ff5b758dcf84489c1"
+FIXTURE_SHA256 = "9ee8961d2453640ec7c4ab45c3592262ec66fb2be68bad34373012893d63a6e9"
 
 
 def _fixture() -> dict[str, list[dict[str, str | int]]]:

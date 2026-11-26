@@ -33,8 +33,14 @@ class FrameType(enum.IntEnum):
     CLOSE = 5
     # Lets the other side send as many more bytes as the big-endian uint32 payload.
     WINDOW = 6
-    # A fresh gateway token, sent by the CLI only. It is the only frame on stream 0.
+    # A fresh gateway token, sent by the CLI only, on stream 0.
     GATEWAY_TOKEN = 7
+    # The gateway accepted the tunnel. Sent once by the gateway, on stream 0, with no payload.
+    READY = 8
+
+
+# Only these frame types travel on stream 0, which no connection uses.
+_TUNNEL_FRAMES = frozenset({FrameType.GATEWAY_TOKEN, FrameType.READY})
 
 
 class ProtocolError(Exception):
@@ -57,12 +63,12 @@ class Frame:
             raise ProtocolError(f"a {len(data)}-byte frame")
         type_byte, stream_id = _HEADER.unpack_from(data)
         payload = data[_HEADER.size :]
-        if (stream_id == 0) != (type_byte == FrameType.GATEWAY_TOKEN):
-            raise ProtocolError(f"frame type {type_byte} on stream {stream_id}")
         try:
             frame_type = FrameType(type_byte)
         except ValueError:
             raise ProtocolError(f"frame type {type_byte}") from None
+        if (stream_id == 0) != (frame_type in _TUNNEL_FRAMES):
+            raise ProtocolError(f"frame type {type_byte} on stream {stream_id}")
 
         size = len(payload)
         valid = {
@@ -73,6 +79,7 @@ class Frame:
             FrameType.CLOSE: size == 0,
             FrameType.WINDOW: size == _WINDOW.size and _WINDOW.unpack(payload)[0] > 0,
             FrameType.GATEWAY_TOKEN: 0 < size <= _MAX_GATEWAY_TOKEN_LENGTH,
+            FrameType.READY: size == 0,
         }[frame_type]
         if not valid:
             raise ProtocolError(f"frame type {type_byte} with a {size}-byte payload")
