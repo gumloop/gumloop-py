@@ -21,6 +21,8 @@ from gumloop import APIStatusError
 from gumloop import GumloopError
 from gumloop._client import DEFAULT_BASE_URL
 from gumloop._version import __version__
+from gumloop.cli.commands._confirmation import Yes
+from gumloop.cli.commands._confirmation import confirm_or_exit
 from gumloop.cli.console import console
 from gumloop.cli.console import error_console
 from gumloop.cli.console import print_json
@@ -200,10 +202,20 @@ def status(
 
 
 @proxy_app.command("unlink")
-def unlink(ctx: typer.Context) -> None:
+def unlink(ctx: typer.Context, yes: Yes = False) -> None:
     """Unlink this computer from Gumloop, and delete its key from this computer."""
     cli: CliContext = ctx.obj
     host = backend_host(cli.effective_base_url)
+    if load_registration(host) is not None:
+        confirm_or_exit(
+            warning=(
+                "This deletes this computer's personal proxy from Gumloop and its key from this computer. "
+                "Agents set to use it can no longer browse through it."
+            ),
+            question="Unlink this computer?",
+            yes=yes,
+            json_output=False,
+        )
     try:
         removed = remove_custom_proxy(cli, host)
     except (GumloopError, httpx.HTTPError) as error:

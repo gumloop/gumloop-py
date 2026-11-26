@@ -329,7 +329,7 @@ def test_link_refuses_a_computer_linked_to_someone_else(cli_runner, service):
     assert not service.installed
 
 
-@pytest.mark.parametrize("command", [["browser", "proxy", "unlink"], ["logout"]])
+@pytest.mark.parametrize("command", [["browser", "proxy", "unlink", "--yes"], ["logout"]])
 @pytest.mark.parametrize(
     ("status", "payload"), [(204, None), (404, {"error": {"code": "personal_custom_proxy_not_found"}})]
 )
@@ -416,8 +416,48 @@ def test_remove_keeps_the_key_when_gumloop_cannot_delete_the_custom_proxy(cli_ru
     key = public_key_text(load_or_create_key(HOST))
     respx.delete(f"{API_BASE}/custom-proxies/dp-1").respond(status, json=payload)
 
-    result = cli_runner.invoke(app, ["browser", "proxy", "unlink"])
+    result = cli_runner.invoke(app, ["browser", "proxy", "unlink", "--yes"])
 
     assert result.exit_code == 1
     assert public_key_text(load_or_create_key(HOST)) == key
     assert load_registration(HOST) == _registration()
+
+
+@pytest.mark.parametrize("answer", [False, None])
+@respx.mock
+def test_unlink_declined_in_a_terminal_keeps_the_personal_proxy_and_key(
+    cli_runner, service, answer_in_terminal, answer
+):
+    asked = answer_in_terminal(answer)
+    save_registration(HOST, _registration())
+    route = respx.delete(f"{API_BASE}/custom-proxies/dp-1")
+
+    result = cli_runner.invoke(app, ["browser", "proxy", "unlink"])
+
+    assert result.exit_code == 1
+    assert asked == [("Unlink this computer?", False)]
+    assert not route.called
+    assert load_registration(HOST) == _registration()
+
+
+@respx.mock
+def test_unlink_without_a_terminal_is_refused_unless_yes_is_passed(cli_runner, service):
+    save_registration(HOST, _registration())
+    route = respx.delete(f"{API_BASE}/custom-proxies/dp-1")
+
+    result = cli_runner.invoke(app, ["browser", "proxy", "unlink"])
+
+    assert result.exit_code == 1
+    assert "Pass --yes to confirm." in " ".join(result.stderr.split())
+    assert not route.called
+    assert load_registration(HOST) == _registration()
+
+
+def test_unlink_asks_nothing_when_this_computer_is_not_linked(cli_runner, service, answer_in_terminal):
+    asked = answer_in_terminal(False)
+
+    result = cli_runner.invoke(app, ["browser", "proxy", "unlink"])
+
+    assert result.exit_code == 0, result.output
+    assert asked == []
+    assert "This computer is not linked." in result.output

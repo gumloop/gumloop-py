@@ -158,7 +158,7 @@ gumloop sync --once --non-interactive # one-shot sync; requires GUMLOOP_API_KEY 
 ```bash
 gumloop browser proxy link          # automatically runs in the background on startup
 gumloop browser proxy status
-gumloop browser proxy unlink
+gumloop browser proxy unlink [--yes]
 ```
 
 macOS and Linux only. Needs a stored `gumloop login`; logging out unlinks this computer.

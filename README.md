@@ -80,7 +80,7 @@ gumloop agents delete agent_abc --yes --json     # no question; required with --
 gumloop agents update agent_abc --inactive --yes
 ```
 
-Every other command that deletes something asks the same way and takes the same `--yes`: `agents triggers delete`, `artifacts delete`, `brain sources delete`, `brain files delete`, `browser profiles delete`, `evaluations delete`, `sessions queue delete` and `skills delete`. Scripts that call them need `--yes` from version 0.5.16 on too. `brain sync --prune` does not ask: passing `--prune` is the confirmation.
+Every other command that deletes something asks the same way and takes the same `--yes`: `agents triggers delete`, `artifacts delete`, `brain sources delete`, `brain files delete`, `browser profiles delete`, `evaluations delete`, `sessions queue delete`, `skills delete` and, when this computer is linked, `browser proxy unlink`. Scripts that call them need `--yes` from version 0.5.16 on too. `brain sync --prune` does not ask: passing `--prune` is the confirmation.
 
 Agent session `create` and `send` accept `--stream`; combine with `--json` for NDJSON events, including cursors and terminal/error events. Reconnect with `gumloop sessions resume SESSION_ID --cursor LAST_STREAM_CURSOR --json` without resending a message. Human streams show text and resume cursors. `sessions create --metadata-json '{"source":"cli"}'` sets session metadata. Without `--stream`, create/send return the immediate session response and execution may continue asynchronously. Read the reply from `session.response` and `session.response_files`. Per message, `message.text` and `message.files` read a message's text and file parts.
 
