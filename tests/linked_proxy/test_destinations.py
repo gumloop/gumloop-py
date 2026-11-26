@@ -16,6 +16,7 @@ from gumloop.linked_proxy.destinations import parse_target
     [
         ("example.com:22", Refusal.PORT),
         ("10.0.0.1:443", Refusal.ADDRESS),
+        ("168.63.129.16:80", Refusal.ADDRESS),
         ("[::1]:443", Refusal.ADDRESS),
         ("127.1:443", Refusal.HOST),
         ("example.com", Refusal.HOST),

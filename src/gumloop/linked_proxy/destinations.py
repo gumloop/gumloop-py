@@ -32,6 +32,8 @@ _DENIED_NETWORKS = tuple(
         "198.51.100.0/24",
         "203.0.113.0/24",
         "240.0.0.0/4",
+        # Azure's host endpoint, which answers VMs on that public address.
+        "168.63.129.16/32",
     )
 )
 _PORT = re.compile(r"[0-9]+")
