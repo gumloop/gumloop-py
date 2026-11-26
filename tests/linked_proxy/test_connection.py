@@ -313,3 +313,16 @@ def test_a_gateway_token_refresh_gumloop_did_not_give_is_retried():
 
     assert refresh_sleep.waits == [MIN_REFRESH_SECONDS, MIN_REFRESH_SECONDS]
     assert gateway.connection.sent == [Frame.gateway_token("token-2")]
+
+
+@pytest.mark.timeout(10)
+@pytest.mark.parametrize("ended_by", [SignedOut(), SignInRefused("personal_custom_proxy_not_found")])
+def test_a_refresh_after_signing_out_or_unlinking_ends_the_open_tunnel(ended_by):
+    gateway = OpenGateway(OpenConnection(closes_after=1))
+    expiring = CustomProxyGatewayToken(gateway_token="token-1", expires_at=_expiring_in(20))
+
+    with pytest.raises(type(ended_by)):
+        _run(gateway, [True], gateway_token=_tokens(expiring, ended_by), refresh_sleep=RefreshSleep(returns=1))
+
+    assert gateway.connection.sent == []
+    assert gateway.waits == []

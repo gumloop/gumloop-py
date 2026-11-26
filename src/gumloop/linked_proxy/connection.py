@@ -127,25 +127,29 @@ class GatewayConnection:
             if self._on_connected is not None:
                 self._on_connected()
             tunnel = Tunnel(websocket, on_open=self._on_open)
-            refresh = asyncio.ensure_future(self._refresh(tunnel, gateway_token))
+            tasks = {asyncio.ensure_future(tunnel.run())}
+            # A gateway token without ``expires_at`` comes from a backend older than
+            # refreshes, whose gateway would reject one.
+            if gateway_token.expires_at is not None:
+                tasks.add(asyncio.ensure_future(self._refresh(tunnel, gateway_token)))
             try:
-                await tunnel.run()
+                done, _pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
             finally:
-                refresh.cancel()
-                await asyncio.gather(refresh, return_exceptions=True)
+                for task in tasks:
+                    task.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
+            for task in done:
+                task.result()
 
     async def _refresh(self, tunnel: Tunnel, gateway_token: CustomProxyGatewayToken) -> None:
-        """Sends a fresh gateway token before each one expires. When Gumloop refuses one, the
-        gateway's own recheck closes the tunnel. A gateway token without ``expires_at`` comes
-        from a backend older than refreshes, whose gateway would reject one."""
+        """Sends a fresh gateway token before each one expires, and ends the tunnel
+        by raising ``SignInRefused`` or ``SignedOut``."""
         while gateway_token.expires_at is not None:
             await self._refresh_sleep(_seconds_until_refresh(gateway_token.expires_at))
             try:
                 gateway_token = await asyncio.to_thread(self._gateway_token)
             except GatewayTokenUnavailable:
                 continue
-            except (SignInRefused, SignedOut):
-                return
             await tunnel.send_gateway_token(gateway_token.gateway_token)
 
 
