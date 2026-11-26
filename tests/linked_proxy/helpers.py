@@ -95,6 +95,43 @@ async def relay_through_stream(gateway: FakeGateway, sent: bytes) -> bytes:
     return bytes(received)
 
 
+def tokens(*results: str | Exception) -> Callable[[], str]:
+    """A gateway token fetch that returns, or raises, ``results`` in order."""
+    remaining = list(results)
+
+    def fetch() -> str:
+        result = remaining.pop(0)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    return fetch
+
+
+class UpperBoundRandom(ModuleType):
+    """Stands in for a module's ``random`` name: ``uniform`` always picks its upper bound."""
+
+    def __init__(self) -> None:
+        super().__init__("random")
+
+    def uniform(self, low: float, high: float) -> float:
+        return high
+
+
+class FrozenTime(ModuleType):
+    """Stands in for a module's ``time`` name: ``monotonic`` and ``time`` never move."""
+
+    def __init__(self, now: float = 1_800_000_000.0) -> None:
+        super().__init__("time")
+        self._now = now
+
+    def monotonic(self) -> float:
+        return self._now
+
+    def time(self) -> float:
+        return self._now
+
+
 class RecordingWriter:
     def __init__(self, local: str, remote: str) -> None:
         self._addresses = {"sockname": (local, 50000), "peername": (remote, 443)}

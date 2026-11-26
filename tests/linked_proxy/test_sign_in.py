@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+from unittest.mock import ANY
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
@@ -16,22 +17,35 @@ def _decode(segment: str) -> bytes:
     return base64.urlsafe_b64decode(segment + "=" * (-len(segment) % 4))
 
 
+def _claims(token: str) -> dict[str, str | int]:
+    return json.loads(_decode(token.split(".")[1]))
+
+
 def test_token_is_signed_by_the_registered_key_for_one_minute_and_carries_the_gateway_token():
     key = Ed25519PrivateKey.generate()
     public_key = Ed25519PublicKey.from_public_bytes(_decode(public_key_text(key)))
 
     token = sign_in_token(key, linked_proxy_id="dp-1", audience=AUDIENCE, gateway_token="token-1", now=1_800_000_000)
-    other = sign_in_token(key, linked_proxy_id="dp-1", audience=AUDIENCE, gateway_token="token-1", now=1_800_000_000)
 
     header, claims, signature = token.split(".")
     public_key.verify(_decode(signature), f"{header}.{claims}".encode())
-    assert json.loads(_decode(header))["alg"] == "EdDSA"
-    decoded = json.loads(_decode(claims))
-    assert {name: decoded[name] for name in ("sub", "aud", "iat", "exp", "gateway_token")} == {
+    assert json.loads(_decode(header)) == {"alg": "EdDSA", "typ": "JWT"}
+    assert json.loads(_decode(claims)) == {
         "sub": "dp-1",
         "aud": AUDIENCE,
         "iat": 1_800_000_000,
         "exp": 1_800_000_060,
+        "jti": ANY,
         "gateway_token": "token-1",
     }
-    assert decoded["jti"] != json.loads(_decode(other.split(".")[1]))["jti"]
+
+
+def test_every_token_has_its_own_id():
+    key = Ed25519PrivateKey.generate()
+
+    first, second = (
+        sign_in_token(key, linked_proxy_id="dp-1", audience=AUDIENCE, gateway_token="token-1", now=1_800_000_000)
+        for _ in range(2)
+    )
+
+    assert _claims(first)["jti"] != _claims(second)["jti"]

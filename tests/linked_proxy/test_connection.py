@@ -16,12 +16,15 @@ from websockets.exceptions import InvalidStatus
 from websockets.frames import Close
 from websockets.http11 import Response
 
+from gumloop.linked_proxy import connection
 from gumloop.linked_proxy.connection import ERROR_HEADER
-from gumloop.linked_proxy.connection import FIRST_RETRY_SECONDS
 from gumloop.linked_proxy.connection import GatewayConnection
 from gumloop.linked_proxy.connection import GatewayTokenUnavailable
 from gumloop.linked_proxy.connection import SignedOut
 from gumloop.linked_proxy.connection import SignInRefused
+from tests.linked_proxy.helpers import FrozenTime
+from tests.linked_proxy.helpers import UpperBoundRandom
+from tests.linked_proxy.helpers import tokens
 
 GATEWAY_URL = "wss://linked-proxy-gateway.gumloop.com/v1/cli/connect"
 
@@ -107,23 +110,6 @@ def test_refused_sign_in_stops_without_reconnecting(outcome, reason):
     assert gateway.waits == []
 
 
-def test_other_failures_reconnect_with_a_growing_wait_until_signed_out():
-    gateway = ScriptedGateway(
-        [
-            Outcome(ConnectionClosed(Close(4002, "already_connected"), None), opened=True),
-            Outcome(OSError("unreachable")),
-        ]
-    )
-
-    with pytest.raises(SignedOut):
-        _run(gateway, [True, True, False])
-
-    assert len(gateway.waits) == 2
-    for wait, cap in zip(gateway.waits, [1.0, 2.0], strict=True):
-        assert FIRST_RETRY_SECONDS <= wait <= cap
-    assert len(set(gateway.authorizations)) == 2
-
-
 @pytest.mark.parametrize(
     "refused_token",
     [
@@ -131,34 +117,29 @@ def test_other_failures_reconnect_with_a_growing_wait_until_signed_out():
         Outcome(_refused_handshake(401, "gateway_token_refused")),
     ],
 )
-def test_a_refused_gateway_token_reconnects_with_a_fresh_one(refused_token):
-    gateway = ScriptedGateway([refused_token, Outcome(OSError("unreachable"))])
-    tokens = iter(["token-1", "token-2"])
+def test_other_failures_reconnect_with_a_fresh_gateway_token_and_a_growing_wait_until_signed_out(
+    monkeypatch, refused_token
+):
+    monkeypatch.setattr(connection, "random", UpperBoundRandom())
+    monkeypatch.setattr(connection, "time", FrozenTime())
+    gateway = ScriptedGateway(
+        [
+            Outcome(ConnectionClosed(Close(4002, "already_connected"), None), opened=True),
+            refused_token,
+            Outcome(OSError("unreachable")),
+        ]
+    )
+    gateway_token = tokens("token-1", "token-2", GatewayTokenUnavailable("HTTP 503"), "token-3")
 
     with pytest.raises(SignedOut):
-        _run(gateway, [True, True, False], gateway_token=lambda: next(tokens))
+        _run(gateway, [True, True, True, True, False], gateway_token=gateway_token)
 
-    assert [_gateway_token_claim(authorization) for authorization in gateway.authorizations] == ["token-1", "token-2"]
-
-
-def test_a_gateway_token_gumloop_did_not_give_is_retried_before_connecting():
-    gateway = ScriptedGateway([Outcome(OSError("unreachable"))])
-    tokens: list[str | Exception] = [
-        GatewayTokenUnavailable("Gumloop didn't give a gateway token (HTTP 503)"),
+    assert gateway.waits == [1.0, 2.0, 4.0, 8.0]
+    assert [_gateway_token_claim(authorization) for authorization in gateway.authorizations] == [
         "token-1",
+        "token-2",
+        "token-3",
     ]
-
-    def gateway_token() -> str:
-        result = tokens.pop(0)
-        if isinstance(result, Exception):
-            raise result
-        return result
-
-    with pytest.raises(SignedOut):
-        _run(gateway, [True, True, False], gateway_token=gateway_token)
-
-    assert len(gateway.waits) == 2
-    assert [_gateway_token_claim(authorization) for authorization in gateway.authorizations] == ["token-1"]
 
 
 def test_a_gateway_token_refused_by_gumloop_stops_without_connecting():
