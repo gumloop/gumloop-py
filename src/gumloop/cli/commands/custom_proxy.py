@@ -406,8 +406,11 @@ def _register(
     cli: CliContext, host: str, key: Ed25519PrivateKey, name: str | None, previous: CustomProxyRegistration | None
 ) -> None:
     """Registering this key again gets its personal proxy, or a new one if it was unlinked in Gumloop. A previous
-    registration of a key the keychain lost is unusable, so its personal proxy is replaced and its default kept."""
-    replaced = previous if previous is not None and previous.public_key != public_key_text(key) else None
+    registration of a key the keychain lost is unusable, so its personal proxy is replaced."""
+    if previous is not None and previous.public_key != public_key_text(key):
+        # Gumloop allows one personal proxy, so the lost key's goes before this key registers.
+        _delete_custom_proxy(cli, previous.custom_proxy_id)
+        forget_registration(host)
     machine_name = socket.gethostname()
     response = cli.call_with_refresh(
         lambda client: client.custom_proxies.register_cli(
@@ -425,22 +428,8 @@ def _register(
         user_id=_login_user_id(_stored_credentials()),
     )
     save_registration(host, registration)
-    # Deleted only now, so a failed registration leaves the lost key's personal proxy and its default in place.
-    keep_default = replaced is not None and _delete_lost_custom_proxy(cli, replaced.custom_proxy_id)
-    if keep_default and not response.custom_proxy.is_default:
-        cli.call_with_refresh(lambda client: client.custom_proxies.set_default(registration.custom_proxy_id))
     added_name = escape_markup(response.custom_proxy.name)
     console.print(f"[green]Linked[/green] this computer to Gumloop as '{added_name}'.")
-
-
-def _delete_lost_custom_proxy(cli: CliContext, custom_proxy_id: str) -> bool:
-    """Returns whether it was the default."""
-    listed = cli.call_with_refresh(lambda client: client.custom_proxies.list())
-    lost = next((custom_proxy for custom_proxy in listed.custom_proxies if custom_proxy.id == custom_proxy_id), None)
-    if lost is None:
-        return False
-    _delete_custom_proxy(cli, custom_proxy_id)
-    return lost.is_default
 
 
 def _delete_custom_proxy(cli: CliContext, custom_proxy_id: str) -> None:

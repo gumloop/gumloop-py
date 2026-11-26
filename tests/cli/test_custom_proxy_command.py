@@ -287,46 +287,33 @@ def test_connect_with_a_lost_key_stops_without_making_one_and_keeps_the_registra
     assert (keyring.get_password(KEYRING_SERVICE, f"custom-proxy:{HOST}") is not None) is key_kept
 
 
-@pytest.mark.parametrize(("was_default", "default_route_called"), [(True, True), (False, False)])
 @respx.mock
-def test_link_replaces_the_custom_proxy_of_a_lost_key_and_keeps_its_default(
-    cli_runner, service, was_default, default_route_called
-):
+def test_link_deletes_the_custom_proxy_of_a_lost_key_before_registering(cli_runner, service):
     save_registration(HOST, _registration(public_key="a key the keychain no longer has"))
-    lost = {"id": "dp-1", "name": "Ada's laptop", "kind": "cli", "is_default": was_default}
-    replacement = {"id": "dp-2", "name": "Ada's laptop", "kind": "cli", "is_default": False}
-    respx.get(f"{API_BASE}/custom-proxies").respond(200, json={"custom_proxies": [lost], "limit": 5})
-    deleted = respx.delete(f"{API_BASE}/custom-proxies/dp-1").respond(204)
-    registered = respx.post(f"{API_BASE}/custom-proxies").respond(
+    replacement = {"id": "dp-2", "name": "Ada's laptop", "kind": "cli", "is_default": True}
+    respx.delete(f"{API_BASE}/custom-proxies/dp-1").respond(204)
+    respx.post(f"{API_BASE}/custom-proxies").respond(
         201, json={"custom_proxy": replacement, "gateway_url": GATEWAY_URL}
-    )
-    made_default = respx.post(f"{API_BASE}/custom-proxies/dp-2/default").respond(
-        200, json={"custom_proxy": {**replacement, "is_default": True}}
     )
 
     result = cli_runner.invoke(app, ["browser", "proxy", "link"])
 
     assert result.exit_code == 0, result.output
-    assert deleted.called
-    assert registered.called
-    assert made_default.called is default_route_called
+    assert [call.request.method for call in respx.calls] == ["DELETE", "POST"]
     assert load_registration(HOST) == _registration(custom_proxy_id="dp-2")
 
 
 @respx.mock
-def test_link_with_a_lost_key_keeps_its_custom_proxy_when_registering_fails(cli_runner, service):
-    lost = _registration(public_key="a key the keychain no longer has")
-    save_registration(HOST, lost)
-    listed = {"id": "dp-1", "name": "Ada's laptop", "kind": "cli", "is_default": True}
-    respx.get(f"{API_BASE}/custom-proxies").respond(200, json={"custom_proxies": [listed], "limit": 5})
+def test_link_with_a_lost_key_forgets_its_deleted_custom_proxy_when_registering_fails(cli_runner, service):
+    save_registration(HOST, _registration(public_key="a key the keychain no longer has"))
     deleted = respx.delete(f"{API_BASE}/custom-proxies/dp-1").respond(204)
     respx.post(f"{API_BASE}/custom-proxies").respond(422, json={"error": "invalid_request"})
 
     result = cli_runner.invoke(app, ["browser", "proxy", "link"])
 
     assert result.exit_code == 1
-    assert not deleted.called
-    assert load_registration(HOST) == lost
+    assert deleted.called
+    assert load_registration(HOST) is None
     assert not service.installed
 
 
