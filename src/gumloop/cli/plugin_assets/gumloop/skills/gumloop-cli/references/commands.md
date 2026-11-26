@@ -122,7 +122,7 @@ Sources: `notion`, `google_drive`, `slack`, `github`, `confluence`, `direct_file
 gumloop skills list [--search q] [--server id] [--limit n] [--cursor c] [--json]
 gumloop skills create <file>... [--json]
 gumloop skills update <skill_id> <file>... [--json]        # full replace of all files
-gumloop skills delete <skill_id> [--json]
+gumloop skills delete <skill_id> [--yes] [--json]          # refused with --json or without a terminal unless --yes
 gumloop skills download <skill_id> [-o path|-] [--version-id v] [--json]
 gumloop skills access <skill_id> [--json]
 gumloop skills set-access <skill_id>

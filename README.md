@@ -44,7 +44,7 @@ Mirror a local directory into a file-upload Brain source. Files are compared by 
 
 ```bash
 gumloop brain sync ./docs --create "Engineering docs"                 # personal source
-gumloop brain sync ./docs --source <source_id> --prune                # existing source, delete remote files that are gone locally
+gumloop brain sync ./docs --source <source_id> --prune                # existing source, delete remote files that are gone locally (asks first; --yes in scripts)
 gumloop brain sync ./runbooks --create "Runbooks" --team-id <team_id> # team source
 gumloop brain sync ./policies --create "Policies" --scope organization --require-approval --approve
 gumloop brain sources list
@@ -65,6 +65,8 @@ gumloop agents delete agent_abc                  # asks first
 gumloop agents delete agent_abc --yes --json     # no question; required with --json or without a terminal
 gumloop agents update agent_abc --inactive --yes
 ```
+
+Every other command that deletes something asks the same way and takes the same `--yes`: `agents triggers delete`, `artifacts delete`, `brain sources delete`, `brain files delete`, `browser profiles delete`, `evaluations delete`, `sessions queue delete` and `skills delete`. `brain sync --source <source_id> --prune` asks too, because it deletes every file in the source that is not in the local directory; `--dry-run` shows which files without asking, and `--create --prune` does not ask because a new source has nothing to delete.
 
 Agent session `create` and `send` accept `--stream`; combine with `--json` for NDJSON events, including cursors and terminal/error events. Reconnect with `gumloop sessions resume SESSION_ID --cursor LAST_STREAM_CURSOR --json` without resending a message. Human streams show text and resume cursors. `sessions create --metadata-json '{"source":"cli"}'` sets session metadata. Without `--stream`, create/send return the immediate session response and execution may continue asynchronously. Read the reply from `session.response` and `session.response_files`. Per message, `message.text` and `message.files` read a message's text and file parts.
 
@@ -278,7 +280,7 @@ Both clients expose personal `browser_profiles.create(name)`, `get(profile_id)`,
 gumloop browser profiles create "Research" --json
 gumloop browser profiles get PROFILE_ID --json
 gumloop browser profiles update PROFILE_ID --name "Research" --default --json
-gumloop browser profiles delete PROFILE_ID --json
+gumloop browser profiles delete PROFILE_ID --yes --json
 ```
 
 Personal profile management uses the authenticated user regardless of global team selection.
