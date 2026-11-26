@@ -7,6 +7,8 @@ import typer
 from rich.markup import escape as escape_markup
 
 from gumloop import GumloopError
+from gumloop.cli.commands._confirmation import Yes
+from gumloop.cli.commands._confirmation import confirm_or_exit
 from gumloop.cli.commands._downloads import download_response
 from gumloop.cli.commands._item_access import apply_item_access
 from gumloop.cli.commands._item_access import json_option
@@ -197,6 +199,7 @@ def update_skill(
 def delete_skill(
     ctx: typer.Context,
     skill_id: Annotated[str, typer.Argument(help="ID of the skill to delete.")],
+    yes: Yes = False,
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Print the raw SDK response as JSON."),
@@ -204,6 +207,12 @@ def delete_skill(
 ) -> None:
     """Delete an existing skill."""
     cli: CliContext = ctx.obj
+    confirm_or_exit(
+        warning=f"This deletes skill {skill_id}. You cannot undo it.",
+        question=f"Delete skill {skill_id}?",
+        yes=yes,
+        json_output=json_output,
+    )
     try:
         response = cli.call_with_refresh(lambda client: client.skills.delete(skill_id))
     except GumloopError as error:

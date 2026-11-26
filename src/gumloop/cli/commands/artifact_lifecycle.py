@@ -5,6 +5,8 @@ from typing import Annotated
 import typer
 
 from gumloop import GumloopError
+from gumloop.cli.commands._confirmation import Yes
+from gumloop.cli.commands._confirmation import confirm_or_exit
 from gumloop.cli.commands.artifacts import artifacts_app
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
@@ -46,9 +48,15 @@ def rename(
 
 
 @artifacts_app.command("delete")
-def delete(ctx: typer.Context, artifact_id: str, json_output: JsonOutput = False) -> None:
-    """Soft-delete a legacy generated file; VFS handles cannot be deleted here."""
+def delete(ctx: typer.Context, artifact_id: str, yes: Yes = False, json_output: JsonOutput = False) -> None:
+    """Delete a legacy generated file; VFS handles cannot be deleted here."""
     cli: CliContext = ctx.obj
+    confirm_or_exit(
+        warning=f"This deletes artifact {artifact_id}. You cannot undo it.",
+        question=f"Delete artifact {artifact_id}?",
+        yes=yes,
+        json_output=json_output,
+    )
     try:
         print_json(cli.call_with_refresh(lambda c: c.artifacts.delete(artifact_id, team_id=cli.effective_team_id)))
     except GumloopError as error:

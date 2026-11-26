@@ -5,6 +5,8 @@ from typing import Annotated
 import typer
 
 from gumloop import GumloopError
+from gumloop.cli.commands._confirmation import Yes
+from gumloop.cli.commands._confirmation import confirm_or_exit
 from gumloop.cli.commands._text_input import resolve_text_input
 from gumloop.cli.console import console
 from gumloop.cli.console import print_json
@@ -98,10 +100,20 @@ def edit_message(
 
 @queue_app.command("delete")
 def delete_message(
-    ctx: typer.Context, session_id: SessionId, queued_message_id: MessageId, json_output: JsonOutput = False
+    ctx: typer.Context,
+    session_id: SessionId,
+    queued_message_id: MessageId,
+    yes: Yes = False,
+    json_output: JsonOutput = False,
 ) -> None:
     """Remove a queued message."""
     cli: CliContext = ctx.obj
+    confirm_or_exit(
+        warning=f"This deletes queued message {queued_message_id} from session {session_id}. You cannot undo it.",
+        question=f"Delete queued message {queued_message_id}?",
+        yes=yes,
+        json_output=json_output,
+    )
     try:
         response = cli.call_with_refresh(
             lambda client: client.sessions.delete_queued_message(session_id, queued_message_id)

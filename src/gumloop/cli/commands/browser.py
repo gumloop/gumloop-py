@@ -18,6 +18,8 @@ from gumloop.browser_logins import extract_profile_cookies
 from gumloop.browser_logins import extract_site_cookies
 from gumloop.browser_logins import site_of_url
 from gumloop.browser_logins.chromium_cookies import KeychainAccessError
+from gumloop.cli.commands._confirmation import Yes
+from gumloop.cli.commands._confirmation import confirm_or_exit
 from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
@@ -380,9 +382,16 @@ def update_profile(
 def delete_profile(
     ctx: typer.Context,
     profile_id: Annotated[str, typer.Argument(help="Profile id to delete, including its saved logins.")],
+    yes: Yes = False,
     json_output: Annotated[bool, typer.Option("--json", help="Print the deletion result as JSON.")] = False,
 ) -> None:
     cli: CliContext = ctx.obj
+    confirm_or_exit(
+        warning=f"This deletes browser profile {profile_id} and its saved sign-ins. You cannot undo it.",
+        question=f"Delete browser profile {profile_id}?",
+        yes=yes,
+        json_output=json_output,
+    )
     try:
         response = cli.call_with_refresh(lambda client: client.browser_profiles.delete(profile_id))
     except GumloopError as error:

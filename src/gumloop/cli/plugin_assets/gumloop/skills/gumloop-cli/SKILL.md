@@ -46,7 +46,7 @@ If it fails with an authentication error:
 | Command | What it does |
 | --- | --- |
 | `gumloop login` / `logout` | Manage stored credentials |
-| `gumloop agents list\|get\|versions\|export\|create\|update` | Manage agents and export agent versions |
+| `gumloop agents list\|get\|versions\|export\|create\|update\|delete` | Manage agents and export agent versions. `delete` and `update --inactive` remove the agent: see Gotchas |
 | `gumloop models list\|route` | List available models; ask Gumloop Chew which of your models should run a task |
 | `gumloop decisions create` | Ask structured decision questions using model, state, and questions JSON |
 | `gumloop sessions create\|get\|send\|cancel` | Run conversations with an agent |
@@ -98,7 +98,9 @@ Structured output: `--schema-file schema.json`. Stdin input: `--message-stdin -`
 
 ## Gotchas
 
-- `gumloop agents update --inactive` **retires** an agent permanently (later `get`/`update` return 404). To stop autonomous runs, disable the agent's triggers in the app instead.
+- `gumloop agents delete` and `gumloop agents update --inactive` (or `is_active: false` in request JSON) both **remove** the agent (later `get`/`update` return 404). Neither can be undone from the CLI; only Gumloop support can restore the agent. `--inactive` is not a pause, and `--is-active` cannot bring the agent back. To stop autonomous runs, turn off the agent's triggers instead: `gumloop agents triggers update <agent_id> <trigger_id> --args-json '{"enabled":false}'`, or in the app.
+- Both commands ask a yes/no question in a terminal. With `--json` or without a terminal they are refused unless `--yes` is passed. Pass `--yes` only after the person has confirmed, for that specific agent, that they want it removed. Never add `--yes` on your own to get past the refusal: show the person which agent will be removed and ask first.
+- Every other command that deletes something is refused the same way and follows the same rule for `--yes`: `agents triggers delete`, `artifacts delete`, `brain sources delete`, `brain files delete`, `browser profiles delete`, `evaluations delete`, `sessions queue delete` and `skills delete`.
 - `gumloop skills update` is a full replace, not a merge — pass every file the skill should keep.
 - `sessions create`/`send` return the final response only; there is no token streaming in the CLI (the Python SDK's `client.sessions.stream()` has it).
 - Company Brain requires the Pro plan and consumes credits per search.

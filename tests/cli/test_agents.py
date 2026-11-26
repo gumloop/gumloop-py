@@ -184,7 +184,7 @@ def test_agents_update_only_sends_specified_fields(cli_runner: CliRunner) -> Non
 
     cli_runner.invoke(
         app,
-        ["agents", "update", "agent_abc", "--name", "Renamed", "--inactive", "--json"],
+        ["agents", "update", "agent_abc", "--name", "Renamed", "--inactive", "--yes", "--json"],
     )
 
     sent = json.loads(route.calls[0].request.content)
@@ -244,7 +244,7 @@ def test_agents_update_refused_incognito_leaves_the_fields_untouched(cli_runner:
     )
     save_credentials(Credentials(api_key="key"))
 
-    result = cli_runner.invoke(app, ["agents", "update", "agent_abc", "--inactive", "--incognito"])
+    result = cli_runner.invoke(app, ["agents", "update", "agent_abc", "--inactive", "--yes", "--incognito"])
 
     assert (result.exit_code, patch_route.call_count) == (1, 0)
 
@@ -275,7 +275,7 @@ def test_agents_update_rejects_empty_request(cli_runner: CliRunner, options: lis
     "options,expected",
     [
         (["--tools-json", "[]"], {"tools": []}),
-        (["--inactive"], {"is_active": False}),
+        (["--inactive", "--yes"], {"is_active": False}),
         (["--args-json", '{"metadata":{"source":"cli"}}'], {"metadata": {"source": "cli"}}),
     ],
 )
