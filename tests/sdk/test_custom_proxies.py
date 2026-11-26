@@ -21,7 +21,25 @@ REGISTER_ARGS = {
     "cli_version": "0.6.0",
 }
 OPERATIONS = [
+    (
+        "list",
+        (),
+        {},
+        "GET",
+        "custom-proxies",
+        200,
+        {"custom_proxies": [REGISTRATION["custom_proxy"]], "limit": 5},
+    ),
     ("register_cli", (), REGISTER_ARGS, "POST", "custom-proxies", 201, REGISTRATION),
+    (
+        "set_default",
+        ("dp-1",),
+        {},
+        "POST",
+        "custom-proxies/dp-1/default",
+        200,
+        {"custom_proxy": REGISTRATION["custom_proxy"]},
+    ),
     (
         "create_gateway_token",
         ("dp-1",),

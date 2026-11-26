@@ -7,11 +7,16 @@ from gumloop._http import HttpClient
 from gumloop.types import CliCustomProxyRegisterRequest
 from gumloop.types import CliCustomProxyRegistration
 from gumloop.types import CustomProxyGatewayToken
+from gumloop.types import CustomProxyList
+from gumloop.types import CustomProxyResponse
 
 
 class CustomProxies:
     def __init__(self, client: HttpClient) -> None:
         self._client = client
+
+    def list(self) -> CustomProxyList:
+        return CustomProxyList.model_validate(self._client.get("custom-proxies", scoped=False))
 
     def register_cli(
         self, *, name: str, public_key: str, machine_name: str, cli_version: str
@@ -21,6 +26,11 @@ class CustomProxies:
             name=name, public_key=public_key, machine_name=machine_name, cli_version=cli_version
         ).model_dump()
         return CliCustomProxyRegistration.model_validate(self._client.post("custom-proxies", json=body, scoped=False))
+
+    def set_default(self, custom_proxy_id: str) -> CustomProxyResponse:
+        return CustomProxyResponse.model_validate(
+            self._client.post(f"custom-proxies/{quote(custom_proxy_id, safe='')}/default", scoped=False)
+        )
 
     def create_gateway_token(self, custom_proxy_id: str) -> CustomProxyGatewayToken:
         """The token a CLI personal proxy signs in to the linked proxy gateway with."""
@@ -36,6 +46,9 @@ class AsyncCustomProxies:
     def __init__(self, client: AsyncHttpClient) -> None:
         self._client = client
 
+    async def list(self) -> CustomProxyList:
+        return CustomProxyList.model_validate(await self._client.get("custom-proxies", scoped=False))
+
     async def register_cli(
         self, *, name: str, public_key: str, machine_name: str, cli_version: str
     ) -> CliCustomProxyRegistration:
@@ -45,6 +58,11 @@ class AsyncCustomProxies:
         ).model_dump()
         return CliCustomProxyRegistration.model_validate(
             await self._client.post("custom-proxies", json=body, scoped=False)
+        )
+
+    async def set_default(self, custom_proxy_id: str) -> CustomProxyResponse:
+        return CustomProxyResponse.model_validate(
+            await self._client.post(f"custom-proxies/{quote(custom_proxy_id, safe='')}/default", scoped=False)
         )
 
     async def create_gateway_token(self, custom_proxy_id: str) -> CustomProxyGatewayToken:

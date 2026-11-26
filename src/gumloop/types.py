@@ -820,6 +820,17 @@ class CliCustomProxyRegistration(_Model):
     gateway_url: str
 
 
+class CustomProxyList(_Model):
+    # The default first, then oldest first.
+    custom_proxies: list[CustomProxy]
+    # The most personal proxies the user may have.
+    limit: int
+
+
+class CustomProxyResponse(_Model):
+    custom_proxy: CustomProxy
+
+
 class CustomProxyGatewayToken(_Model):
     # Opaque to the CLI, which puts it in its sign-in tokens. It expires after an hour.
     gateway_token: str
