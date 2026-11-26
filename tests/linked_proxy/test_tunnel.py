@@ -41,6 +41,12 @@ class FakeGateway:
     async def next_frame(self) -> Frame:
         return await asyncio.wait_for(self._sent.get(), 5)
 
+    def unread_frames(self) -> list[Frame]:
+        frames = []
+        while not self._sent.empty():
+            frames.append(self._sent.get_nowait())
+        return frames
+
 
 async def _echo(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
     while data := await reader.read(65536):
@@ -120,6 +126,7 @@ def test_data_the_gateway_sent_before_its_close_still_reaches_the_destination() 
         gateway.push(Frame(type=FrameType.CLOSE, stream_id=1))
 
         assert await asyncio.wait_for(received, 5) == sent
+        assert gateway.unread_frames() == []
         gateway.close()
         with pytest.raises(ConnectionError):
             await run

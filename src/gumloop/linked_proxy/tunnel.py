@@ -214,7 +214,8 @@ class _Stream:
                 writer.write(data)
                 await writer.drain()
                 unacked += len(data)
-                if unacked >= INITIAL_WINDOW // 2:
+                # After the gateway's CLOSE the stream takes no replies.
+                if unacked >= INITIAL_WINDOW // 2 and not self._ended:
                     self._recv_window += unacked
                     await self._tunnel._send(Frame.window(self.id, unacked))
                     unacked = 0
