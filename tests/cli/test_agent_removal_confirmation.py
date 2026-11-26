@@ -225,6 +225,20 @@ def test_update_that_keeps_the_agent_is_sent_without_asking(
     assert [json.loads(call.request.content) for call in agent_api.calls] == [sent]
 
 
+def test_update_sends_the_team_id_option_in_place_of_a_request_json_team_id(
+    cli_runner: CliRunner, agent_api: respx.MockRouter
+) -> None:
+    result = cli_runner.invoke(
+        app,
+        ["--team-id", "team_123", "agents", "update", "agent_1", "--args-json", '{"team_id":123,"name":"Renamed"}'],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert [json.loads(call.request.content) for call in agent_api.calls] == [
+        {"team_id": "team_123", "name": "Renamed"}
+    ]
+
+
 @pytest.mark.parametrize("command", [["agents", "delete"], ["agents", "update"]])
 def test_help_names_the_confirmation_flag(cli_runner: CliRunner, command: list[str]) -> None:
     result = cli_runner.invoke(app, [*command, "--help"])

@@ -497,8 +497,9 @@ def update_agent(
         has_field_update = bool(request) or any(value is not None for value in fields.values())
         if incognito is None and not has_field_update:
             raise GumloopError("Pass at least one field to update, using flags or request JSON.")
+        update_kwargs = {**fields, "team_id": cli.effective_team_id}
         # Read is_active off the built wire body, so a JSON value the SDK coerces to false is caught too.
-        if has_field_update and AgentUpdateRequest.build(request, **fields).get("is_active") is False:
+        if has_field_update and AgentUpdateRequest.build(request, **update_kwargs).get("is_active") is False:
             confirm_or_exit(
                 warning=(
                     f"Marking agent {agent_id} inactive removes it. This is not a pause, and --is-active cannot"
@@ -513,9 +514,7 @@ def update_agent(
         if incognito is not None:
             response = cli.call_with_refresh(lambda client: client.agents.set_incognito(agent_id, incognito))
         if has_field_update:
-            response = cli.call_with_refresh(
-                lambda client: client.agents.update(agent_id, request, team_id=cli.effective_team_id, **fields)
-            )
+            response = cli.call_with_refresh(lambda client: client.agents.update(agent_id, request, **update_kwargs))
     except (GumloopError, ValidationError) as error:
         exit_with_error(error, json_output=json_output)
 
