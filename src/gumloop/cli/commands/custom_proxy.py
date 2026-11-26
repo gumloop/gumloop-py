@@ -74,11 +74,15 @@ _UNAVAILABLE_REASONS = {
     "insufficient_permissions": _ROLE_DENIED,
     "tier_required_enterprise": "Personal proxies need an Enterprise plan.",
     "route_not_found": "Personal proxies aren't available for your organization yet.",
+    "feature_restricted": "Your organization is in read-only mode, so personal proxies are paused.",
 }
 # The only refusal that forgets the registration.
 _REMOVED = "personal_custom_proxy_not_found"
 # Also what the API answers when the rollout flag can't be read, so connect retries it.
 _NOT_RELEASED = "route_not_found"
+# The org is in read-only mode, which lasts until an admin turns it off.
+_READ_ONLY = "feature_restricted"
+_RETRIED_CODES = frozenset({_NOT_RELEASED, _READ_ONLY})
 _RETRIED_STATUSES = frozenset({408, 409, 429})
 # Gumloop answered 401 to a login that can't be refreshed, such as a revoked API key.
 _LOGIN_REJECTED = "login_rejected"
@@ -377,7 +381,7 @@ def _login_user_id(credentials: Credentials) -> str | None:
 
 def _gateway_token(host: str, registration: CustomProxyRegistration) -> CustomProxyGatewayToken:
     """A refusal stops the personal proxy, except the ones that can pass on their own: a timeout,
-    a conflict, rate limiting, and ``route_not_found``."""
+    a conflict, rate limiting, ``route_not_found`` and read-only mode."""
     # The service outlives logins, so each request uses the login stored now, not the one it started with.
     credentials = _owner_login(host, registration)
     if credentials is None:
@@ -390,7 +394,7 @@ def _gateway_token(host: str, registration: CustomProxyRegistration) -> CustomPr
         code = error.code if isinstance(error.code, str) else None
         if error.status_code == 401:
             raise SignInRefused(_LOGIN_REJECTED) from error
-        if 400 <= error.status_code < 500 and error.status_code not in _RETRIED_STATUSES and code != _NOT_RELEASED:
+        if 400 <= error.status_code < 500 and error.status_code not in _RETRIED_STATUSES and code not in _RETRIED_CODES:
             raise SignInRefused(code or f"http_{error.status_code}") from error
         raise GatewayTokenUnavailable(f"Gumloop didn't give a gateway token (HTTP {error.status_code})") from error
     except (GumloopError, httpx.HTTPError) as error:

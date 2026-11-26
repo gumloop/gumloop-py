@@ -291,6 +291,11 @@ def test_connect_stops_when_the_gateway_needs_a_newer_cli(cli_runner, service, m
         ),
         (403, {"error": "tier_required_enterprise"}, "Personal proxies need an Enterprise plan."),
         (404, {"error": "route_not_found"}, "Personal proxies aren't available for your organization yet."),
+        (
+            403,
+            {"error": "feature_restricted", "denied_keys": ["organization:use_personal_proxies"]},
+            "Your organization is in read-only mode, so personal proxies are paused.",
+        ),
     ],
 )
 @respx.mock
@@ -317,6 +322,12 @@ def test_link_says_why_personal_proxies_are_off(cli_runner, service, status, pay
         (404, {"error": "not_found"}, None, True),
         (401, {"error": "unauthorized"}, None, True),
         (404, {"error": "route_not_found"}, GatewayTokenUnavailable, True),
+        (
+            403,
+            {"error": "feature_restricted", "denied_keys": ["organization:use_personal_proxies"]},
+            GatewayTokenUnavailable,
+            True,
+        ),
         (429, {"error": "rate_limited"}, GatewayTokenUnavailable, True),
     ],
 )
