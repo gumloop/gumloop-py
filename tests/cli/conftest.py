@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from collections.abc import Generator
 from datetime import datetime
 from datetime import timezone
@@ -12,6 +13,7 @@ import pytest
 import respx
 from typer.testing import CliRunner
 
+from gumloop.cli.commands import _confirmation
 from tests.cli.sync_test_fakes import DeterministicClock
 from tests.cli.sync_test_fakes import FakeAdvisoryLock
 from tests.cli.sync_test_fakes import FakeScheduler
@@ -114,3 +116,29 @@ def sync_cli_environment(
 @pytest.fixture
 def cli_runner() -> CliRunner:
     return CliRunner()
+
+
+class _Question:
+    def __init__(self, answer: bool | None) -> None:
+        self._answer = answer
+
+    def ask(self) -> bool | None:
+        return self._answer
+
+
+@pytest.fixture
+def answer_in_terminal(monkeypatch: pytest.MonkeyPatch) -> Callable[[bool | None], list[tuple[str, bool]]]:
+    """Run the command as if in a terminal where the person gives `answer`; returns the questions asked."""
+
+    def _answer(answer: bool | None) -> list[tuple[str, bool]]:
+        asked: list[tuple[str, bool]] = []
+
+        def confirm(message: str, default: bool = True) -> _Question:
+            asked.append((message, default))
+            return _Question(answer)
+
+        monkeypatch.setattr(_confirmation, "can_ask", lambda: True)
+        monkeypatch.setattr(_confirmation.questionary, "confirm", confirm)
+        return asked
+
+    return _answer

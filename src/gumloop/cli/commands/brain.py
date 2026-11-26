@@ -13,6 +13,8 @@ from gumloop._http import UploadFile
 from gumloop.brain_sync import BrainSyncPlan
 from gumloop.brain_sync import LocalFile
 from gumloop.brain_sync import scan_directory
+from gumloop.cli.commands._confirmation import Yes
+from gumloop.cli.commands._confirmation import confirm_or_exit
 from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
@@ -201,10 +203,17 @@ def get_source(
 def delete_source(
     ctx: typer.Context,
     source_id: Annotated[str, typer.Argument(help="Source id.")],
+    yes: Yes = False,
     json_output: Annotated[bool, _JSON_OPTION] = False,
 ) -> None:
     """Delete a Brain source and every file in it."""
     cli: CliContext = ctx.obj
+    confirm_or_exit(
+        warning=f"This deletes Brain source {source_id} and every file in it. You cannot undo it.",
+        question=f"Delete Brain source {source_id}?",
+        yes=yes,
+        json_output=json_output,
+    )
     try:
         response = cli.call_with_refresh(lambda client: client.brain.delete_source(source_id))
     except GumloopError as error:
@@ -331,10 +340,17 @@ def delete_file(
     ctx: typer.Context,
     source_id: Annotated[str, typer.Argument(help="Source id.")],
     file_id: Annotated[str, typer.Argument(help="File id.")],
+    yes: Yes = False,
     json_output: Annotated[bool, _JSON_OPTION] = False,
 ) -> None:
     """Remove a file from a source and from search."""
     cli: CliContext = ctx.obj
+    confirm_or_exit(
+        warning=f"This deletes file {file_id} from Brain source {source_id} and from search. You cannot undo it.",
+        question=f"Delete file {file_id}?",
+        yes=yes,
+        json_output=json_output,
+    )
     try:
         response = cli.call_with_refresh(lambda client: client.brain.delete_file(source_id, file_id))
     except GumloopError as error:

@@ -184,7 +184,7 @@ def test_evaluations_delete_hits_delete_endpoint(cli_runner: CliRunner) -> None:
     route = respx.delete(f"{API_BASE}/evaluations/eval_1").mock(return_value=httpx.Response(204))
     save_credentials(Credentials(api_key="key"))
 
-    result = cli_runner.invoke(app, ["evaluations", "delete", "eval_1"])
+    result = cli_runner.invoke(app, ["evaluations", "delete", "eval_1", "--yes"])
 
     assert result.exit_code == 0, result.output
     assert route.called

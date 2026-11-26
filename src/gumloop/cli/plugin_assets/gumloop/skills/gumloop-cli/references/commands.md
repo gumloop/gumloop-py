@@ -32,10 +32,15 @@ gumloop agents export <agent_id> <version_id> [-o file.json]
 gumloop agents create --name NAME --model MODEL [--description d]
     [--system-prompt s | --system-prompt-file f]
     [--tools-json '[...]' | --tools-file f] [--incognito] [--json]
-gumloop agents update <agent_id> [same flags as create] [--is-active | --inactive] [--incognito | --no-incognito]
+gumloop agents update <agent_id> [same flags as create] [--is-active | --inactive] [--incognito | --no-incognito] [--yes]
+gumloop agents delete <agent_id> [--yes] [--json]
 ```
 
-`--model` accepts `auto` or a slug like `anthropic/claude-sonnet-4`. To learn the tool-config shape, run `gumloop agents get <id> --json` on an existing agent and copy its `tools` array. `--inactive` retires the agent irreversibly. `--incognito` makes every session on the agent incognito (nothing is saved); it needs the Incognito agents role permission (separate from Incognito tasks), and on `create` a refusal leaves no agent behind. Read the reply from `session.response` and `session.response_files`.
+`--model` accepts `auto` or a slug like `anthropic/claude-sonnet-4`. To learn the tool-config shape, run `gumloop agents get <id> --json` on an existing agent and copy its `tools` array.
+
+`agents delete` and `agents update --inactive` (or `is_active: false` in `--args-json`, `--args-file` or `--args -`) both remove the agent. Neither can be undone from the CLI; only Gumloop support can restore the agent. `--inactive` is not a pause, and `--is-active` cannot bring the agent back; to pause an agent, turn off its triggers with `gumloop agents triggers update <agent_id> <trigger_id> --args-json '{"enabled":false}'`. In a terminal both commands ask a yes/no question whose default answer is no, and answering no sends nothing. With `--json` or without a terminal (a script, CI, piped input or output) they exit 1 and send nothing unless `--yes` (`-y`) is passed. Pass `--yes` only after the person has confirmed they want that agent removed.
+
+`--incognito` makes every session on the agent incognito (nothing is saved); it needs the Incognito agents role permission (separate from Incognito tasks), and on `create` a refusal leaves no agent behind. Read the reply from `session.response` and `session.response_files`.
 
 ## Models
 
@@ -117,7 +122,7 @@ Sources: `notion`, `google_drive`, `slack`, `github`, `confluence`, `direct_file
 gumloop skills list [--search q] [--server id] [--limit n] [--cursor c] [--json]
 gumloop skills create <file>... [--json]
 gumloop skills update <skill_id> <file>... [--json]        # full replace of all files
-gumloop skills delete <skill_id> [--json]
+gumloop skills delete <skill_id> [--yes] [--json]          # refused with --json or without a terminal unless --yes
 gumloop skills download <skill_id> [-o path|-] [--version-id v] [--json]
 gumloop skills access <skill_id> [--json]
 gumloop skills set-access <skill_id>
