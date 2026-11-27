@@ -38,6 +38,20 @@ curl -fsSL https://gumloop.com/cli/import-logins.sh | sh
 
 Cookies only: local storage and IndexedDB stay on your machine, so sites that keep the session there ask the agent to sign in once, after which the agent's browser keeps it. Imported cookies are encrypted with the profile's own key before storage and are never shown back in the UI or API; sign-ins the agent picks up while running are saved back to the same profile. Rename, remove sites from, or delete profiles on the Secrets page in Gumloop.
 
+### Let your agents' browser go out through this computer
+
+Sites that only accept sign-ins from your network or your IP can be reached by linking this computer: your agents' browser connects to them from here. On macOS or Linux, after `gumloop login`:
+
+```bash
+gumloop browser proxy link      # automatically runs in the background on startup
+gumloop browser proxy status
+gumloop browser proxy unlink
+```
+
+On Linux without a systemd user session, such as a container, `link` can't run it in the background. Run `gumloop browser proxy connect` and keep it open instead.
+
+The computer only opens connections to public addresses on ports 80 and 443. Its key stays in the OS keychain. `gumloop logout` unlinks it. A network that inspects TLS traffic can't be used, since sites would show the agent's browser certificate errors.
+
 ### Sync a folder into your Brain
 
 Mirror a local directory into a file-upload Brain source. Files are compared by name and sha256, so a re-run uploads only what changed; indexing starts on its own after each upload.
@@ -66,7 +80,7 @@ gumloop agents delete agent_abc --yes --json     # no question; required with --
 gumloop agents update agent_abc --inactive --yes
 ```
 
-Every other command that deletes something asks the same way and takes the same `--yes`: `agents triggers delete`, `artifacts delete`, `brain sources delete`, `brain files delete`, `browser profiles delete`, `evaluations delete`, `sessions queue delete` and `skills delete`. Scripts that call them need `--yes` from version 0.5.16 on too. `brain sync --prune` does not ask: passing `--prune` is the confirmation.
+Every other command that deletes something asks the same way and takes the same `--yes`: `agents triggers delete`, `artifacts delete`, `brain sources delete`, `brain files delete`, `browser profiles delete`, `evaluations delete`, `sessions queue delete`, `skills delete` and, when this computer is linked, `browser proxy unlink`. Scripts that call them need `--yes` from version 0.5.16 on too. `brain sync --prune` does not ask: passing `--prune` is the confirmation.
 
 Agent session `create` and `send` accept `--stream`; combine with `--json` for NDJSON events, including cursors and terminal/error events. Reconnect with `gumloop sessions resume SESSION_ID --cursor LAST_STREAM_CURSOR --json` without resending a message. Human streams show text and resume cursors. `sessions create --metadata-json '{"source":"cli"}'` sets session metadata. Without `--stream`, create/send return the immediate session response and execution may continue asynchronously. Read the reply from `session.response` and `session.response_files`. Per message, `message.text` and `message.files` read a message's text and file parts.
 

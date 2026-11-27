@@ -795,6 +795,49 @@ class BrowserProfileDeleteResponse(_Model):
     status: Literal["success"]
 
 
+class CustomProxy(_Model):
+    """A machine the agent browser can exit through. Each ``kind`` ("cli",
+    "tailscale") adds its own fields."""
+
+    id: str
+    name: str
+    kind: str
+    is_default: bool = False
+
+
+class CliCustomProxyRegisterRequest(_Model):
+    kind: Literal["cli"] = "cli"
+    name: str = Field(min_length=1, max_length=100, pattern=r"\S")
+    # The personal proxy key's raw Ed25519 public key, in unpadded base64url.
+    public_key: str = Field(min_length=1, max_length=64)
+    machine_name: str = Field(min_length=1, max_length=255, pattern=r"\S")
+    cli_version: str = Field(min_length=1, max_length=50)
+
+
+class CliCustomProxyRegistration(_Model):
+    custom_proxy: CustomProxy
+    # The linked proxy gateway's WebSocket. Sign-in tokens name it as their audience.
+    gateway_url: str
+
+
+class CustomProxyList(_Model):
+    # The default first, then oldest first.
+    custom_proxies: list[CustomProxy]
+    # The most personal proxies the user may have.
+    limit: int
+
+
+class CustomProxyResponse(_Model):
+    custom_proxy: CustomProxy
+
+
+class CustomProxyGatewayToken(_Model):
+    # Opaque to the CLI, which puts it in its sign-in tokens. It expires after an hour.
+    gateway_token: str
+    # ISO 8601. Older backends leave it out.
+    expires_at: str | None = None
+
+
 MAX_SDP_OFFER_BYTES = 1024 * 1024
 
 

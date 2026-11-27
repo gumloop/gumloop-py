@@ -19,6 +19,8 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
+    # The linked proxy trusts certifi's roots only, never the OS store.
+    "certifi>=2024.2.2",
     "cryptography>=42.0.0",
     "httpx>=0.24.1",
     "httpx-sse>=0.4.0",
@@ -31,6 +33,7 @@ dependencies = [
     "rich",
     "click>=8.0",
     "typer>=0.25.1,<0.30",
+    "websockets>=14",
 ]
 
 [tool.hatch.version]

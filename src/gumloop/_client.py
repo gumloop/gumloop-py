@@ -21,6 +21,7 @@ from gumloop.resources import AsyncArtifacts
 from gumloop.resources import AsyncBrain
 from gumloop.resources import AsyncBrowserProfiles
 from gumloop.resources import AsyncChat
+from gumloop.resources import AsyncCustomProxies
 from gumloop.resources import AsyncDecisions
 from gumloop.resources import AsyncEvaluations
 from gumloop.resources import AsyncMCP
@@ -34,6 +35,7 @@ from gumloop.resources import AsyncWiki
 from gumloop.resources import Brain
 from gumloop.resources import BrowserProfiles
 from gumloop.resources import Chat
+from gumloop.resources import CustomProxies
 from gumloop.resources import Decisions
 from gumloop.resources import Evaluations
 from gumloop.resources import Models
@@ -120,6 +122,7 @@ class Gumloop:
         self.artifacts = Artifacts(self._http)
         self.brain = Brain(self._http)
         self.browser_profiles = BrowserProfiles(self._http)
+        self.custom_proxies = CustomProxies(self._http)
         self.oauth = OAuth(base_url=self.base_url, timeout=self.timeout)
 
     def close(self) -> None:
@@ -188,6 +191,7 @@ class AsyncGumloop:
         self.artifacts = AsyncArtifacts(self._http)
         self.brain = AsyncBrain(self._http)
         self.browser_profiles = AsyncBrowserProfiles(self._http)
+        self.custom_proxies = AsyncCustomProxies(self._http)
         self.oauth = OAuth(base_url=self.base_url, timeout=self.timeout)
 
     async def __aenter__(self) -> AsyncGumloop:

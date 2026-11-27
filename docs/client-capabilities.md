@@ -22,6 +22,7 @@ The feature parity audit adds client adapters over existing APIs and selected ba
 | Company Brain search and uploaded-file sources | `client.brain` | `gumloop brain` |
 | Generated file metadata, downloads, rename, delete, versions, and sharing | `client.artifacts` | `gumloop artifacts` |
 | Personal browser profile CRUD and existing listing/cookie import | `client.browser_profiles` | `gumloop browser` |
+| Linking this computer for agents' browser traffic | `client.custom_proxies` (list, register, set default and delete) | `gumloop browser proxy` |
 | Connected Brain source inspection, sync history, issues, indexed children, and sync requests | `client.brain` | `gumloop brain sources` |
 | Integration trigger catalog, account selection/configuration, and run history | `client.agents` trigger methods | `gumloop agents triggers` |
 | Team and organization membership discovery | `client.teams.list`, `client.organizations.list` | `gumloop teams list`, `gumloop organizations list` |

@@ -4,18 +4,23 @@ import sys
 from typing import Annotated
 from typing import Literal
 
+import httpx
 import questionary
 import typer
+from rich.markup import escape as escape_markup
 from rich.prompt import Prompt
 
 from gumloop import Gumloop
 from gumloop import GumloopError
+from gumloop._client import DEFAULT_BASE_URL
+from gumloop.cli.commands.custom_proxy import remove_stored_login_custom_proxy
 from gumloop.cli.console import console
 from gumloop.cli.console import print_json
 from gumloop.cli.context import CliContext
 from gumloop.cli.credentials import Credentials
 from gumloop.cli.credentials import clear_credentials
 from gumloop.cli.credentials import keyring_backend_name
+from gumloop.cli.credentials import load_credentials
 from gumloop.cli.credentials import save_credentials
 from gumloop.cli.errors import exit_with_error
 from gumloop.cli.oauth import DEFAULT_REDIRECT_PORT
@@ -202,27 +207,47 @@ def logout(
         typer.Option("--json", help="Print the result as JSON."),
     ] = False,
 ) -> None:
-    """Clear stored Gumloop credentials."""
+    """Clear stored Gumloop credentials, and unlink this computer."""
     cli: CliContext = ctx.obj
+
+    # Before the revoke, which would leave no login to delete the personal proxy with.
+    custom_proxy_removed = False
+    custom_proxy_error: str | None = None
+    try:
+        custom_proxy_removed = remove_stored_login_custom_proxy()
+    except (GumloopError, httpx.HTTPError) as error:
+        custom_proxy_error = str(error)
 
     # Server-side revoke first so the refresh token can't outlive the
     # local logout. Revoke failures never block the local clear.
     oauth_revoked = False
     revoke_failed = False
     if cli.effective_auth_method == METHOD_OAUTH:
-        token = cli.credentials.refresh_token or cli.credentials.access_token
+        if cli.credentials.refresh_token:
+            # The unlink may have refreshed the stored login, which replaces its refresh token.
+            token = load_credentials().refresh_token or cli.credentials.refresh_token
+            revoke_url = cli.credentials.base_url or DEFAULT_BASE_URL
+        else:
+            token = cli.credentials.access_token
+            revoke_url = cli.effective_base_url
         if token:
             try:
-                revoke_oauth_token(base_url=cli.effective_base_url, token=token)
+                revoke_oauth_token(base_url=revoke_url, token=token)
                 oauth_revoked = True
             except Exception:
                 revoke_failed = True
 
     clear_credentials()
 
-    payload: dict[str, object] = {"status": "ok", "oauth_revoked": oauth_revoked}
+    payload: dict[str, object] = {
+        "status": "ok",
+        "oauth_revoked": oauth_revoked,
+        "custom_proxy_removed": custom_proxy_removed,
+    }
     if revoke_failed:
         payload["oauth_revoke_failed"] = True
+    if custom_proxy_error is not None:
+        payload["custom_proxy_remove_failed"] = True
 
     if json_output:
         print_json(payload)
@@ -233,4 +258,9 @@ def logout(
         console.print(
             "[yellow]Note:[/yellow] could not reach the server to revoke the refresh token; "
             "it will remain valid until it expires."
+        )
+    if custom_proxy_error is not None:
+        console.print(
+            "[yellow]Note:[/yellow] could not unlink this computer "
+            f"({escape_markup(custom_proxy_error)}). Log in again and run `gumloop browser proxy unlink`."
         )
